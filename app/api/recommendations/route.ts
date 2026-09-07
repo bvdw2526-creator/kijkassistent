@@ -12,6 +12,7 @@ const SOURCE_IDS: Record<string, number> = {
 const CACHE_MAX_AGE_HOURS = 24
 const VOYAGE_MODEL = 'voyage-4-lite'
 const EMBEDDING_BONUS_WEIGHT = 2
+const COLLECTION_WEIGHT = 3
 
 async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: number) {
   const { data: cached } = await supabase
@@ -45,16 +46,46 @@ async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: num
   }
 }
 
-async function getDetails(mediaType: string, tmdbId: number): Promise<{ genres: { id: number; name: string }[]; overview: string }> {
+async function getDetails(mediaType: string, tmdbId: number): Promise<{
+  genres: { id: number; name: string }[]
+  overview: string
+  collectionId: number | null
+  collectionName: string | null
+}> {
   const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
   try {
     const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}?language=nl-NL`, {
       headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
     })
     const data = await res.json()
-    return { genres: data.genres || [], overview: data.overview || '' }
+    return {
+      genres: data.genres || [],
+      overview: data.overview || '',
+      collectionId: data.belongs_to_collection?.id ?? null,
+      collectionName: data.belongs_to_collection?.name ?? null,
+    }
   } catch {
-    return { genres: [], overview: '' }
+    return { genres: [], overview: '', collectionId: null, collectionName: null }
+  }
+}
+
+async function getCollectionParts(collectionId: number): Promise<any[]> {
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/collection/${collectionId}?language=nl-NL`,
+      { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+    )
+    const data = await res.json()
+    return (data.parts || []).map((item: any) => ({
+      id: item.id,
+      title: item.title,
+      poster_path: item.poster_path,
+      vote_average: item.vote_average,
+      overview: item.overview || '',
+      media_type: 'movie',
+    }))
+  } catch {
+    return []
   }
 }
 
@@ -255,6 +286,21 @@ export async function GET(request: NextRequest) {
     discoverByGenres('tv', topTvGenres),
   ])
 
+  // Expliciete filmreeks-collecties — garandeert dat ontbrekende delen van een reeks meekomen
+  const uniqueCollections = new Map<number, string>()
+  for (const source of sourceDetails) {
+    if (source.media_type === 'movie' && source.collectionId) {
+      uniqueCollections.set(source.collectionId, source.collectionName || 'deze collectie')
+    }
+  }
+
+  const collectionResults = await Promise.all(
+    Array.from(uniqueCollections.entries()).map(async ([collectionId, collectionName]) => {
+      const parts = await getCollectionParts(collectionId)
+      return { results: parts, label: `Onderdeel van ${collectionName}` }
+    })
+  )
+
   const scoreMap = new Map<string, any>()
   function addToScoreMap(items: any[], weight: number, sourceLabel: string) {
     for (const item of items) {
@@ -269,6 +315,7 @@ export async function GET(request: NextRequest) {
   for (const list of titleRecommendationLists) addToScoreMap(list.results, list.weight, list.sourceTitle)
   addToScoreMap(movieGenreResults.results, 0.75, movieGenreResults.label)
   addToScoreMap(tvGenreResults.results, 0.75, tvGenreResults.label)
+  for (const collection of collectionResults) addToScoreMap(collection.results, COLLECTION_WEIGHT, collection.label)
 
   const preliminaryMovies = Array.from(scoreMap.values())
     .filter((m) => m.media_type === 'movie')
