@@ -13,6 +13,7 @@ const CACHE_MAX_AGE_HOURS = 24
 const VOYAGE_MODEL = 'voyage-4-lite'
 const EMBEDDING_BONUS_WEIGHT = 2
 const COLLECTION_WEIGHT = 3
+const MAX_PER_GENRE = 5
 
 async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: number) {
   const { data: cached } = await supabase
@@ -165,54 +166,46 @@ async function getEmbeddingsForItems(
   return result
 }
 
-function pickWithGuaranteed(items: any[], guaranteedKeys: Set<string>, limit: number, keyFn: (i: any) => string) {
-  const forced = items
-    .filter((i) => guaranteedKeys.has(keyFn(i)))
-    .sort((a, b) => b.score - a.score)
-  const rest = items
-    .filter((i) => !guaranteedKeys.has(keyFn(i)))
-    .sort((a, b) => b.score - a.score)
-  return [...forced, ...rest.slice(0, Math.max(0, limit - forced.length))]
-}
-
-function pickDiversified(
-  items: any[],
-  guaranteedKeys: Set<string>,
-  limit: number,
+function pickByGenreRoundRobin(
+  candidates: any[],
+  relevantGenreIds: number[],
   keyFn: (i: any) => string,
-  genreFn: (i: any) => number | null
+  genresFn: (i: any) => number[],
+  perGenre: number
 ) {
-  const forced = items.filter((i) => guaranteedKeys.has(keyFn(i))).sort((a, b) => b.score - a.score)
-  const rest = items.filter((i) => !guaranteedKeys.has(keyFn(i))).sort((a, b) => b.score - a.score)
+  const genreGroups = new Map<number, any[]>()
+  for (const genreId of relevantGenreIds) genreGroups.set(genreId, [])
 
-  const budget = Math.max(0, limit - forced.length)
-  const maxPerGenre = Math.max(3, Math.ceil(budget * 0.35))
-
-  const genreCounts = new Map<number | 'onbekend', number>()
-  const picked: any[] = []
-  const leftover: any[] = []
-
-  for (const item of rest) {
-    if (picked.length >= budget) {
-      leftover.push(item)
-      continue
+  for (const item of candidates) {
+    const itemGenres = genresFn(item)
+    for (const g of itemGenres) {
+      if (genreGroups.has(g)) genreGroups.get(g)!.push(item)
     }
-    const genre = genreFn(item) ?? 'onbekend'
-    const count = genreCounts.get(genre) || 0
-    if (count < maxPerGenre) {
-      picked.push(item)
-      genreCounts.set(genre, count + 1)
-    } else {
-      leftover.push(item)
+  }
+  for (const list of genreGroups.values()) list.sort((a, b) => b.score - a.score)
+
+  const used = new Set<string>()
+  const perGenreCount = new Map<number, number>()
+  const result: any[] = []
+
+  let progress = true
+  while (progress) {
+    progress = false
+    for (const genreId of relevantGenreIds) {
+      const count = perGenreCount.get(genreId) || 0
+      if (count >= perGenre) continue
+      const list = genreGroups.get(genreId)!
+      const idx = list.findIndex((c) => !used.has(keyFn(c)))
+      if (idx === -1) continue
+      const chosen = list[idx]
+      used.add(keyFn(chosen))
+      perGenreCount.set(genreId, count + 1)
+      result.push(chosen)
+      progress = true
     }
   }
 
-  for (const item of leftover) {
-    if (picked.length >= budget) break
-    picked.push(item)
-  }
-
-  return [...forced, ...picked]
+  return result
 }
 
 export async function GET(request: NextRequest) {
@@ -304,18 +297,19 @@ export async function GET(request: NextRequest) {
       else bucket.set(genre.id, { name: genre.name, count: source.weight })
     }
   }
-  function topGenres(mediaType: 'movie' | 'tv', n: number) {
+
+  function allGenres(mediaType: 'movie' | 'tv') {
     return Array.from(genreCounts[mediaType].entries())
       .map(([id, v]) => ({ id, ...v }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, n)
   }
-  const topMovieGenres = topGenres('movie', 3)
-  const topTvGenres = topGenres('tv', 3)
+
+  const movieGenres = allGenres('movie')
+  const tvGenres = allGenres('tv')
 
   async function discoverByGenres(mediaType: 'movie' | 'tv', genres: { id: number; name: string }[]) {
     if (genres.length === 0) return { results: [], label: '' }
-    const ids = genres.map((g) => g.id).join(',')
+    const ids = genres.slice(0, 3).map((g) => g.id).join(',')
     const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=1`,
@@ -331,12 +325,12 @@ export async function GET(request: NextRequest) {
       media_type: mediaType,
       genre_ids: item.genre_ids || [],
     }))
-    return { results, label: `jouw voorkeur voor ${genres.map((g) => g.name).join(', ')}` }
+    return { results, label: `jouw voorkeur voor ${genres.slice(0, 3).map((g) => g.name).join(', ')}` }
   }
 
   const [movieGenreResults, tvGenreResults] = await Promise.all([
-    discoverByGenres('movie', topMovieGenres),
-    discoverByGenres('tv', topTvGenres),
+    discoverByGenres('movie', movieGenres),
+    discoverByGenres('tv', tvGenres),
   ])
 
   const uniqueCollections = new Map<number, string>()
@@ -378,19 +372,7 @@ export async function GET(request: NextRequest) {
   }
 
   const allValues = Array.from(scoreMap.values())
-  const preliminaryMovies = pickWithGuaranteed(
-    allValues.filter((m) => m.media_type === 'movie'),
-    collectionKeys,
-    60,
-    (m) => `movie-${m.id}`
-  )
-  const preliminaryTv = pickWithGuaranteed(
-    allValues.filter((m) => m.media_type === 'tv'),
-    collectionKeys,
-    35,
-    (m) => `tv-${m.id}`
-  )
-  const candidates = [...preliminaryMovies, ...preliminaryTv]
+  const candidates = allValues
 
   const sourceEmbeddingItems = sourceDetails
     .filter((s) => s.overview)
@@ -434,21 +416,28 @@ export async function GET(request: NextRequest) {
     basedOn: Array.from(item.basedOn).slice(0, 3),
   }))
 
-  const sortedMovies = pickDiversified(
-    allScored.filter((m) => m.media_type === 'movie'),
-    collectionKeys,
-    40,
+  const forcedMovies = allScored.filter((m) => m.media_type === 'movie' && collectionKeys.has(`movie-${m.id}`))
+  const forcedTv = allScored.filter((m) => m.media_type === 'tv' && collectionKeys.has(`tv-${m.id}`))
+
+  const movieGenreIds = movieGenres.map((g) => g.id)
+  const tvGenreIds = tvGenres.map((g) => g.id)
+
+  const roundRobinMovies = pickByGenreRoundRobin(
+    allScored.filter((m) => m.media_type === 'movie' && !collectionKeys.has(`movie-${m.id}`)),
+    movieGenreIds,
     (m) => `movie-${m.id}`,
-    (m) => m.genre_ids?.[0] ?? null
+    (m) => m.genre_ids || [],
+    MAX_PER_GENRE
   )
-  const sortedTv = pickDiversified(
-    allScored.filter((m) => m.media_type === 'tv'),
-    collectionKeys,
-    25,
+  const roundRobinTv = pickByGenreRoundRobin(
+    allScored.filter((m) => m.media_type === 'tv' && !collectionKeys.has(`tv-${m.id}`)),
+    tvGenreIds,
     (m) => `tv-${m.id}`,
-    (m) => m.genre_ids?.[0] ?? null
+    (m) => m.genre_ids || [],
+    MAX_PER_GENRE
   )
-  const sorted = [...sortedMovies, ...sortedTv]
+
+  const sorted = [...forcedMovies, ...roundRobinMovies, ...forcedTv, ...roundRobinTv]
 
   const { data: profile } = await supabase
     .from('profiles')
