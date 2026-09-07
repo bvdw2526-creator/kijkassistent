@@ -51,6 +51,19 @@ async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: num
   }
 }
 
+async function getGenres(mediaType: string, tmdbId: number): Promise<{ id: number; name: string }[]> {
+  const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}?language=nl-NL`, {
+      headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
+    })
+    const data = await res.json()
+    return data.genres || []
+  } catch {
+    return []
+  }
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader) {
@@ -96,16 +109,15 @@ export async function GET(request: NextRequest) {
   const lovedItems = ratings?.filter((r) => r.rating === 'love') || []
   const okItems = ratings?.filter((r) => r.rating === 'ok') || []
 
-  // "Niet voor mij" draagt bewust niet bij als bron — die titels sluiten we alleen uit (via excludeIds hierboven)
-  const sources = [
+  const titleSources = [
     ...favorites.map((f) => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1 })),
     ...lovedItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 2 })),
     ...okItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5 })),
   ]
 
-  const recommendationLists = await Promise.all(
-    sources.flatMap((source) =>
-      [1, 2].map(async (page) => {
+  const titleRecommendationLists = await Promise.all(
+    titleSources.flatMap((source) =>
+      [1, 2, 3].map(async (page) => {
         const endpoint = source.media_type === 'tv' ? 'tv' : 'movie'
         const res = await fetch(
           `https://api.themoviedb.org/3/${endpoint}/${source.tmdb_id}/recommendations?language=nl-NL&page=${page}`,
@@ -125,19 +137,87 @@ export async function GET(request: NextRequest) {
     )
   )
 
+  const genreSources = [
+    ...favorites.map((f) => ({ tmdb_id: f.tmdb_id, media_type: f.media_type, weight: 1 })),
+    ...lovedItems.map((r) => ({ tmdb_id: r.tmdb_id, media_type: r.media_type, weight: 2 })),
+  ]
+
+  const genreCounts: Record<'movie' | 'tv', Map<number, { name: string; count: number }>> = {
+    movie: new Map(),
+    tv: new Map(),
+  }
+
+  await Promise.all(
+    genreSources.map(async (source) => {
+      const genres = await getGenres(source.media_type, source.tmdb_id)
+      const bucket = genreCounts[source.media_type as 'movie' | 'tv']
+      for (const genre of genres) {
+        const existing = bucket.get(genre.id)
+        if (existing) {
+          existing.count += source.weight
+        } else {
+          bucket.set(genre.id, { name: genre.name, count: source.weight })
+        }
+      }
+    })
+  )
+
+  function topGenres(mediaType: 'movie' | 'tv', n: number) {
+    return Array.from(genreCounts[mediaType].entries())
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, n)
+  }
+
+  const topMovieGenres = topGenres('movie', 3)
+  const topTvGenres = topGenres('tv', 3)
+
+  async function discoverByGenres(mediaType: 'movie' | 'tv', genres: { id: number; name: string }[]) {
+    if (genres.length === 0) return { results: [], label: '' }
+    const ids = genres.map((g) => g.id).join(',')
+    const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=1`,
+      { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+    )
+    const data = await res.json()
+    const results = (data.results || []).map((item: any) => ({
+      id: item.id,
+      title: item.title || item.name,
+      poster_path: item.poster_path,
+      vote_average: item.vote_average,
+      overview: item.overview || '',
+      media_type: mediaType,
+    }))
+    return { results, label: `jouw voorkeur voor ${genres.map((g) => g.name).join(', ')}` }
+  }
+
+  const [movieGenreResults, tvGenreResults] = await Promise.all([
+    discoverByGenres('movie', topMovieGenres),
+    discoverByGenres('tv', topTvGenres),
+  ])
+
   const scoreMap = new Map<string, any>()
-  for (const list of recommendationLists) {
-    for (const item of list.results) {
+
+  function addToScoreMap(items: any[], weight: number, sourceLabel: string) {
+    for (const item of items) {
       const key = `${item.media_type}-${item.id}`
       if (excludeIds.has(key)) continue
       if (!scoreMap.has(key)) {
         scoreMap.set(key, { ...item, score: 0, basedOn: new Set<string>() })
       }
       const entry = scoreMap.get(key)
-      entry.score += list.weight
-      entry.basedOn.add(list.sourceTitle)
+      entry.score += weight
+      entry.basedOn.add(sourceLabel)
     }
   }
+
+  for (const list of titleRecommendationLists) {
+    addToScoreMap(list.results, list.weight, list.sourceTitle)
+  }
+
+  addToScoreMap(movieGenreResults.results, 0.75, movieGenreResults.label)
+  addToScoreMap(tvGenreResults.results, 0.75, tvGenreResults.label)
 
   const allScored = Array.from(scoreMap.values()).map((item) => ({
     ...item,
