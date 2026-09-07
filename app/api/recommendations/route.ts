@@ -94,10 +94,13 @@ export async function GET(request: NextRequest) {
   ])
 
   const lovedItems = ratings?.filter((r) => r.rating === 'love') || []
+  const okItems = ratings?.filter((r) => r.rating === 'ok') || []
 
+  // "Niet voor mij" draagt bewust niet bij als bron — die titels sluiten we alleen uit (via excludeIds hierboven)
   const sources = [
     ...favorites.map((f) => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1 })),
     ...lovedItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 2 })),
+    ...okItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5 })),
   ]
 
   const recommendationLists = await Promise.all(
