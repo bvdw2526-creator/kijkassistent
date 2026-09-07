@@ -83,6 +83,7 @@ async function getCollectionParts(collectionId: number): Promise<any[]> {
       vote_average: item.vote_average,
       overview: item.overview || '',
       media_type: 'movie',
+      genre_ids: item.genre_ids || [],
     }))
   } catch {
     return []
@@ -174,6 +175,46 @@ function pickWithGuaranteed(items: any[], guaranteedKeys: Set<string>, limit: nu
   return [...forced, ...rest.slice(0, Math.max(0, limit - forced.length))]
 }
 
+function pickDiversified(
+  items: any[],
+  guaranteedKeys: Set<string>,
+  limit: number,
+  keyFn: (i: any) => string,
+  genreFn: (i: any) => number | null
+) {
+  const forced = items.filter((i) => guaranteedKeys.has(keyFn(i))).sort((a, b) => b.score - a.score)
+  const rest = items.filter((i) => !guaranteedKeys.has(keyFn(i))).sort((a, b) => b.score - a.score)
+
+  const budget = Math.max(0, limit - forced.length)
+  const maxPerGenre = Math.max(3, Math.ceil(budget * 0.35))
+
+  const genreCounts = new Map<number | 'onbekend', number>()
+  const picked: any[] = []
+  const leftover: any[] = []
+
+  for (const item of rest) {
+    if (picked.length >= budget) {
+      leftover.push(item)
+      continue
+    }
+    const genre = genreFn(item) ?? 'onbekend'
+    const count = genreCounts.get(genre) || 0
+    if (count < maxPerGenre) {
+      picked.push(item)
+      genreCounts.set(genre, count + 1)
+    } else {
+      leftover.push(item)
+    }
+  }
+
+  for (const item of leftover) {
+    if (picked.length >= budget) break
+    picked.push(item)
+  }
+
+  return [...forced, ...picked]
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
@@ -244,6 +285,7 @@ export async function GET(request: NextRequest) {
           vote_average: item.vote_average,
           overview: item.overview || '',
           media_type: source.media_type,
+          genre_ids: item.genre_ids || [],
         }))
         return { results, weight: source.weight, sourceTitle: source.title }
       })
@@ -287,6 +329,7 @@ export async function GET(request: NextRequest) {
       vote_average: item.vote_average,
       overview: item.overview || '',
       media_type: mediaType,
+      genre_ids: item.genre_ids || [],
     }))
     return { results, label: `jouw voorkeur voor ${genres.map((g) => g.name).join(', ')}` }
   }
@@ -387,21 +430,23 @@ export async function GET(request: NextRequest) {
 
   const allScored = candidates.map((item) => ({
     ...item,
-    score: Math.log2(1 + item.score), // afnemende meerwaarde — voorkomt dat één oververtegenwoordigd genre alles overheerst
+    score: Math.log2(1 + item.score),
     basedOn: Array.from(item.basedOn).slice(0, 3),
   }))
 
-  const sortedMovies = pickWithGuaranteed(
+  const sortedMovies = pickDiversified(
     allScored.filter((m) => m.media_type === 'movie'),
     collectionKeys,
     40,
-    (m) => `movie-${m.id}`
+    (m) => `movie-${m.id}`,
+    (m) => m.genre_ids?.[0] ?? null
   )
-  const sortedTv = pickWithGuaranteed(
+  const sortedTv = pickDiversified(
     allScored.filter((m) => m.media_type === 'tv'),
     collectionKeys,
     25,
-    (m) => `tv-${m.id}`
+    (m) => `tv-${m.id}`,
+    (m) => m.genre_ids?.[0] ?? null
   )
   const sorted = [...sortedMovies, ...sortedTv]
 
