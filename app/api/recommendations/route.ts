@@ -385,7 +385,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const allScored = candidates.map((item) => ({ ...item, basedOn: Array.from(item.basedOn).slice(0, 3) }))
+  const allScored = candidates.map((item) => ({
+    ...item,
+    score: Math.log2(1 + item.score), // afnemende meerwaarde — voorkomt dat één oververtegenwoordigd genre alles overheerst
+    basedOn: Array.from(item.basedOn).slice(0, 3),
+  }))
 
   const sortedMovies = pickWithGuaranteed(
     allScored.filter((m) => m.media_type === 'movie'),
