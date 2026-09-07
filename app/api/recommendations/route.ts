@@ -164,6 +164,16 @@ async function getEmbeddingsForItems(
   return result
 }
 
+function pickWithGuaranteed(items: any[], guaranteedKeys: Set<string>, limit: number, keyFn: (i: any) => string) {
+  const forced = items
+    .filter((i) => guaranteedKeys.has(keyFn(i)))
+    .sort((a, b) => b.score - a.score)
+  const rest = items
+    .filter((i) => !guaranteedKeys.has(keyFn(i)))
+    .sort((a, b) => b.score - a.score)
+  return [...forced, ...rest.slice(0, Math.max(0, limit - forced.length))]
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
@@ -286,7 +296,6 @@ export async function GET(request: NextRequest) {
     discoverByGenres('tv', topTvGenres),
   ])
 
-  // Expliciete filmreeks-collecties — garandeert dat ontbrekende delen van een reeks meekomen
   const uniqueCollections = new Map<number, string>()
   for (const source of sourceDetails) {
     if (source.media_type === 'movie' && source.collectionId) {
@@ -317,14 +326,27 @@ export async function GET(request: NextRequest) {
   addToScoreMap(tvGenreResults.results, 0.75, tvGenreResults.label)
   for (const collection of collectionResults) addToScoreMap(collection.results, COLLECTION_WEIGHT, collection.label)
 
-  const preliminaryMovies = Array.from(scoreMap.values())
-    .filter((m) => m.media_type === 'movie')
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 60)
-  const preliminaryTv = Array.from(scoreMap.values())
-    .filter((m) => m.media_type === 'tv')
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 35)
+  const collectionKeys = new Set<string>()
+  for (const collection of collectionResults) {
+    for (const item of collection.results) {
+      const key = `${item.media_type}-${item.id}`
+      if (!excludeIds.has(key)) collectionKeys.add(key)
+    }
+  }
+
+  const allValues = Array.from(scoreMap.values())
+  const preliminaryMovies = pickWithGuaranteed(
+    allValues.filter((m) => m.media_type === 'movie'),
+    collectionKeys,
+    60,
+    (m) => `movie-${m.id}`
+  )
+  const preliminaryTv = pickWithGuaranteed(
+    allValues.filter((m) => m.media_type === 'tv'),
+    collectionKeys,
+    35,
+    (m) => `tv-${m.id}`
+  )
   const candidates = [...preliminaryMovies, ...preliminaryTv]
 
   const sourceEmbeddingItems = sourceDetails
@@ -365,14 +387,18 @@ export async function GET(request: NextRequest) {
 
   const allScored = candidates.map((item) => ({ ...item, basedOn: Array.from(item.basedOn).slice(0, 3) }))
 
-  const sortedMovies = allScored
-    .filter((m) => m.media_type === 'movie')
-    .sort((a, b) => b.score - a.score || b.vote_average - a.vote_average)
-    .slice(0, 40)
-  const sortedTv = allScored
-    .filter((m) => m.media_type === 'tv')
-    .sort((a, b) => b.score - a.score || b.vote_average - a.vote_average)
-    .slice(0, 25)
+  const sortedMovies = pickWithGuaranteed(
+    allScored.filter((m) => m.media_type === 'movie'),
+    collectionKeys,
+    40,
+    (m) => `movie-${m.id}`
+  )
+  const sortedTv = pickWithGuaranteed(
+    allScored.filter((m) => m.media_type === 'tv'),
+    collectionKeys,
+    25,
+    (m) => `tv-${m.id}`
+  )
   const sorted = [...sortedMovies, ...sortedTv]
 
   const { data: profile } = await supabase
@@ -391,9 +417,25 @@ export async function GET(request: NextRequest) {
   const filtered = await Promise.all(
     sorted.map(async (item) => {
       const itemSources = await getWatchmodeSources(supabase, item.media_type, item.id)
-      const matchingSource = itemSources.find((s: any) => userSourceIds.has(s.source_id) && s.type === 'sub')
-      if (matchingSource) return { ...item, watchOn: matchingSource.name, watchUrl: matchingSource.web_url }
-      return null
+      const userMatches = itemSources.filter((s: any) => userSourceIds.has(s.source_id))
+      if (userMatches.length === 0) return null
+
+      const subMatch = userMatches.find((s: any) => s.type === 'sub')
+      const rentMatch = userMatches
+        .filter((s: any) => s.type === 'rent')
+        .sort((a: any, b: any) => (a.price ?? 999) - (b.price ?? 999))[0]
+      const buyMatch = userMatches
+        .filter((s: any) => s.type === 'buy')
+        .sort((a: any, b: any) => (a.price ?? 999) - (b.price ?? 999))[0]
+
+      const best = subMatch || rentMatch || buyMatch
+      if (!best) return null
+
+      let watchOn = best.name
+      if (best.type === 'rent') watchOn = `${best.name} · huren${best.price ? ` €${best.price}` : ''}`
+      if (best.type === 'buy') watchOn = `${best.name} · kopen${best.price ? ` €${best.price}` : ''}`
+
+      return { ...item, watchOn, watchUrl: best.web_url }
     })
   )
 
