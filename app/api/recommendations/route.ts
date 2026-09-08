@@ -14,6 +14,21 @@ const VOYAGE_MODEL = 'voyage-4-lite'
 const EMBEDDING_BONUS_WEIGHT = 2
 const COLLECTION_WEIGHT = 3
 const MAX_PER_GENRE = 5
+const RECENTLY_SHOWN_DAYS = 14
+const SHOWN_RETENTION_DAYS = 60
+
+type RecommendationMode = 'focused' | 'balanced' | 'explore'
+
+const MODE_CONFIG: Record<RecommendationMode, {
+  includeOkRatings: boolean
+  discoverWeight: number
+  dampingFactor: number
+  longTailSlots: number
+}> = {
+  focused:  { includeOkRatings: false, discoverWeight: 0.4,  dampingFactor: 1.0, longTailSlots: 0 },
+  balanced: { includeOkRatings: true,  discoverWeight: 0.75, dampingFactor: 1.0, longTailSlots: 2 },
+  explore:  { includeOkRatings: true,  discoverWeight: 1.5,  dampingFactor: 0.6, longTailSlots: 5 },
+}
 
 async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: number) {
   const { data: cached } = await supabase
@@ -208,7 +223,31 @@ function pickByGenreRoundRobin(
   return result
 }
 
+function pickLongTail(
+  scoredItems: any[],
+  usedKeys: Set<string>,
+  keyFn: (i: any) => string,
+  count: number
+) {
+  if (count <= 0) return []
+  const pool = scoredItems.filter((i) => !usedKeys.has(keyFn(i)))
+  const shuffled = [...pool]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled.slice(0, count).map((item) => ({
+    ...item,
+    basedOn: [...item.basedOn, 'verrassing'],
+  }))
+}
+
 export async function GET(request: NextRequest) {
+  const modeParam = request.nextUrl.searchParams.get('mode')
+  const mode: RecommendationMode =
+    modeParam === 'focused' || modeParam === 'explore' ? modeParam : 'balanced'
+  const modeConfig = MODE_CONFIG[mode]
+
   const authHeader = request.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
@@ -236,6 +275,24 @@ export async function GET(request: NextRequest) {
     .select('tmdb_id, media_type')
     .eq('user_id', user.id)
 
+  const { data: recentlyShown } = await supabase
+    .from('shown_recommendations')
+    .select('tmdb_id, media_type')
+    .eq('user_id', user.id)
+    .gte('shown_at', new Date(Date.now() - RECENTLY_SHOWN_DAYS * 24 * 60 * 60 * 1000).toISOString())
+
+  const recentlyShownIds = new Set(
+    (recentlyShown || []).map((r: any) => `${r.media_type}-${r.tmdb_id}`)
+  )
+
+  // Oude "getoond"-rijen opruimen, niet blokkerend voor de rest van de request
+  supabase
+    .from('shown_recommendations')
+    .delete()
+    .eq('user_id', user.id)
+    .lt('shown_at', new Date(Date.now() - SHOWN_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString())
+    .then(() => {})
+
   if (!favorites || favorites.length === 0) {
     return NextResponse.json({ results: [] })
   }
@@ -244,10 +301,13 @@ export async function GET(request: NextRequest) {
     ...favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
     ...(ratings?.map((r) => `${r.media_type}-${r.tmdb_id}`) || []),
     ...(watchlist?.map((w) => `${w.media_type}-${w.tmdb_id}`) || []),
+    ...recentlyShownIds,
   ])
 
   const lovedItems = ratings?.filter((r) => r.rating === 'love') || []
-  const okItems = ratings?.filter((r) => r.rating === 'ok') || []
+  const okItems = modeConfig.includeOkRatings
+    ? ratings?.filter((r) => r.rating === 'ok') || []
+    : []
 
   const profileSources = [
     ...favorites.map((f) => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1 })),
@@ -359,8 +419,8 @@ export async function GET(request: NextRequest) {
     }
   }
   for (const list of titleRecommendationLists) addToScoreMap(list.results, list.weight, list.sourceTitle)
-  addToScoreMap(movieGenreResults.results, 0.75, movieGenreResults.label)
-  addToScoreMap(tvGenreResults.results, 0.75, tvGenreResults.label)
+  addToScoreMap(movieGenreResults.results, modeConfig.discoverWeight, movieGenreResults.label)
+  addToScoreMap(tvGenreResults.results, modeConfig.discoverWeight, tvGenreResults.label)
   for (const collection of collectionResults) addToScoreMap(collection.results, COLLECTION_WEIGHT, collection.label)
 
   const collectionKeys = new Set<string>()
@@ -412,7 +472,7 @@ export async function GET(request: NextRequest) {
 
   const allScored = candidates.map((item) => ({
     ...item,
-    score: Math.log2(1 + item.score),
+    score: Math.pow(Math.log2(1 + item.score), modeConfig.dampingFactor),
     basedOn: Array.from(item.basedOn).slice(0, 3),
   }))
 
@@ -437,7 +497,30 @@ export async function GET(request: NextRequest) {
     MAX_PER_GENRE
   )
 
-  const sorted = [...forcedMovies, ...roundRobinMovies, ...forcedTv, ...roundRobinTv]
+  const usedKeys = new Set<string>([
+    ...forcedMovies.map((m) => `movie-${m.id}`),
+    ...roundRobinMovies.map((m) => `movie-${m.id}`),
+    ...forcedTv.map((m) => `tv-${m.id}`),
+    ...roundRobinTv.map((m) => `tv-${m.id}`),
+  ])
+
+  const longTailMovies = pickLongTail(
+    allScored.filter((m) => m.media_type === 'movie'),
+    usedKeys,
+    (m) => `movie-${m.id}`,
+    Math.ceil(modeConfig.longTailSlots / 2)
+  )
+  const longTailTv = pickLongTail(
+    allScored.filter((m) => m.media_type === 'tv'),
+    usedKeys,
+    (m) => `tv-${m.id}`,
+    Math.floor(modeConfig.longTailSlots / 2)
+  )
+
+  const sorted = [
+    ...forcedMovies, ...roundRobinMovies, ...longTailMovies,
+    ...forcedTv, ...roundRobinTv, ...longTailTv,
+  ]
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -449,7 +532,7 @@ export async function GET(request: NextRequest) {
   const userSourceIds = new Set(userServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
   if (userSourceIds.size === 0) {
-    return NextResponse.json({ results: sorted })
+    return NextResponse.json({ results: sorted, mode })
   }
 
   const filtered = await Promise.all(
@@ -478,5 +561,18 @@ export async function GET(request: NextRequest) {
   )
 
   const available = filtered.filter((m) => m !== null)
-  return NextResponse.json({ results: available })
+
+  if (available.length > 0) {
+    await supabase.from('shown_recommendations').upsert(
+      available.map((item: any) => ({
+        user_id: user.id,
+        tmdb_id: item.id,
+        media_type: item.media_type,
+        shown_at: new Date().toISOString(),
+      })),
+      { onConflict: 'user_id,tmdb_id,media_type' }
+    )
+  }
+
+  return NextResponse.json({ results: available, mode })
 }

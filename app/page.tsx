@@ -17,30 +17,46 @@ type Movie = {
   basedOn?: string[]
 }
 
+type RecommendationMode = 'focused' | 'balanced' | 'explore'
+
+const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> = {
+  focused: { label: 'Puur mijn smaak', hint: 'Alleen wat ik echt leuk vind' },
+  balanced: { label: 'Mijn smaak, breder', hint: 'Leuk + oké vind ik' },
+  explore: { label: 'Verras me', hint: 'Doe maar wat aanbevelingen' },
+}
+
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
   const [movies, setMovies] = useState<Movie[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
+  const [mode, setMode] = useState<RecommendationMode>('balanced')
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
-      if (data.user) loadRecommendations()
+      if (data.user) loadRecommendations(mode)
       else setLoading(false)
     })
   }, [])
 
-  async function loadRecommendations() {
+  async function loadRecommendations(nextMode: RecommendationMode) {
+    setLoading(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const res = await fetch('/api/recommendations', {
+    const res = await fetch(`/api/recommendations?mode=${nextMode}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
     const data = await res.json()
     setMovies(data.results || [])
     setLoading(false)
+  }
+
+  function handleModeChange(nextMode: RecommendationMode) {
+    if (nextMode === mode) return
+    setMode(nextMode)
+    loadRecommendations(nextMode)
   }
 
   async function handleAddToWatchlist(movie: Movie) {
@@ -81,7 +97,7 @@ export default function Home() {
     setUser(null)
   }
 
-  if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
+  if (loading && movies.length === 0) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
 
   if (!user) {
     return (
@@ -126,6 +142,33 @@ export default function Home() {
         </a>
       </nav>
 
+      {/* Mode-slicer, ticket-stub stijl */}
+      <div className="flex gap-3 mb-8">
+        {(Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => {
+          const active = mode === m
+          return (
+            <button
+              key={m}
+              onClick={() => handleModeChange(m)}
+              disabled={loading}
+              className={`flex-1 text-left px-3 py-2.5 rounded-sm border transition-colors disabled:opacity-60 ${
+                active
+                  ? 'border-[#E8A33D] bg-[#E8A33D]/10'
+                  : 'border-dashed border-[#3A4A5C] hover:border-[#9FB0C2]'
+              }`}
+              style={{
+                borderStyle: active ? 'solid' : 'dashed',
+              }}
+            >
+              <p className={`text-sm font-medium ${active ? 'text-[#E8A33D]' : 'text-[#F2EFE9]'}`}>
+                {MODE_LABELS[m].label}
+              </p>
+              <p className="text-xs text-[#9FB0C2] mt-0.5">{MODE_LABELS[m].hint}</p>
+            </button>
+          )
+        })}
+      </div>
+
       <div className="flex border-b border-[#3A4A5C] mb-6">
         <button
           onClick={() => setTab('movie')}
@@ -145,7 +188,11 @@ export default function Home() {
         </button>
       </div>
 
-      {visible.length === 0 && (
+      {loading && (
+        <p className="text-sm text-[#9FB0C2] mb-4">Nieuwe aanbevelingen laden...</p>
+      )}
+
+      {!loading && visible.length === 0 && (
         <p className="text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-6">
           {tab === 'movie'
             ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
