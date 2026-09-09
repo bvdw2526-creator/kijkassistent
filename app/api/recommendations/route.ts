@@ -16,6 +16,7 @@ const COLLECTION_WEIGHT = 3
 const MAX_PER_GENRE = 5
 const RECENTLY_SHOWN_DAYS = 14
 const SHOWN_RETENTION_DAYS = 60
+const TMDB_DETAILS_CACHE_MAX_AGE_HOURS = 24 * 7
 
 type RecommendationMode = 'focused' | 'balanced' | 'explore'
 
@@ -83,6 +84,42 @@ async function getDetails(mediaType: string, tmdbId: number): Promise<{
   } catch {
     return { genres: [], overview: '', collectionId: null, collectionName: null }
   }
+}
+
+async function getCachedDetails(supabase: any, mediaType: string, tmdbId: number) {
+  const { data: cached } = await supabase
+    .from('tmdb_details_cache')
+    .select('genres, overview, collection_id, collection_name, fetched_at')
+    .eq('media_type', mediaType)
+    .eq('tmdb_id', tmdbId)
+    .single()
+
+  if (cached) {
+    const ageHours = (Date.now() - new Date(cached.fetched_at).getTime()) / (1000 * 60 * 60)
+    if (ageHours < TMDB_DETAILS_CACHE_MAX_AGE_HOURS) {
+      return {
+        genres: cached.genres,
+        overview: cached.overview,
+        collectionId: cached.collection_id,
+        collectionName: cached.collection_name,
+      }
+    }
+  }
+
+  const details = await getDetails(mediaType, tmdbId)
+  await supabase.from('tmdb_details_cache').upsert(
+    {
+      media_type: mediaType,
+      tmdb_id: tmdbId,
+      genres: details.genres,
+      overview: details.overview,
+      collection_id: details.collectionId,
+      collection_name: details.collectionName,
+      fetched_at: new Date().toISOString(),
+    },
+    { onConflict: 'media_type,tmdb_id' }
+  )
+  return details
 }
 
 async function getCollectionParts(collectionId: number): Promise<any[]> {
@@ -186,8 +223,7 @@ function pickByGenreRoundRobin(
   relevantGenreIds: number[],
   keyFn: (i: any) => string,
   genresFn: (i: any) => number[],
-  perGenre: number,
-  recentlyShownIds: Set<string>
+  perGenre: number
 ) {
   const genreGroups = new Map<number, any[]>()
   for (const genreId of relevantGenreIds) genreGroups.set(genreId, [])
@@ -198,17 +234,7 @@ function pickByGenreRoundRobin(
       if (genreGroups.has(g)) genreGroups.get(g)!.push(item)
     }
   }
-  // Verse titels eerst, recent getoonde titels als tweede keuze (niet uitgesloten,
-  // alleen afgeprijsd in volgorde) — zo raakt de pool nooit leeg, maar krijgen
-  // nieuwe titels wel voorrang zolang die er zijn.
-  for (const list of genreGroups.values()) {
-    list.sort((a, b) => {
-      const aRecent = recentlyShownIds.has(keyFn(a)) ? 1 : 0
-      const bRecent = recentlyShownIds.has(keyFn(b)) ? 1 : 0
-      if (aRecent !== bRecent) return aRecent - bRecent
-      return b.score - a.score
-    })
-  }
+  for (const list of genreGroups.values()) list.sort((a, b) => b.score - a.score)
 
   const used = new Set<string>()
   const perGenreCount = new Map<number, number>()
@@ -234,27 +260,20 @@ function pickByGenreRoundRobin(
   return result
 }
 
-function shuffle(items: any[]) {
-  const copy = [...items]
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy
-}
-
 function pickLongTail(
   scoredItems: any[],
   usedKeys: Set<string>,
   keyFn: (i: any) => string,
-  count: number,
-  recentlyShownIds: Set<string>
+  count: number
 ) {
   if (count <= 0) return []
   const pool = scoredItems.filter((i) => !usedKeys.has(keyFn(i)))
-  const fresh = shuffle(pool.filter((i) => !recentlyShownIds.has(keyFn(i))))
-  const recent = shuffle(pool.filter((i) => recentlyShownIds.has(keyFn(i))))
-  return [...fresh, ...recent].slice(0, count).map((item) => ({
+  const shuffled = [...pool]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled.slice(0, count).map((item) => ({
     ...item,
     basedOn: [...item.basedOn, 'verrassing'],
   }))
@@ -315,14 +334,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
-  // Let op: recentlyShownIds zit hier bewust NIET in. Titels die je al gezien/beoordeeld
-  // hebt (favorieten/ratings/watchlist) sluiten we hard uit, maar "recent aanbevolen" is
-  // een zachte voorkeur, geen harde uitsluiting — anders kan de kandidatenpool bij een
-  // klein smaakprofiel leeglopen na een paar testrondes.
+  // Herhaling is alleen een probleem bij "verras me" — daar moet elke ronde nieuwe
+  // titels tonen om echt te kunnen ontdekken. Bij "puur mijn smaak" en "mijn smaak,
+  // breder" mag hetzelfde lijstje gerust terugkomen; dat is juist consistent gedrag.
   const excludeIds = new Set([
     ...favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
     ...(ratings?.map((r) => `${r.media_type}-${r.tmdb_id}`) || []),
     ...(watchlist?.map((w) => `${w.media_type}-${w.tmdb_id}`) || []),
+    ...(mode === 'explore' ? recentlyShownIds : []),
   ])
 
   const lovedItems = ratings?.filter((r) => r.rating === 'love') || []
@@ -336,35 +355,39 @@ export async function GET(request: NextRequest) {
     ...okItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5 })),
   ]
 
-  const sourceDetails = await Promise.all(
-    profileSources.map(async (source) => ({
-      ...source,
-      ...(await getDetails(source.media_type, source.tmdb_id)),
-    }))
-  )
-
-  const titleRecommendationLists = await Promise.all(
-    sourceDetails.flatMap((source) =>
-      [1, 2, 3].map(async (page) => {
-        const endpoint = source.media_type === 'tv' ? 'tv' : 'movie'
-        const res = await fetch(
-          `https://api.themoviedb.org/3/${endpoint}/${source.tmdb_id}/recommendations?language=nl-NL&page=${page}`,
-          { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
-        )
-        const data = await res.json()
-        const results = (data.results || []).map((item: any) => ({
-          id: item.id,
-          title: item.title || item.name,
-          poster_path: item.poster_path,
-          vote_average: item.vote_average,
-          overview: item.overview || '',
-          media_type: source.media_type,
-          genre_ids: item.genre_ids || [],
-        }))
-        return { results, weight: source.weight, sourceTitle: source.title }
-      })
-    )
-  )
+  // Deze twee blokken hebben geen data van elkaar nodig (allebei werken direct vanuit
+  // profileSources), dus ze lopen nu gelijktijdig i.p.v. na elkaar — dat scheelt flink
+  // in totale wachttijd t.o.v. de oude opzet waarbij recommendations wachtten op details.
+  const [sourceDetails, titleRecommendationLists] = await Promise.all([
+    Promise.all(
+      profileSources.map(async (source) => ({
+        ...source,
+        ...(await getCachedDetails(supabase, source.media_type, source.tmdb_id)),
+      }))
+    ),
+    Promise.all(
+      profileSources.flatMap((source) =>
+        [1, 2, 3].map(async (page) => {
+          const endpoint = source.media_type === 'tv' ? 'tv' : 'movie'
+          const res = await fetch(
+            `https://api.themoviedb.org/3/${endpoint}/${source.tmdb_id}/recommendations?language=nl-NL&page=${page}`,
+            { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+          )
+          const data = await res.json()
+          const results = (data.results || []).map((item: any) => ({
+            id: item.id,
+            title: item.title || item.name,
+            poster_path: item.poster_path,
+            vote_average: item.vote_average,
+            overview: item.overview || '',
+            media_type: source.media_type,
+            genre_ids: item.genre_ids || [],
+          }))
+          return { results, weight: source.weight, sourceTitle: source.title }
+        })
+      )
+    ),
+  ])
 
   const genreCounts: Record<'movie' | 'tv', Map<number, { name: string; count: number }>> = {
     movie: new Map(),
@@ -409,11 +432,6 @@ export async function GET(request: NextRequest) {
     return { results, label: `jouw voorkeur voor ${genres.slice(0, 3).map((g) => g.name).join(', ')}` }
   }
 
-  const [movieGenreResults, tvGenreResults] = await Promise.all([
-    discoverByGenres('movie', movieGenres),
-    discoverByGenres('tv', tvGenres),
-  ])
-
   const uniqueCollections = new Map<number, string>()
   for (const source of sourceDetails) {
     if (source.media_type === 'movie' && source.collectionId) {
@@ -421,12 +439,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const collectionResults = await Promise.all(
-    Array.from(uniqueCollections.entries()).map(async ([collectionId, collectionName]) => {
-      const parts = await getCollectionParts(collectionId)
-      return { results: parts, label: `Onderdeel van ${collectionName}` }
-    })
-  )
+  const [movieGenreResults, tvGenreResults, collectionResults] = await Promise.all([
+    discoverByGenres('movie', movieGenres),
+    discoverByGenres('tv', tvGenres),
+    Promise.all(
+      Array.from(uniqueCollections.entries()).map(async ([collectionId, collectionName]) => {
+        const parts = await getCollectionParts(collectionId)
+        return { results: parts, label: `Onderdeel van ${collectionName}` }
+      })
+    ),
+  ])
 
   const scoreMap = new Map<string, any>()
   function addToScoreMap(items: any[], weight: number, sourceLabel: string) {
@@ -508,16 +530,14 @@ export async function GET(request: NextRequest) {
     movieGenreIds,
     (m) => `movie-${m.id}`,
     (m) => m.genre_ids || [],
-    MAX_PER_GENRE,
-    recentlyShownIds
+    MAX_PER_GENRE
   )
   const roundRobinTv = pickByGenreRoundRobin(
     allScored.filter((m) => m.media_type === 'tv' && !collectionKeys.has(`tv-${m.id}`)),
     tvGenreIds,
     (m) => `tv-${m.id}`,
     (m) => m.genre_ids || [],
-    MAX_PER_GENRE,
-    recentlyShownIds
+    MAX_PER_GENRE
   )
 
   const usedKeys = new Set<string>([
@@ -531,15 +551,13 @@ export async function GET(request: NextRequest) {
     allScored.filter((m) => m.media_type === 'movie'),
     usedKeys,
     (m) => `movie-${m.id}`,
-    Math.ceil(modeConfig.longTailSlots / 2),
-    recentlyShownIds
+    Math.ceil(modeConfig.longTailSlots / 2)
   )
   const longTailTv = pickLongTail(
     allScored.filter((m) => m.media_type === 'tv'),
     usedKeys,
     (m) => `tv-${m.id}`,
-    Math.floor(modeConfig.longTailSlots / 2),
-    recentlyShownIds
+    Math.floor(modeConfig.longTailSlots / 2)
   )
 
   const sorted = [
