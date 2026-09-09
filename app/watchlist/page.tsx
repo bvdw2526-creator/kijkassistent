@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 type WatchlistItem = {
@@ -14,10 +15,7 @@ export default function Watchlist() {
   const [items, setItems] = useState<WatchlistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
-
-  useEffect(() => {
-    loadWatchlist()
-  }, [])
+  const [error, setError] = useState<string | null>(null)
 
   async function loadWatchlist() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -42,31 +40,61 @@ export default function Watchlist() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    loadWatchlist()
+  }, [])
+
   async function handleRate(item: WatchlistItem, rating: 'dislike' | 'ok' | 'love') {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setError(null)
 
-    const { error: ratingError } = await supabase.from('ratings').upsert(
-      {
-        user_id: user.id,
-        tmdb_id: item.id,
-        title: item.title,
-        rating,
-        media_type: item.media_type,
-      },
-      { onConflict: 'user_id,tmdb_id,media_type' }
-    )
+    const { data: ratingRow, error: ratingError } = await supabase
+      .from('ratings')
+      .upsert(
+        {
+          user_id: user.id,
+          tmdb_id: item.id,
+          title: item.title,
+          rating,
+          media_type: item.media_type,
+        },
+        { onConflict: 'user_id,tmdb_id,media_type' }
+      )
+      .select()
 
-    if (!ratingError) {
-      await supabase
-        .from('watchlist')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('tmdb_id', item.id)
-        .eq('media_type', item.media_type)
-
-      setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
+    if (ratingError) {
+      console.error('Rating opslaan mislukt:', ratingError)
+      setError(`Kon de rating niet opslaan: ${ratingError.message}`)
+      return
     }
+    if (!ratingRow || ratingRow.length === 0) {
+      setError('De rating leek opgeslagen, maar er kwam geen rij terug — waarschijnlijk ontbreekt een UPDATE-policy op de "ratings"-tabel in Supabase (RLS).')
+      return
+    }
+
+    // .select() erbij zodat een door RLS stilzwijgend genegeerde delete (0 rijen, geen
+    // "error") niet ten onrechte als gelukt wordt behandeld — anders staat het item na
+    // een refresh gewoon weer op de watchlist.
+    const { data: deletedRow, error: deleteError } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('tmdb_id', item.id)
+      .eq('media_type', item.media_type)
+      .select()
+
+    if (deleteError) {
+      console.error('Verwijderen van watchlist mislukt:', deleteError)
+      setError(`Kon het item niet van de watchlist verwijderen: ${deleteError.message}`)
+      return
+    }
+    if (!deletedRow || deletedRow.length === 0) {
+      setError('Het item leek van de watchlist verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
+      return
+    }
+
+    setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
   if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
@@ -79,6 +107,12 @@ export default function Watchlist() {
     <main className="max-w-xl mx-auto px-6 py-10">
       <h1 className="font-display text-2xl mb-1">Watchlist</h1>
       <p className="text-[#9FB0C2] mb-6">Wat je nog wilt zien.</p>
+
+      {error && (
+        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-6">
+          {error}
+        </p>
+      )}
 
       <div className="flex border-b border-[#3A4A5C] mb-6">
         <button
@@ -121,7 +155,7 @@ export default function Watchlist() {
             <div className="flex-1 min-w-0">
               <p className="font-medium">{item.title}</p>
               <p className="text-sm text-[#9FB0C2] mt-0.5">
-                Heb je 'm al gezien? Laat weten wat je ervan vond:
+                Heb je &apos;m al gezien? Laat weten wat je ervan vond:
               </p>
               <div className="flex gap-2 mt-2 flex-wrap">
                 <button
@@ -148,9 +182,9 @@ export default function Watchlist() {
         ))}
       </div>
 
-      <a href="/" className="inline-block mt-8 text-[#E8A33D] hover:text-[#F0B457] transition-colors text-sm">
+      <Link href="/" className="inline-block mt-8 text-[#E8A33D] hover:text-[#F0B457] transition-colors text-sm">
         Terug naar aanbevelingen
-      </a>
+      </Link>
     </main>
   )
 }

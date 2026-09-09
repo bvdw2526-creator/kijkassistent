@@ -103,13 +103,15 @@ export default function Home() {
       },
       { onConflict: 'user_id,tmdb_id,media_type' }
     )
-    if (!error) {
-      removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
-      setSelected(null)
-      // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond
-      // verversen zodat dat effect zichtbaar wordt zonder dat je zelf hoeft te vernieuwen.
-      loadRecommendations()
+    if (error) {
+      console.error('Rating opslaan mislukt:', error)
+      return
     }
+    removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
+    setSelected(null)
+    // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond
+    // verversen zodat dat effect zichtbaar wordt zonder dat je zelf hoeft te vernieuwen.
+    loadRecommendations()
   }
 
   async function handleLogout() {
@@ -119,7 +121,13 @@ export default function Home() {
 
   const movies = byMode[mode]
 
-  if (loading && movies.length === 0) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
+  if (loading && movies.length === 0) {
+    return (
+      <p className="p-8 text-[#9FB0C2]">
+        Laden... de allereerste keer (of na nieuwe favorieten/beoordelingen) duurt dit door alle TMDB-opzoekingen wat langer, daarna gaat het sneller.
+      </p>
+    )
+  }
 
   if (!user) {
     return (
@@ -154,7 +162,7 @@ export default function Home() {
 
       <nav className="flex gap-4 mb-6 text-sm items-center">
         <a href="/onboarding" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-          Favorieten toevoegen
+          Zoeken &amp; beoordelen
         </a>
         <a href="/watchlist" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
           Watchlist

@@ -80,8 +80,8 @@ const SOURCE_IDS: Record<string, number> = {
   netflix: 203,
   videoland: 465,
   disney_plus: 372,
-  amazon_prime: 68,
-  hbo_max: 454,
+  amazon_prime: 26,
+  hbo_max: 387,
 }
 
 const WATCHMODE_CACHE_MAX_AGE_HOURS = 24
@@ -94,8 +94,15 @@ const EMBEDDING_BONUS_WEIGHT = 2
 const COLLECTION_WEIGHT = 3
 const MAX_PER_GENRE = 5
 const DISCOVER_GENRE_LIMIT = 5
+// Begrenst over hoeveel genres de max-5-per-genre-selectie draait. Zonder dit kan
+// iemand met veel favorieten/ratings tientallen genres aantikken, wat de kandidaten-
+// pool (en dus het aantal beschikbaarheids-checks bij Watchmode hieronder) onnodig
+// laat exploderen — dat is de belangrijkste oorzaak van een trage eerste keer laden.
+const ROUND_ROBIN_GENRE_LIMIT = 10
 const DISCOVER_PAGES = [1, 2]
-const RECOMMENDATION_PAGES = [1, 2, 3]
+// 2 pagina's i.p.v. 3: pagina 3 van TMDB's per-titel-aanbevelingen voegt weinig relevantie
+// toe, maar bij veel favorieten/ratings (elk 3 losse TMDB-calls) telt dat wel flink op.
+const RECOMMENDATION_PAGES = [1, 2]
 
 const MODES: RecommendationMode[] = ['focused', 'balanced', 'explore']
 
@@ -710,8 +717,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const movieGenreIds = movieGenres.map((g) => g.id)
-  const tvGenreIds = tvGenres.map((g) => g.id)
+  const movieGenreIds = movieGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
+  const tvGenreIds = tvGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
 
   function buildModeResults(mode: RecommendationMode): RankedCandidate[] {
     const modeConfig = MODE_CONFIG[mode]
