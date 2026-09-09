@@ -532,13 +532,18 @@ export async function GET(request: NextRequest) {
   async function discoverByGenres(mediaType: MediaType, genres: { id: number; name: string }[]) {
     if (genres.length === 0) return { results: [] as TmdbItem[], label: '' }
     const topGenres = genres.slice(0, DISCOVER_GENRE_LIMIT)
-    const genreKey = topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')
+    // "or2" bumpt de cache-sleutel zodat oude, te smalle resultaten (van vóór de
+    // EN/OF-fix hieronder) niet per ongeluk nog een paar uur worden hergebruikt.
+    const genreKey = `or2:${topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')}`
     const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
 
     const pages = await Promise.all(
       DISCOVER_PAGES.map((page) =>
         getCachedDiscoverPage(supabase, mediaType, genreKey, page, async () => {
-          const ids = topGenres.map((g) => g.id).join(',')
+          // Pipe (|) = "OF": een titel met minstens één van je topgenres. Met een komma
+          // (TMDB's EN-logica) zou een titel ALLE topgenres tegelijk moeten hebben —
+          // met 5 genres is die doorsnede vrijwel altijd leeg.
+          const ids = topGenres.map((g) => g.id).join('|')
           const res = await fetch(
             `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=${page}`,
             { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
