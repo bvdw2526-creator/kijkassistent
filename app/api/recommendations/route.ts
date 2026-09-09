@@ -186,7 +186,8 @@ function pickByGenreRoundRobin(
   relevantGenreIds: number[],
   keyFn: (i: any) => string,
   genresFn: (i: any) => number[],
-  perGenre: number
+  perGenre: number,
+  recentlyShownIds: Set<string>
 ) {
   const genreGroups = new Map<number, any[]>()
   for (const genreId of relevantGenreIds) genreGroups.set(genreId, [])
@@ -197,7 +198,17 @@ function pickByGenreRoundRobin(
       if (genreGroups.has(g)) genreGroups.get(g)!.push(item)
     }
   }
-  for (const list of genreGroups.values()) list.sort((a, b) => b.score - a.score)
+  // Verse titels eerst, recent getoonde titels als tweede keuze (niet uitgesloten,
+  // alleen afgeprijsd in volgorde) — zo raakt de pool nooit leeg, maar krijgen
+  // nieuwe titels wel voorrang zolang die er zijn.
+  for (const list of genreGroups.values()) {
+    list.sort((a, b) => {
+      const aRecent = recentlyShownIds.has(keyFn(a)) ? 1 : 0
+      const bRecent = recentlyShownIds.has(keyFn(b)) ? 1 : 0
+      if (aRecent !== bRecent) return aRecent - bRecent
+      return b.score - a.score
+    })
+  }
 
   const used = new Set<string>()
   const perGenreCount = new Map<number, number>()
@@ -223,20 +234,27 @@ function pickByGenreRoundRobin(
   return result
 }
 
+function shuffle(items: any[]) {
+  const copy = [...items]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
+}
+
 function pickLongTail(
   scoredItems: any[],
   usedKeys: Set<string>,
   keyFn: (i: any) => string,
-  count: number
+  count: number,
+  recentlyShownIds: Set<string>
 ) {
   if (count <= 0) return []
   const pool = scoredItems.filter((i) => !usedKeys.has(keyFn(i)))
-  const shuffled = [...pool]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled.slice(0, count).map((item) => ({
+  const fresh = shuffle(pool.filter((i) => !recentlyShownIds.has(keyFn(i))))
+  const recent = shuffle(pool.filter((i) => recentlyShownIds.has(keyFn(i))))
+  return [...fresh, ...recent].slice(0, count).map((item) => ({
     ...item,
     basedOn: [...item.basedOn, 'verrassing'],
   }))
@@ -297,11 +315,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
+  // Let op: recentlyShownIds zit hier bewust NIET in. Titels die je al gezien/beoordeeld
+  // hebt (favorieten/ratings/watchlist) sluiten we hard uit, maar "recent aanbevolen" is
+  // een zachte voorkeur, geen harde uitsluiting — anders kan de kandidatenpool bij een
+  // klein smaakprofiel leeglopen na een paar testrondes.
   const excludeIds = new Set([
     ...favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
     ...(ratings?.map((r) => `${r.media_type}-${r.tmdb_id}`) || []),
     ...(watchlist?.map((w) => `${w.media_type}-${w.tmdb_id}`) || []),
-    ...recentlyShownIds,
   ])
 
   const lovedItems = ratings?.filter((r) => r.rating === 'love') || []
@@ -487,14 +508,16 @@ export async function GET(request: NextRequest) {
     movieGenreIds,
     (m) => `movie-${m.id}`,
     (m) => m.genre_ids || [],
-    MAX_PER_GENRE
+    MAX_PER_GENRE,
+    recentlyShownIds
   )
   const roundRobinTv = pickByGenreRoundRobin(
     allScored.filter((m) => m.media_type === 'tv' && !collectionKeys.has(`tv-${m.id}`)),
     tvGenreIds,
     (m) => `tv-${m.id}`,
     (m) => m.genre_ids || [],
-    MAX_PER_GENRE
+    MAX_PER_GENRE,
+    recentlyShownIds
   )
 
   const usedKeys = new Set<string>([
@@ -508,13 +531,15 @@ export async function GET(request: NextRequest) {
     allScored.filter((m) => m.media_type === 'movie'),
     usedKeys,
     (m) => `movie-${m.id}`,
-    Math.ceil(modeConfig.longTailSlots / 2)
+    Math.ceil(modeConfig.longTailSlots / 2),
+    recentlyShownIds
   )
   const longTailTv = pickLongTail(
     allScored.filter((m) => m.media_type === 'tv'),
     usedKeys,
     (m) => `tv-${m.id}`,
-    Math.floor(modeConfig.longTailSlots / 2)
+    Math.floor(modeConfig.longTailSlots / 2),
+    recentlyShownIds
   )
 
   const sorted = [
