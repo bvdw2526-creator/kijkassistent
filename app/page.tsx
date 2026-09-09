@@ -35,6 +35,12 @@ export default function Home() {
   const [selected, setSelected] = useState<Movie | null>(null)
   const [mode, setMode] = useState<RecommendationMode>('balanced')
   const requestIdRef = useRef(0)
+  const selectedAtRef = useRef(0)
+  // Mobiele browsers wachten na een tik nog ~300ms af of het een dubbele tik (zoom)
+  // wordt. Tikt iemand snel twee keer op dezelfde plek, dan opent de eerste tik deze
+  // popup en landt de tweede op de knop die daar nu staat. Deze guard negeert taps op
+  // de actieknoppen vlak na het openen, zodat zo'n ghost-tap niet meteen een actie triggert.
+  const GHOST_TAP_GUARD_MS = 400
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -78,6 +84,7 @@ export default function Home() {
 
   async function handleAddToWatchlist(movie: Movie) {
     if (!user) return
+    if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
     const { error } = await supabase.from('watchlist').insert({
       user_id: user.id,
       tmdb_id: movie.id,
@@ -93,6 +100,7 @@ export default function Home() {
 
   async function handleRate(movie: Movie, rating: 'dislike' | 'ok' | 'love') {
     if (!user) return
+    if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
     const { error } = await supabase.from('ratings').upsert(
       {
         user_id: user.id,
@@ -242,7 +250,13 @@ export default function Home() {
             key={`${movie.media_type}-${movie.id}`}
             className={`flex gap-4 py-4 ${i !== visible.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
           >
-            <button onClick={() => setSelected(movie)} className="flex gap-4 flex-1 text-left min-w-0">
+            <button
+              onClick={() => {
+                selectedAtRef.current = Date.now()
+                setSelected(movie)
+              }}
+              className="flex gap-4 flex-1 text-left min-w-0 touch-manipulation"
+            >
               {movie.poster_path && (
                 <img
                   src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
@@ -301,25 +315,25 @@ export default function Home() {
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => handleAddToWatchlist(selected)}
-                className="text-sm bg-[#E8A33D] text-[#171F2B] rounded-sm px-3 py-1.5 hover:bg-[#F0B457] transition-colors font-medium"
+                className="text-sm bg-[#E8A33D] text-[#171F2B] rounded-sm px-3 py-1.5 hover:bg-[#F0B457] transition-colors font-medium touch-manipulation"
               >
                 Op watchlist
               </button>
               <button
                 onClick={() => handleRate(selected, 'love')}
-                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#E8A33D] hover:text-[#E8A33D] transition-colors"
+                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#E8A33D] hover:text-[#E8A33D] transition-colors touch-manipulation"
               >
                 Zeker meer zoals dit
               </button>
               <button
                 onClick={() => handleRate(selected, 'ok')}
-                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#52A9A0] hover:text-[#52A9A0] transition-colors"
+                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#52A9A0] hover:text-[#52A9A0] transition-colors touch-manipulation"
               >
                 Was oké
               </button>
               <button
                 onClick={() => handleRate(selected, 'dislike')}
-                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#C97064] hover:text-[#C97064] transition-colors"
+                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#C97064] hover:text-[#C97064] transition-colors touch-manipulation"
               >
                 Niet voor mij
               </button>
