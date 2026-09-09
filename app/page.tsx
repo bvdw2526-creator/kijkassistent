@@ -25,9 +25,11 @@ const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> =
   explore: { label: 'Verras me', hint: 'Doe maar wat aanbevelingen' },
 }
 
+const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [] }
+
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
-  const [movies, setMovies] = useState<Movie[]>([])
+  const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
@@ -36,27 +38,37 @@ export default function Home() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
-      if (data.user) loadRecommendations(mode)
+      if (data.user) loadRecommendations()
       else setLoading(false)
     })
   }, [])
 
-  async function loadRecommendations(nextMode: RecommendationMode) {
+  async function loadRecommendations() {
     setLoading(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const res = await fetch(`/api/recommendations?mode=${nextMode}`, {
+    const res = await fetch('/api/recommendations', {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
     const data = await res.json()
-    setMovies(data.results || [])
+    setByMode({
+      focused: data.focused || [],
+      balanced: data.balanced || [],
+      explore: data.explore || [],
+    })
     setLoading(false)
   }
 
   function handleModeChange(nextMode: RecommendationMode) {
-    if (nextMode === mode) return
     setMode(nextMode)
-    loadRecommendations(nextMode)
+  }
+
+  function removeEverywhere(movieKey: (m: Movie) => boolean) {
+    setByMode((current) => ({
+      focused: current.focused.filter((m) => !movieKey(m)),
+      balanced: current.balanced.filter((m) => !movieKey(m)),
+      explore: current.explore.filter((m) => !movieKey(m)),
+    }))
   }
 
   async function handleAddToWatchlist(movie: Movie) {
@@ -69,7 +81,7 @@ export default function Home() {
       media_type: movie.media_type,
     })
     if (!error) {
-      setMovies((current) => current.filter((m) => m.id !== movie.id))
+      removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
       setSelected(null)
     }
   }
@@ -87,7 +99,7 @@ export default function Home() {
       { onConflict: 'user_id,tmdb_id,media_type' }
     )
     if (!error) {
-      setMovies((current) => current.filter((m) => m.id !== movie.id))
+      removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
       setSelected(null)
     }
   }
@@ -96,6 +108,8 @@ export default function Home() {
     await supabase.auth.signOut()
     setUser(null)
   }
+
+  const movies = byMode[mode]
 
   if (loading && movies.length === 0) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
 
@@ -130,7 +144,7 @@ export default function Home() {
       </header>
       <p className="text-[#9FB0C2] mb-6">Wat bij jouw smaak past, nu te zien</p>
 
-      <nav className="flex gap-4 mb-6 text-sm">
+      <nav className="flex gap-4 mb-6 text-sm items-center">
         <a href="/onboarding" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
           Favorieten toevoegen
         </a>
@@ -140,6 +154,13 @@ export default function Home() {
         <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
           Streamingdiensten
         </a>
+        <button
+          onClick={() => loadRecommendations()}
+          disabled={loading}
+          className="ml-auto text-sm text-[#9FB0C2] hover:text-[#F2EFE9] transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Vernieuwen...' : 'Vernieuw aanbevelingen'}
+        </button>
       </nav>
 
       {/* Mode-slicer, ticket-stub stijl */}
@@ -150,8 +171,7 @@ export default function Home() {
             <button
               key={m}
               onClick={() => handleModeChange(m)}
-              disabled={loading}
-              className={`flex-1 text-left px-3 py-2.5 rounded-sm border transition-colors disabled:opacity-60 ${
+              className={`flex-1 text-left px-3 py-2.5 rounded-sm border transition-colors ${
                 active
                   ? 'border-[#E8A33D] bg-[#E8A33D]/10'
                   : 'border-dashed border-[#3A4A5C] hover:border-[#9FB0C2]'
