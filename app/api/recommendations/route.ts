@@ -122,7 +122,12 @@ async function getCached<T>(
   match: Record<string, string | number>,
   column: string,
   maxAgeHours: number,
-  fetcher: () => Promise<T>
+  // null = de live fetch is mislukt (bv. verkeerde/ontbrekende API-key, externe
+  // storing). Dat mag nooit als een geldig "geen resultaten" worden weggeschreven —
+  // anders staat een tijdelijke storing (of een vergeten env var op Vercel) uren tot
+  // dagen lang "vast" in de cache, ook nadat het probleem is opgelost.
+  fetcher: () => Promise<T | null>,
+  fallback: T
 ): Promise<T> {
   let query = supabase.from(table).select(`${column}, fetched_at`)
   for (const [key, value] of Object.entries(match)) query = query.eq(key, value)
@@ -136,6 +141,10 @@ async function getCached<T>(
   }
 
   const fresh = await fetcher()
+  if (fresh === null) {
+    return cached ? cached[column] : fallback
+  }
+
   await supabase.from(table).upsert(
     { ...match, [column]: fresh, fetched_at: new Date().toISOString() },
     { onConflict: Object.keys(match).join(',') }
@@ -155,22 +164,24 @@ async function getWatchmodeSources(supabase: SupabaseClient, mediaType: MediaTyp
         const res = await fetch(
           `https://api.watchmode.com/v1/title/${mediaType}-${tmdbId}/sources/?apiKey=${process.env.WATCHMODE_API_KEY}&regions=NL`
         )
-        if (!res.ok) return []
+        if (!res.ok) return null
         const sources = await res.json()
         return Array.isArray(sources) ? sources : []
       } catch {
-        return []
+        return null
       }
-    }
+    },
+    []
   )
 }
 
-async function fetchDetails(mediaType: MediaType, tmdbId: number): Promise<TitleDetails> {
+async function fetchDetails(mediaType: MediaType, tmdbId: number): Promise<TitleDetails | null> {
   const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
   try {
     const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}?language=nl-NL`, {
       headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
     })
+    if (!res.ok) return null
     const data = await res.json()
     return {
       genres: data.genres || [],
@@ -179,9 +190,11 @@ async function fetchDetails(mediaType: MediaType, tmdbId: number): Promise<Title
       collectionName: data.belongs_to_collection?.name ?? null,
     }
   } catch {
-    return { genres: [], overview: '', collectionId: null, collectionName: null }
+    return null
   }
 }
+
+const EMPTY_DETAILS: TitleDetails = { genres: [], overview: '', collectionId: null, collectionName: null }
 
 async function getCachedDetails(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<TitleDetails> {
   const { data: cached } = await supabase
@@ -204,6 +217,21 @@ async function getCachedDetails(supabase: SupabaseClient, mediaType: MediaType, 
   }
 
   const details = await fetchDetails(mediaType, tmdbId)
+  // Een mislukte live fetch (bv. verkeerde/ontbrekende TMDB_API_KEY) mag niet als
+  // "deze titel heeft geen genres/overview" worden gecached — val terug op een
+  // eventuele oudere cache-rij en probeer het gewoon later opnieuw live.
+  if (details === null) {
+    if (cached) {
+      return {
+        genres: cached.genres,
+        overview: cached.overview,
+        collectionId: cached.collection_id,
+        collectionName: cached.collection_name,
+      }
+    }
+    return EMPTY_DETAILS
+  }
+
   await supabase.from('tmdb_details_cache').upsert(
     {
       media_type: mediaType,
@@ -236,7 +264,7 @@ function getCachedRecommendationPage(
   mediaType: MediaType,
   tmdbId: number,
   page: number,
-  fetcher: () => Promise<TmdbItem[]>
+  fetcher: () => Promise<TmdbItem[] | null>
 ): Promise<TmdbItem[]> {
   return getCached(
     supabase,
@@ -244,7 +272,8 @@ function getCachedRecommendationPage(
     { media_type: mediaType, tmdb_id: tmdbId, page },
     'results',
     RECOMMENDATIONS_CACHE_MAX_AGE_HOURS,
-    fetcher
+    fetcher,
+    []
   )
 }
 
@@ -253,7 +282,7 @@ function getCachedDiscoverPage(
   mediaType: MediaType,
   genreKey: string,
   page: number,
-  fetcher: () => Promise<TmdbItem[]>
+  fetcher: () => Promise<TmdbItem[] | null>
 ): Promise<TmdbItem[]> {
   return getCached(
     supabase,
@@ -261,20 +290,22 @@ function getCachedDiscoverPage(
     { media_type: mediaType, genre_key: genreKey, page },
     'results',
     DISCOVER_CACHE_MAX_AGE_HOURS,
-    fetcher
+    fetcher,
+    []
   )
 }
 
-async function fetchCollectionParts(collectionId: number): Promise<TmdbItem[]> {
+async function fetchCollectionParts(collectionId: number): Promise<TmdbItem[] | null> {
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/collection/${collectionId}?language=nl-NL`,
       { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
     )
+    if (!res.ok) return null
     const data = await res.json()
     return mapTmdbResults(data.parts || [], 'movie')
   } catch {
-    return []
+    return null
   }
 }
 
@@ -285,7 +316,8 @@ function getCachedCollectionParts(supabase: SupabaseClient, collectionId: number
     { collection_id: collectionId },
     'parts',
     COLLECTION_CACHE_MAX_AGE_HOURS,
-    () => fetchCollectionParts(collectionId)
+    () => fetchCollectionParts(collectionId),
+    []
   )
 }
 
@@ -494,12 +526,17 @@ export async function GET(request: NextRequest) {
         RECOMMENDATION_PAGES.map(async (page) => {
           const endpoint = source.media_type === 'tv' ? 'tv' : 'movie'
           const results = await getCachedRecommendationPage(supabase, source.media_type, source.tmdb_id, page, async () => {
-            const res = await fetch(
-              `https://api.themoviedb.org/3/${endpoint}/${source.tmdb_id}/recommendations?language=nl-NL&page=${page}`,
-              { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
-            )
-            const data = await res.json()
-            return mapTmdbResults(data.results || [], source.media_type)
+            try {
+              const res = await fetch(
+                `https://api.themoviedb.org/3/${endpoint}/${source.tmdb_id}/recommendations?language=nl-NL&page=${page}`,
+                { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+              )
+              if (!res.ok) return null
+              const data = await res.json()
+              return mapTmdbResults(data.results || [], source.media_type)
+            } catch {
+              return null
+            }
           })
           return { results, weight: source.weight, sourceTitle: source.title, tier: source.tier }
         })
@@ -540,16 +577,21 @@ export async function GET(request: NextRequest) {
     const pages = await Promise.all(
       DISCOVER_PAGES.map((page) =>
         getCachedDiscoverPage(supabase, mediaType, genreKey, page, async () => {
-          // Pipe (|) = "OF": een titel met minstens één van je topgenres. Met een komma
-          // (TMDB's EN-logica) zou een titel ALLE topgenres tegelijk moeten hebben —
-          // met 5 genres is die doorsnede vrijwel altijd leeg.
-          const ids = topGenres.map((g) => g.id).join('|')
-          const res = await fetch(
-            `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=${page}`,
-            { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
-          )
-          const data = await res.json()
-          return mapTmdbResults(data.results || [], mediaType)
+          try {
+            // Pipe (|) = "OF": een titel met minstens één van je topgenres. Met een komma
+            // (TMDB's EN-logica) zou een titel ALLE topgenres tegelijk moeten hebben —
+            // met 5 genres is die doorsnede vrijwel altijd leeg.
+            const ids = topGenres.map((g) => g.id).join('|')
+            const res = await fetch(
+              `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=${page}`,
+              { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+            )
+            if (!res.ok) return null
+            const data = await res.json()
+            return mapTmdbResults(data.results || [], mediaType)
+          } catch {
+            return null
+          }
         })
       )
     )
