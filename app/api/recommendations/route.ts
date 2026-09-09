@@ -1,5 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+type MediaType = 'movie' | 'tv'
+type Tier = 'core' | 'ok'
+type RecommendationMode = 'focused' | 'balanced' | 'explore'
+type ScoreField = 'coreScore' | 'okScore' | 'discoverScore' | 'collectionScore'
+
+// Ruwe vorm van een TMDB-item zoals de API die teruggeeft (films gebruiken "title", series "name").
+interface RawTmdbItem {
+  id: number
+  title?: string
+  name?: string
+  poster_path: string | null
+  vote_average: number
+  overview?: string
+  genre_ids?: number[]
+}
+
+interface TmdbItem {
+  id: number
+  title: string
+  poster_path: string | null
+  vote_average: number
+  overview: string
+  media_type: MediaType
+  genre_ids: number[]
+}
+
+interface WatchmodeSource {
+  source_id: number
+  name: string
+  type: 'sub' | 'rent' | 'buy' | string
+  price: number | null
+  web_url: string
+}
+
+interface TitleDetails {
+  genres: { id: number; name: string }[]
+  overview: string
+  collectionId: number | null
+  collectionName: string | null
+}
+
+interface ProfileSource {
+  tmdb_id: number
+  title: string
+  media_type: MediaType
+  weight: number
+  tier: Tier
+}
+
+interface SourceDetail extends ProfileSource, TitleDetails {}
+
+interface ScoredCandidate extends TmdbItem {
+  coreScore: number
+  okScore: number
+  discoverScore: number
+  collectionScore: number
+  embeddingBonus: number
+  basedOn: Set<string>
+}
+
+interface RankedCandidate extends TmdbItem {
+  score: number
+  basedOn: string[]
+  coreScore: number
+  okScore: number
+  discoverScore: number
+  collectionScore: number
+  embeddingBonus: number
+}
+
+interface RecommendationItem extends RankedCandidate {
+  watchOn?: string
+  watchUrl?: string
+}
 
 const SOURCE_IDS: Record<string, number> = {
   netflix: 203,
@@ -22,7 +97,6 @@ const DISCOVER_GENRE_LIMIT = 5
 const DISCOVER_PAGES = [1, 2]
 const RECOMMENDATION_PAGES = [1, 2, 3]
 
-type RecommendationMode = 'focused' | 'balanced' | 'explore'
 const MODES: RecommendationMode[] = ['focused', 'balanced', 'explore']
 
 // "focused" telt alleen scores op van favorieten/"echt leuk"; "OK"-getagde titels
@@ -40,8 +114,10 @@ const MODE_CONFIG: Record<RecommendationMode, {
   explore:  { includeOkAsSource: true,  discoverWeight: 1.5,  dampingFactor: 0.6, longTailSlots: 5 },
 }
 
+type CacheRow<T> = Record<string, T> & { fetched_at: string }
+
 async function getCached<T>(
-  supabase: any,
+  supabase: SupabaseClient,
   table: string,
   match: Record<string, string | number>,
   column: string,
@@ -50,7 +126,9 @@ async function getCached<T>(
 ): Promise<T> {
   let query = supabase.from(table).select(`${column}, fetched_at`)
   for (const [key, value] of Object.entries(match)) query = query.eq(key, value)
-  const { data: cached } = await query.single()
+  // De select-string is dynamisch (kolomnaam via een variabele), dus supabase-js kan
+  // de vorm niet op typeniveau afleiden — we leggen het rij-type hier expliciet vast.
+  const { data: cached } = await query.single().overrideTypes<CacheRow<T>, { merge: false }>()
 
   if (cached) {
     const ageHours = (Date.now() - new Date(cached.fetched_at).getTime()) / (1000 * 60 * 60)
@@ -65,7 +143,7 @@ async function getCached<T>(
   return fresh
 }
 
-async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: number) {
+async function getWatchmodeSources(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<WatchmodeSource[]> {
   return getCached(
     supabase,
     'watchmode_cache',
@@ -87,12 +165,7 @@ async function getWatchmodeSources(supabase: any, mediaType: string, tmdbId: num
   )
 }
 
-async function fetchDetails(mediaType: string, tmdbId: number): Promise<{
-  genres: { id: number; name: string }[]
-  overview: string
-  collectionId: number | null
-  collectionName: string | null
-}> {
+async function fetchDetails(mediaType: MediaType, tmdbId: number): Promise<TitleDetails> {
   const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
   try {
     const res = await fetch(`https://api.themoviedb.org/3/${endpoint}/${tmdbId}?language=nl-NL`, {
@@ -110,7 +183,7 @@ async function fetchDetails(mediaType: string, tmdbId: number): Promise<{
   }
 }
 
-async function getCachedDetails(supabase: any, mediaType: string, tmdbId: number) {
+async function getCachedDetails(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<TitleDetails> {
   const { data: cached } = await supabase
     .from('tmdb_details_cache')
     .select('genres, overview, collection_id, collection_name, fetched_at')
@@ -146,10 +219,10 @@ async function getCachedDetails(supabase: any, mediaType: string, tmdbId: number
   return details
 }
 
-function mapTmdbResults(results: any[], mediaType: string) {
-  return (results || []).map((item: any) => ({
+function mapTmdbResults(results: RawTmdbItem[], mediaType: MediaType): TmdbItem[] {
+  return (results || []).map((item) => ({
     id: item.id,
-    title: item.title || item.name,
+    title: item.title || item.name || '',
     poster_path: item.poster_path,
     vote_average: item.vote_average,
     overview: item.overview || '',
@@ -159,12 +232,12 @@ function mapTmdbResults(results: any[], mediaType: string) {
 }
 
 function getCachedRecommendationPage(
-  supabase: any,
-  mediaType: string,
+  supabase: SupabaseClient,
+  mediaType: MediaType,
   tmdbId: number,
   page: number,
-  fetcher: () => Promise<any[]>
-) {
+  fetcher: () => Promise<TmdbItem[]>
+): Promise<TmdbItem[]> {
   return getCached(
     supabase,
     'tmdb_recommendations_cache',
@@ -176,12 +249,12 @@ function getCachedRecommendationPage(
 }
 
 function getCachedDiscoverPage(
-  supabase: any,
-  mediaType: string,
+  supabase: SupabaseClient,
+  mediaType: MediaType,
   genreKey: string,
   page: number,
-  fetcher: () => Promise<any[]>
-) {
+  fetcher: () => Promise<TmdbItem[]>
+): Promise<TmdbItem[]> {
   return getCached(
     supabase,
     'tmdb_discover_cache',
@@ -192,7 +265,7 @@ function getCachedDiscoverPage(
   )
 }
 
-async function fetchCollectionParts(collectionId: number): Promise<any[]> {
+async function fetchCollectionParts(collectionId: number): Promise<TmdbItem[]> {
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/collection/${collectionId}?language=nl-NL`,
@@ -205,7 +278,7 @@ async function fetchCollectionParts(collectionId: number): Promise<any[]> {
   }
 }
 
-function getCachedCollectionParts(supabase: any, collectionId: number) {
+function getCachedCollectionParts(supabase: SupabaseClient, collectionId: number): Promise<TmdbItem[]> {
   return getCached(
     supabase,
     'tmdb_collection_cache',
@@ -233,7 +306,7 @@ async function embedTexts(texts: string[]): Promise<number[][]> {
           body: JSON.stringify({ input: chunk, model: VOYAGE_MODEL, input_type: 'document' }),
         })
         const data = await res.json()
-        return (data.data || []).map((item: any) => item.embedding)
+        return (data.data || []).map((item: { embedding: number[] }) => item.embedding)
       } catch {
         return chunk.map(() => [])
       }
@@ -256,8 +329,8 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 async function getEmbeddingsForItems(
-  supabase: any,
-  items: { media_type: string; tmdb_id: number; text: string }[]
+  supabase: SupabaseClient,
+  items: { media_type: MediaType; tmdb_id: number; text: string }[]
 ): Promise<Map<string, number[]>> {
   const result = new Map<string, number[]>()
 
@@ -267,10 +340,10 @@ async function getEmbeddingsForItems(
   const [movieRows, tvRows] = await Promise.all([
     movieIds.length
       ? supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', 'movie').in('tmdb_id', movieIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as { tmdb_id: number; embedding: number[] }[] }),
     tvIds.length
       ? supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', 'tv').in('tmdb_id', tvIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as { tmdb_id: number; embedding: number[] }[] }),
   ])
 
   for (const row of movieRows.data || []) result.set(`movie-${row.tmdb_id}`, row.embedding)
@@ -293,14 +366,14 @@ async function getEmbeddingsForItems(
   return result
 }
 
-function pickByGenreRoundRobin(
-  candidates: any[],
+function pickByGenreRoundRobin<T extends { id: number; score: number; genre_ids: number[] }>(
+  candidates: T[],
   relevantGenreIds: number[],
-  keyFn: (i: any) => string,
-  genresFn: (i: any) => number[],
+  keyFn: (i: T) => string,
+  genresFn: (i: T) => number[],
   perGenre: number
-) {
-  const genreGroups = new Map<number, any[]>()
+): T[] {
+  const genreGroups = new Map<number, T[]>()
   for (const genreId of relevantGenreIds) genreGroups.set(genreId, [])
 
   for (const item of candidates) {
@@ -313,7 +386,7 @@ function pickByGenreRoundRobin(
 
   const used = new Set<string>()
   const perGenreCount = new Map<number, number>()
-  const result: any[] = []
+  const result: T[] = []
 
   let progress = true
   while (progress) {
@@ -335,12 +408,12 @@ function pickByGenreRoundRobin(
   return result
 }
 
-function pickLongTail(
-  scoredItems: any[],
+function pickLongTail<T extends { basedOn: string[] }>(
+  scoredItems: T[],
   usedKeys: Set<string>,
-  keyFn: (i: any) => string,
+  keyFn: (i: T) => string,
   count: number
-) {
+): T[] {
   if (count <= 0) return []
   const pool = scoredItems.filter((i) => !usedKeys.has(keyFn(i)))
   const shuffled = [...pool]
@@ -398,15 +471,20 @@ export async function GET(request: NextRequest) {
 
   // "core" = het smaakprofiel van favorieten + "echt leuk"; "ok" telt pas mee
   // als aanbevelingsbron vanaf de "balanced"-modus (zie MODE_CONFIG).
-  const profileSources = [
-    ...favorites.map((f) => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1, tier: 'core' as const })),
-    ...lovedItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 2, tier: 'core' as const })),
-    ...okItems.map((r) => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5, tier: 'ok' as const })),
+  const profileSources: ProfileSource[] = [
+    ...favorites.map((f): ProfileSource => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1, tier: 'core' })),
+    ...lovedItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 2, tier: 'core' })),
+    ...okItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5, tier: 'ok' })),
   ]
+
+  // Genre-affiniteit, vervolgdelen en het smaak-embedding (hieronder) blijven altijd
+  // gebaseerd op favorieten + "echt leuk" ("core"), ook bij bredere modi — "OK" telt
+  // daar dus nooit in mee, alleen in de directe titel-aanbevelingen (okScore) hierboven.
+  const coreSources = profileSources.filter((s) => s.tier === 'core')
 
   const [sourceDetails, titleRecommendationLists] = await Promise.all([
     Promise.all(
-      profileSources.map(async (source) => ({
+      coreSources.map(async (source): Promise<SourceDetail> => ({
         ...source,
         ...(await getCachedDetails(supabase, source.media_type, source.tmdb_id)),
       }))
@@ -429,12 +507,12 @@ export async function GET(request: NextRequest) {
     ),
   ])
 
-  const genreCounts: Record<'movie' | 'tv', Map<number, { name: string; count: number }>> = {
+  const genreCounts: Record<MediaType, Map<number, { name: string; count: number }>> = {
     movie: new Map(),
     tv: new Map(),
   }
   for (const source of sourceDetails) {
-    const bucket = genreCounts[source.media_type as 'movie' | 'tv']
+    const bucket = genreCounts[source.media_type]
     for (const genre of source.genres) {
       const existing = bucket.get(genre.id)
       if (existing) existing.count += source.weight
@@ -442,7 +520,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  function allGenres(mediaType: 'movie' | 'tv') {
+  function allGenres(mediaType: MediaType) {
     return Array.from(genreCounts[mediaType].entries())
       .map(([id, v]) => ({ id, ...v }))
       .sort((a, b) => b.count - a.count)
@@ -451,8 +529,8 @@ export async function GET(request: NextRequest) {
   const movieGenres = allGenres('movie')
   const tvGenres = allGenres('tv')
 
-  async function discoverByGenres(mediaType: 'movie' | 'tv', genres: { id: number; name: string }[]) {
-    if (genres.length === 0) return { results: [], label: '' }
+  async function discoverByGenres(mediaType: MediaType, genres: { id: number; name: string }[]) {
+    if (genres.length === 0) return { results: [] as TmdbItem[], label: '' }
     const topGenres = genres.slice(0, DISCOVER_GENRE_LIMIT)
     const genreKey = topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')
     const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
@@ -472,7 +550,7 @@ export async function GET(request: NextRequest) {
     )
 
     const seen = new Set<number>()
-    const results: any[] = []
+    const results: TmdbItem[] = []
     for (const page of pages) {
       for (const item of page) {
         if (seen.has(item.id)) continue
@@ -484,11 +562,9 @@ export async function GET(request: NextRequest) {
     return { results, label: `jouw voorkeur voor ${topGenres.slice(0, 3).map((g) => g.name).join(', ')}` }
   }
 
-  // Onvertoonde vervolgfilms/-series (zoals The Matrix 2/3) horen bij je "echt leuk"-smaak,
-  // dus die zoeken we alleen op basis van favorieten + "echt leuk", niet op basis van "OK".
   const uniqueCollections = new Map<number, string>()
   for (const source of sourceDetails) {
-    if (source.tier === 'core' && source.media_type === 'movie' && source.collectionId) {
+    if (source.media_type === 'movie' && source.collectionId) {
       uniqueCollections.set(source.collectionId, source.collectionName || 'deze collectie')
     }
   }
@@ -504,9 +580,9 @@ export async function GET(request: NextRequest) {
     ),
   ])
 
-  const scoreMap = new Map<string, any>()
+  const scoreMap = new Map<string, ScoredCandidate>()
 
-  function ensureEntry(item: any) {
+  function ensureEntry(item: TmdbItem): ScoredCandidate {
     const key = `${item.media_type}-${item.id}`
     if (!scoreMap.has(key)) {
       scoreMap.set(key, {
@@ -519,15 +595,10 @@ export async function GET(request: NextRequest) {
         basedOn: new Set<string>(),
       })
     }
-    return scoreMap.get(key)
+    return scoreMap.get(key)!
   }
 
-  function addScore(
-    items: any[],
-    field: 'coreScore' | 'okScore' | 'discoverScore' | 'collectionScore',
-    weight: number,
-    label: string
-  ) {
+  function addScore(items: TmdbItem[], field: ScoreField, weight: number, label: string) {
     for (const item of items) {
       const key = `${item.media_type}-${item.id}`
       if (excludeIds.has(key)) continue
@@ -595,10 +666,10 @@ export async function GET(request: NextRequest) {
   const movieGenreIds = movieGenres.map((g) => g.id)
   const tvGenreIds = tvGenres.map((g) => g.id)
 
-  function buildModeResults(mode: RecommendationMode) {
+  function buildModeResults(mode: RecommendationMode): RankedCandidate[] {
     const modeConfig = MODE_CONFIG[mode]
 
-    const allScored = candidates.map((item) => {
+    const allScored: RankedCandidate[] = candidates.map((item) => {
       const rawScore =
         item.coreScore +
         (modeConfig.includeOkAsSource ? item.okScore : 0) +
@@ -656,7 +727,7 @@ export async function GET(request: NextRequest) {
     ]
   }
 
-  const sortedByMode: Record<RecommendationMode, any[]> = {
+  const sortedByMode: Record<RecommendationMode, RankedCandidate[]> = {
     focused: buildModeResults('focused'),
     balanced: buildModeResults('balanced'),
     explore: buildModeResults('explore'),
@@ -677,7 +748,7 @@ export async function GET(request: NextRequest) {
 
   // Eén candidate kan in meerdere modi voorkomen; beschikbaarheid per streamingdienst
   // hoeft dan ook maar één keer per titel opgehaald te worden, niet drie keer.
-  const allCandidateItems = new Map<string, any>()
+  const allCandidateItems = new Map<string, RankedCandidate>()
   for (const mode of MODES) {
     for (const item of sortedByMode[mode]) {
       allCandidateItems.set(`${item.media_type}-${item.id}`, item)
@@ -688,16 +759,16 @@ export async function GET(request: NextRequest) {
     Array.from(allCandidateItems.values()).map(async (item) => {
       const key = `${item.media_type}-${item.id}`
       const itemSources = await getWatchmodeSources(supabase, item.media_type, item.id)
-      const userMatches = itemSources.filter((s: any) => userSourceIds.has(s.source_id))
+      const userMatches = itemSources.filter((s) => userSourceIds.has(s.source_id))
       if (userMatches.length === 0) return [key, null] as const
 
-      const subMatch = userMatches.find((s: any) => s.type === 'sub')
+      const subMatch = userMatches.find((s) => s.type === 'sub')
       const rentMatch = userMatches
-        .filter((s: any) => s.type === 'rent')
-        .sort((a: any, b: any) => (a.price ?? 999) - (b.price ?? 999))[0]
+        .filter((s) => s.type === 'rent')
+        .sort((a, b) => (a.price ?? 999) - (b.price ?? 999))[0]
       const buyMatch = userMatches
-        .filter((s: any) => s.type === 'buy')
-        .sort((a: any, b: any) => (a.price ?? 999) - (b.price ?? 999))[0]
+        .filter((s) => s.type === 'buy')
+        .sort((a, b) => (a.price ?? 999) - (b.price ?? 999))[0]
 
       const best = subMatch || rentMatch || buyMatch
       if (!best) return [key, null] as const
@@ -711,15 +782,15 @@ export async function GET(request: NextRequest) {
   )
   const watchInfoMap = new Map(watchInfoEntries)
 
-  const result: Record<RecommendationMode, any[]> = { focused: [], balanced: [], explore: [] }
+  const result: Record<RecommendationMode, RecommendationItem[]> = { focused: [], balanced: [], explore: [] }
   for (const mode of MODES) {
     result[mode] = sortedByMode[mode]
-      .map((item) => {
+      .map((item): RecommendationItem | null => {
         const info = watchInfoMap.get(`${item.media_type}-${item.id}`)
         if (!info) return null
         return { ...item, ...info }
       })
-      .filter((m): m is any => m !== null)
+      .filter((m): m is RecommendationItem => m !== null)
   }
 
   return NextResponse.json(result)

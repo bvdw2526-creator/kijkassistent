@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -34,6 +34,7 @@ export default function Home() {
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
   const [mode, setMode] = useState<RecommendationMode>('balanced')
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -44,6 +45,7 @@ export default function Home() {
   }, [])
 
   async function loadRecommendations() {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
@@ -51,6 +53,9 @@ export default function Home() {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
     const data = await res.json()
+    // Als er intussen een nieuwere aanvraag is gestart (bv. door snel na elkaar
+    // te scoren), negeer dit oudere antwoord zodat het niet de verse staat overschrijft.
+    if (requestId !== requestIdRef.current) return
     setByMode({
       focused: data.focused || [],
       balanced: data.balanced || [],
@@ -101,6 +106,9 @@ export default function Home() {
     if (!error) {
       removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
       setSelected(null)
+      // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond
+      // verversen zodat dat effect zichtbaar wordt zonder dat je zelf hoeft te vernieuwen.
+      loadRecommendations()
     }
   }
 
