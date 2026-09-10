@@ -89,6 +89,11 @@ const SOURCE_IDS: Record<string, number> = {
 const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 24
 const TMDB_DETAILS_CACHE_MAX_AGE_HOURS = 24 * 7
 const RECOMMENDATIONS_CACHE_MAX_AGE_HOURS = 24
+// Hoelang een compleet berekend resultaat (alle 3 modi, inclusief kijkproviders)
+// hergebruikt wordt zolang favorieten/ratings/watchlist/streamingdiensten niet zijn
+// gewijzigd. Dit is de belangrijkste knop voor "voelt de app-start lokaal aan": een
+// cache-hit slaat de hele scoring-pijplijn over en kost maar één Supabase-rondje.
+const RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 6
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
@@ -595,6 +600,25 @@ function pickLongTail<T extends { basedOn: string[] }>(
   }))
 }
 
+async function cacheRecommendationsResult(
+  supabase: SupabaseClient,
+  userId: string,
+  signature: string,
+  result: Record<RecommendationMode, unknown[]>
+): Promise<void> {
+  await supabase.from('recommendations_cache').upsert(
+    {
+      user_id: userId,
+      signature,
+      focused: result.focused,
+      balanced: result.balanced,
+      explore: result.explore,
+      fetched_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  )
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
@@ -625,6 +649,35 @@ export async function GET(request: NextRequest) {
   const emptyResponse = { focused: [], balanced: [], explore: [] }
   if (!favorites || favorites.length === 0) {
     return NextResponse.json(emptyResponse)
+  }
+
+  const streamingServices: string[] = profile?.streaming_services || []
+
+  // Vangt de staat waarop een berekend resultaat is gebaseerd. Wijzigt er iets aan
+  // favorieten/ratings/watchlist/streamingdiensten, dan verandert de signature en is
+  // een eerder gecachet resultaat vanzelf ongeldig — geen aparte invalidatie nodig.
+  const profileSignature = [
+    'fav:' + favorites.map((f) => `${f.media_type}-${f.tmdb_id}`).sort().join(','),
+    'rat:' + (ratings || []).map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
+    'wl:' + (watchlist || []).map((w) => `${w.media_type}-${w.tmdb_id}`).sort().join(','),
+    'svc:' + [...streamingServices].sort().join(','),
+  ].join('|')
+
+  const { data: cachedResult } = await supabase
+    .from('recommendations_cache')
+    .select('signature, focused, balanced, explore, fetched_at')
+    .eq('user_id', user.id)
+    .single()
+
+  if (cachedResult && cachedResult.signature === profileSignature) {
+    const ageHours = (Date.now() - new Date(cachedResult.fetched_at).getTime()) / (1000 * 60 * 60)
+    if (ageHours < RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS) {
+      return NextResponse.json({
+        focused: cachedResult.focused,
+        balanced: cachedResult.balanced,
+        explore: cachedResult.explore,
+      })
+    }
   }
 
   const excludeIds = new Set([
@@ -921,10 +974,10 @@ export async function GET(request: NextRequest) {
     explore: exploreResults,
   }
 
-  const userServices: string[] = profile?.streaming_services || []
-  const userSourceIds = new Set(userServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
+  const userSourceIds = new Set(streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
   if (userSourceIds.size === 0) {
+    await cacheRecommendationsResult(supabase, user.id, profileSignature, sortedByMode)
     return NextResponse.json(sortedByMode)
   }
 
@@ -978,5 +1031,6 @@ export async function GET(request: NextRequest) {
       .filter((m): m is RecommendationItem => m !== null)
   }
 
+  await cacheRecommendationsResult(supabase, user.id, profileSignature, result)
   return NextResponse.json(result)
 }

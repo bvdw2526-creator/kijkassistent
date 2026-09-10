@@ -27,6 +27,28 @@ const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> =
 
 const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [] }
 
+const RECOMMENDATIONS_CACHE_KEY_PREFIX = 'kijkassistent:recommendations:'
+
+// Toont bij het openen van de app meteen de vorige aanbevelingen (uit localStorage) in
+// plaats van een lege "Laden..."-pagina, terwijl er op de achtergrond wordt ververst.
+// Dat voelt lokaal aan, ook al draait de eigenlijke berekening nog steeds op de server.
+function loadCachedRecommendations(userId: string): Record<RecommendationMode, Movie[]> | null {
+  try {
+    const raw = localStorage.getItem(RECOMMENDATIONS_CACHE_KEY_PREFIX + userId)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveCachedRecommendations(userId: string, data: Record<RecommendationMode, Movie[]>) {
+  try {
+    localStorage.setItem(RECOMMENDATIONS_CACHE_KEY_PREFIX + userId, JSON.stringify(data))
+  } catch {
+    // Privénavigatie of volle quota — dan cachen we gewoon niet, geen probleem.
+  }
+}
+
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
   const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
@@ -45,8 +67,16 @@ export default function Home() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
-      if (data.user) loadRecommendations()
-      else setLoading(false)
+      if (data.user) {
+        const cached = loadCachedRecommendations(data.user.id)
+        if (cached) {
+          setByMode(cached)
+          setLoading(false)
+        }
+        loadRecommendations()
+      } else {
+        setLoading(false)
+      }
     })
   }, [])
 
@@ -62,12 +92,14 @@ export default function Home() {
     // Als er intussen een nieuwere aanvraag is gestart (bv. door snel na elkaar
     // te scoren), negeer dit oudere antwoord zodat het niet de verse staat overschrijft.
     if (requestId !== requestIdRef.current) return
-    setByMode({
+    const fresh = {
       focused: data.focused || [],
       balanced: data.balanced || [],
       explore: data.explore || [],
-    })
+    }
+    setByMode(fresh)
     setLoading(false)
+    saveCachedRecommendations(session.user.id, fresh)
   }
 
   function handleModeChange(nextMode: RecommendationMode) {
