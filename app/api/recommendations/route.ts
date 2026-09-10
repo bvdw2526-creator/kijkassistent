@@ -27,8 +27,8 @@ interface TmdbItem {
   genre_ids: number[]
 }
 
-interface WatchmodeSource {
-  source_id: number
+interface WatchProviderSource {
+  provider_id: number
   name: string
   type: 'sub' | 'rent' | 'buy' | string
   price: number | null
@@ -76,15 +76,17 @@ interface RecommendationItem extends RankedCandidate {
   watchUrl?: string
 }
 
+// TMDB (JustWatch) provider-ID's voor de NL-regio. Op te vragen via
+// GET /3/watch/providers/movie?watch_region=NL.
 const SOURCE_IDS: Record<string, number> = {
-  netflix: 203,
-  videoland: 465,
-  disney_plus: 372,
-  amazon_prime: 26,
-  hbo_max: 387,
+  netflix: 8,
+  videoland: 72,
+  disney_plus: 337,
+  amazon_prime: 119,
+  hbo_max: 1899,
 }
 
-const WATCHMODE_CACHE_MAX_AGE_HOURS = 24
+const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 24
 const TMDB_DETAILS_CACHE_MAX_AGE_HOURS = 24 * 7
 const RECOMMENDATIONS_CACHE_MAX_AGE_HOURS = 24
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
@@ -96,7 +98,7 @@ const MAX_PER_GENRE = 5
 const DISCOVER_GENRE_LIMIT = 5
 // Begrenst over hoeveel genres de max-5-per-genre-selectie draait. Zonder dit kan
 // iemand met veel favorieten/ratings tientallen genres aantikken, wat de kandidaten-
-// pool (en dus het aantal beschikbaarheids-checks bij Watchmode hieronder) onnodig
+// pool (en dus het aantal beschikbaarheids-checks bij TMDB hieronder) onnodig
 // laat exploderen — dat is de belangrijkste oorzaak van een trage eerste keer laden.
 const ROUND_ROBIN_GENRE_LIMIT = 10
 const DISCOVER_PAGES = [1, 2]
@@ -159,21 +161,34 @@ async function getCached<T>(
   return fresh
 }
 
-async function getWatchmodeSources(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<WatchmodeSource[]> {
+// TMDB's watch/providers-endpoint (JustWatch-data) i.p.v. Watchmode: gratis, geen
+// aparte quota, en dezelfde TMDB_API_KEY die we toch al gebruiken. Geeft geen prijzen
+// en linkt naar een algemene TMDB-kijkpagina i.p.v. rechtstreeks naar de dienst zelf.
+async function getWatchProviders(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<WatchProviderSource[]> {
   return getCached(
     supabase,
-    'watchmode_cache',
+    'tmdb_watch_providers_cache',
     { media_type: mediaType, tmdb_id: tmdbId },
     'sources',
-    WATCHMODE_CACHE_MAX_AGE_HOURS,
+    WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS,
     async () => {
+      const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
       try {
         const res = await fetch(
-          `https://api.watchmode.com/v1/title/${mediaType}-${tmdbId}/sources/?apiKey=${process.env.WATCHMODE_API_KEY}&regions=NL`
+          `https://api.themoviedb.org/3/${endpoint}/${tmdbId}/watch/providers`,
+          { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
         )
         if (!res.ok) return null
-        const sources = await res.json()
-        return Array.isArray(sources) ? sources : []
+        const data = await res.json()
+        const nl = data.results?.NL
+        if (!nl) return []
+
+        const link: string = nl.link || ''
+        const sources: WatchProviderSource[] = []
+        for (const p of nl.flatrate || []) sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'sub', price: null, web_url: link })
+        for (const p of nl.rent || []) sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'rent', price: null, web_url: link })
+        for (const p of nl.buy || []) sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'buy', price: null, web_url: link })
+        return sources
       } catch {
         return null
       }
@@ -812,8 +827,8 @@ export async function GET(request: NextRequest) {
   const watchInfoEntries = await Promise.all(
     Array.from(allCandidateItems.values()).map(async (item) => {
       const key = `${item.media_type}-${item.id}`
-      const itemSources = await getWatchmodeSources(supabase, item.media_type, item.id)
-      const userMatches = itemSources.filter((s) => userSourceIds.has(s.source_id))
+      const itemSources = await getWatchProviders(supabase, item.media_type, item.id)
+      const userMatches = itemSources.filter((s) => userSourceIds.has(s.provider_id))
       if (userMatches.length === 0) return [key, null] as const
 
       const subMatch = userMatches.find((s) => s.type === 'sub')
