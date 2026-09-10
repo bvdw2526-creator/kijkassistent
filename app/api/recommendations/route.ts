@@ -94,7 +94,6 @@ const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
 const EMBEDDING_BONUS_WEIGHT = 2
 const COLLECTION_WEIGHT = 3
-const MAX_PER_GENRE = 5
 const DISCOVER_GENRE_LIMIT = 5
 // Begrenst over hoeveel genres de max-5-per-genre-selectie draait. Zonder dit kan
 // iemand met veel favorieten/ratings tientallen genres aantikken, wat de kandidaten-
@@ -112,15 +111,19 @@ const MODES: RecommendationMode[] = ['focused', 'balanced', 'explore']
 // tellen pas mee als aanbevelingsbron vanaf "balanced". "explore" haalt daarnaast
 // bewust een bredere discover-pool op (zie DISCOVER_GENRE_LIMIT/DISCOVER_PAGES) en
 // dempt de scores sterker, zodat de long tail niet wordt overstemd door de bekende titels.
+// De modi worden na elkaar opgebouwd (focused -> balanced -> explore) en sluiten
+// elkaars titels uit, zodat dezelfde film niet in meerdere tabbladen opduikt.
+// maxPerGenre/longTailSlots lopen op per modus, zodat "explore" ook echt breder is.
 const MODE_CONFIG: Record<RecommendationMode, {
   includeOkAsSource: boolean
   discoverWeight: number
   dampingFactor: number
+  maxPerGenre: number
   longTailSlots: number
 }> = {
-  focused:  { includeOkAsSource: false, discoverWeight: 0.4,  dampingFactor: 1.0, longTailSlots: 0 },
-  balanced: { includeOkAsSource: true,  discoverWeight: 0.75, dampingFactor: 1.0, longTailSlots: 2 },
-  explore:  { includeOkAsSource: true,  discoverWeight: 1.5,  dampingFactor: 0.6, longTailSlots: 5 },
+  focused:  { includeOkAsSource: false, discoverWeight: 0.4,  dampingFactor: 1.0, maxPerGenre: 3, longTailSlots: 0 },
+  balanced: { includeOkAsSource: true,  discoverWeight: 0.75, dampingFactor: 1.0, maxPerGenre: 5, longTailSlots: 3 },
+  explore:  { includeOkAsSource: true,  discoverWeight: 1.5,  dampingFactor: 0.6, maxPerGenre: 8, longTailSlots: 12 },
 }
 
 type CacheRow<T> = Record<string, T> & { fetched_at: string }
@@ -735,10 +738,14 @@ export async function GET(request: NextRequest) {
   const movieGenreIds = movieGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
   const tvGenreIds = tvGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
 
-  function buildModeResults(mode: RecommendationMode): RankedCandidate[] {
+  function buildModeResults(mode: RecommendationMode, excludeKeys: Set<string>): RankedCandidate[] {
     const modeConfig = MODE_CONFIG[mode]
 
-    const allScored: RankedCandidate[] = candidates.map((item) => {
+    // Titels die al in een smaller/eerder tabblad staan, komen hier niet nog eens in
+    // — anders zie je "zeker leuk" ook terug bij "oké" en "verras me".
+    const availableCandidates = candidates.filter((item) => !excludeKeys.has(`${item.media_type}-${item.id}`))
+
+    const allScored: RankedCandidate[] = availableCandidates.map((item) => {
       const rawScore =
         item.coreScore +
         (modeConfig.includeOkAsSource ? item.okScore : 0) +
@@ -760,14 +767,14 @@ export async function GET(request: NextRequest) {
       movieGenreIds,
       (m) => `movie-${m.id}`,
       (m) => m.genre_ids || [],
-      MAX_PER_GENRE
+      modeConfig.maxPerGenre
     )
     const roundRobinTv = pickByGenreRoundRobin(
       allScored.filter((m) => m.media_type === 'tv' && !collectionKeys.has(`tv-${m.id}`)),
       tvGenreIds,
       (m) => `tv-${m.id}`,
       (m) => m.genre_ids || [],
-      MAX_PER_GENRE
+      modeConfig.maxPerGenre
     )
 
     const usedKeys = new Set<string>([
@@ -796,10 +803,19 @@ export async function GET(request: NextRequest) {
     ]
   }
 
+  // Volgorde smal -> breed: elke volgende modus sluit de titels van de vorige(n) uit.
+  const focusedResults = buildModeResults('focused', new Set())
+  const focusedKeys = new Set(focusedResults.map((m) => `${m.media_type}-${m.id}`))
+
+  const balancedResults = buildModeResults('balanced', focusedKeys)
+  const balancedKeys = new Set(balancedResults.map((m) => `${m.media_type}-${m.id}`))
+
+  const exploreResults = buildModeResults('explore', new Set([...focusedKeys, ...balancedKeys]))
+
   const sortedByMode: Record<RecommendationMode, RankedCandidate[]> = {
-    focused: buildModeResults('focused'),
-    balanced: buildModeResults('balanced'),
-    explore: buildModeResults('explore'),
+    focused: focusedResults,
+    balanced: balancedResults,
+    explore: exploreResults,
   }
 
   const { data: profile } = await supabase
