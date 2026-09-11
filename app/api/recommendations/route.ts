@@ -6,6 +6,11 @@ type Tier = 'core' | 'ok'
 type RecommendationMode = 'focused' | 'balanced' | 'explore'
 type ScoreField = 'coreScore' | 'okScore' | 'discoverScore' | 'collectionScore'
 
+interface CastMember {
+  id: number
+  name: string
+}
+
 // Ruwe vorm van een TMDB-item zoals de API die teruggeeft (films gebruiken "title", series "name").
 interface RawTmdbItem {
   id: number
@@ -58,6 +63,7 @@ interface ScoredCandidate extends TmdbItem {
   discoverScore: number
   collectionScore: number
   embeddingBonus: number
+  actorScore: number
   basedOn: Set<string>
 }
 
@@ -69,6 +75,7 @@ interface RankedCandidate extends TmdbItem {
   discoverScore: number
   collectionScore: number
   embeddingBonus: number
+  actorScore: number
 }
 
 interface RecommendationItem extends RankedCandidate {
@@ -99,6 +106,14 @@ const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
 const EMBEDDING_BONUS_WEIGHT = 2
 const COLLECTION_WEIGHT = 3
+const TMDB_CREDITS_CACHE_MAX_AGE_HOURS = 24 * 7
+// Favoriete acteurs/actrices moeten "zwaar meetellen" — hoger dan een collectie-match
+// (3) en veel hoger dan een losse discover-hit, zodat een titel met een favoriete
+// acteur/actrice ook echt naar boven komt, ook zonder andere match met het smaakprofiel.
+const ACTOR_MATCH_WEIGHT = 5
+// Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
+// gebruiker die acteur/actrice nog herkent, en het houdt de gecachete payload klein.
+const CAST_TOP_N = 10
 const DISCOVER_GENRE_LIMIT = 5
 // Begrenst over hoeveel genres de max-5-per-genre-selectie draait. Zonder dit kan
 // iemand met veel favorieten/ratings tientallen genres aantikken, wat de kandidaten-
@@ -253,6 +268,85 @@ async function getWatchProvidersBulk(
       // Een mislukte live fetch mag geen "niet beschikbaar" worden: val terug op de
       // laatst bekende (evt. verouderde) cache-rij, of anders een lege lijst.
       if (f.sources !== null) result.set(f.key, f.sources)
+      else result.set(f.key, staleFallback.get(f.key) ?? [])
+    }
+  }
+
+  return result
+}
+
+async function fetchCastLive(mediaType: MediaType, tmdbId: number): Promise<CastMember[] | null> {
+  const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/${endpoint}/${tmdbId}/credits`,
+      { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return (data.cast || [])
+      .slice(0, CAST_TOP_N)
+      .map((c: { id: number; name: string }) => ({ id: c.id, name: c.name }))
+  } catch {
+    return null
+  }
+}
+
+// Bulk-variant zoals getWatchProvidersBulk hierboven: alleen live TMDB-calls voor cast
+// die niet of verouderd in de cache staat, en één gebundelde upsert daarna. Wordt alleen
+// aangeroepen als de gebruiker favoriete acteurs/actrices heeft (zie de GET-handler),
+// zodat gebruikers zonder die voorkeur geen extra TMDB-calls kosten.
+async function getCastBulk(
+  supabase: SupabaseClient,
+  items: { mediaType: MediaType; tmdbId: number }[]
+): Promise<Map<string, CastMember[]>> {
+  const result = new Map<string, CastMember[]>()
+  const staleFallback = new Map<string, CastMember[]>()
+  const cutoffMs = Date.now() - TMDB_CREDITS_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
+
+  const movieIds = items.filter((i) => i.mediaType === 'movie').map((i) => i.tmdbId)
+  const tvIds = items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId)
+
+  type CachedRow = { tmdb_id: number; cast_members: CastMember[]; fetched_at: string }
+  const [movieRows, tvRows] = await Promise.all([
+    movieIds.length
+      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, fetched_at').eq('media_type', 'movie').in('tmdb_id', movieIds)
+      : Promise.resolve({ data: [] as CachedRow[] }),
+    tvIds.length
+      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, fetched_at').eq('media_type', 'tv').in('tmdb_id', tvIds)
+      : Promise.resolve({ data: [] as CachedRow[] }),
+  ])
+
+  for (const [mediaType, rows] of [['movie', movieRows.data], ['tv', tvRows.data]] as const) {
+    for (const row of rows || []) {
+      const key = `${mediaType}-${row.tmdb_id}`
+      staleFallback.set(key, row.cast_members)
+      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, row.cast_members)
+    }
+  }
+
+  const missing = items.filter((i) => !result.has(`${i.mediaType}-${i.tmdbId}`))
+
+  if (missing.length > 0) {
+    const fetched = await Promise.all(
+      missing.map(async (item) => ({
+        key: `${item.mediaType}-${item.tmdbId}`,
+        mediaType: item.mediaType,
+        tmdbId: item.tmdbId,
+        cast: await fetchCastLive(item.mediaType, item.tmdbId),
+      }))
+    )
+
+    const upserts = fetched
+      .filter((f) => f.cast !== null)
+      .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, cast_members: f.cast, fetched_at: new Date().toISOString() }))
+
+    if (upserts.length > 0) {
+      await supabase.from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    }
+
+    for (const f of fetched) {
+      if (f.cast !== null) result.set(f.key, f.cast)
       else result.set(f.key, staleFallback.get(f.key) ?? [])
     }
   }
@@ -632,18 +726,20 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
-  // Deze vier zijn onafhankelijk van elkaar (alleen user.id nodig) — tegelijk ophalen
-  // i.p.v. na elkaar scheelt drie keer wachten op een los rondje naar Supabase.
+  // Deze vijf zijn onafhankelijk van elkaar (alleen user.id nodig) — tegelijk ophalen
+  // i.p.v. na elkaar scheelt wachten op losse rondjes naar Supabase.
   const [
     { data: favorites },
     { data: ratings },
     { data: watchlist },
     { data: profile },
+    { data: favoritePeople },
   ] = await Promise.all([
     supabase.from('favorite_movies').select('tmdb_id, title, media_type').eq('user_id', user.id),
     supabase.from('ratings').select('tmdb_id, title, rating, media_type').eq('user_id', user.id),
     supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', user.id),
-    supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
+    supabase.from('profiles').select('streaming_services, excluded_genres').eq('id', user.id).single(),
+    supabase.from('favorite_people').select('person_id, name').eq('user_id', user.id),
   ])
 
   const emptyResponse = { focused: [], balanced: [], explore: [] }
@@ -652,15 +748,21 @@ export async function GET(request: NextRequest) {
   }
 
   const streamingServices: string[] = profile?.streaming_services || []
+  const excludedGenreIds = new Set<number>(profile?.excluded_genres || [])
+  const favoritePeopleList = favoritePeople || []
+  const favoritePersonNames = new Map(favoritePeopleList.map((p) => [p.person_id, p.name]))
 
   // Vangt de staat waarop een berekend resultaat is gebaseerd. Wijzigt er iets aan
-  // favorieten/ratings/watchlist/streamingdiensten, dan verandert de signature en is
-  // een eerder gecachet resultaat vanzelf ongeldig — geen aparte invalidatie nodig.
+  // favorieten/ratings/watchlist/streamingdiensten/uitgesloten genres/favoriete
+  // acteurs, dan verandert de signature en is een eerder gecachet resultaat vanzelf
+  // ongeldig — geen aparte invalidatie nodig.
   const profileSignature = [
     'fav:' + favorites.map((f) => `${f.media_type}-${f.tmdb_id}`).sort().join(','),
     'rat:' + (ratings || []).map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
     'wl:' + (watchlist || []).map((w) => `${w.media_type}-${w.tmdb_id}`).sort().join(','),
     'svc:' + [...streamingServices].sort().join(','),
+    'exgen:' + [...excludedGenreIds].sort((a, b) => a - b).join(','),
+    'ppl:' + favoritePeopleList.map((p) => p.person_id).sort((a, b) => a - b).join(','),
   ].join('|')
 
   const { data: cachedResult } = await supabase
@@ -741,6 +843,9 @@ export async function GET(request: NextRequest) {
   function allGenres(mediaType: MediaType) {
     return Array.from(genreCounts[mediaType].entries())
       .map(([id, v]) => ({ id, ...v }))
+      // Uitgesloten genres hier al wegfilteren: anders blijft de discover-stap er
+      // juist meer van dit genre bij zoeken, en krijgt de round-robin er slots voor.
+      .filter((g) => !excludedGenreIds.has(g.id))
       .sort((a, b) => b.count - a.count)
   }
 
@@ -820,6 +925,7 @@ export async function GET(request: NextRequest) {
         discoverScore: 0,
         collectionScore: 0,
         embeddingBonus: 0,
+        actorScore: 0,
         basedOn: new Set<string>(),
       })
     }
@@ -830,6 +936,9 @@ export async function GET(request: NextRequest) {
     for (const item of items) {
       const key = `${item.media_type}-${item.id}`
       if (excludeIds.has(key)) continue
+      // Uitgesloten genres nooit als kandidaat laten instromen, ook niet via een
+      // collectie- of titel-aanbeveling — zie excludedGenreIds hierboven.
+      if (item.genre_ids.some((g) => excludedGenreIds.has(g))) continue
       const entry = ensureEntry(item)
       entry[field] += weight
       if (label) entry.basedOn.add(label)
@@ -891,6 +1000,23 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Alleen cast opzoeken als er favoriete acteurs/actrices zijn ingesteld — anders
+  // kost dit gebruikers zonder die voorkeur extra TMDB-calls voor niets.
+  if (favoritePersonNames.size > 0) {
+    const castByKey = await getCastBulk(
+      supabase,
+      candidates.map((c) => ({ mediaType: c.media_type, tmdbId: c.id }))
+    )
+
+    for (const candidate of candidates) {
+      const cast = castByKey.get(`${candidate.media_type}-${candidate.id}`) || []
+      const matches = cast.filter((member) => favoritePersonNames.has(member.id))
+      if (matches.length === 0) continue
+      candidate.actorScore = matches.length * ACTOR_MATCH_WEIGHT
+      for (const match of matches.slice(0, 2)) candidate.basedOn.add(match.name)
+    }
+  }
+
   const movieGenreIds = movieGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
   const tvGenreIds = tvGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
 
@@ -907,7 +1033,8 @@ export async function GET(request: NextRequest) {
         (modeConfig.includeOkAsSource ? item.okScore : 0) +
         item.discoverScore * modeConfig.discoverWeight +
         item.collectionScore +
-        item.embeddingBonus * EMBEDDING_BONUS_WEIGHT
+        item.embeddingBonus * EMBEDDING_BONUS_WEIGHT +
+        item.actorScore
       return {
         ...item,
         score: Math.pow(Math.log2(1 + Math.max(0, rawScore)), modeConfig.dampingFactor),
