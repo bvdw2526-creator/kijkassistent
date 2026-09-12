@@ -113,6 +113,34 @@ export default function Watchlist() {
     setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
+  // Alleen van de watchlist af, zonder rating — zo blijft de titel ongewaardeerd en
+  // telt hij weer gewoon mee als kandidaat in de aanbevelingscategorieën.
+  async function handleRemove(item: WatchlistItem) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setError(null)
+
+    const { data: deletedRow, error: deleteError } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('tmdb_id', item.id)
+      .eq('media_type', item.media_type)
+      .select()
+
+    if (deleteError) {
+      console.error('Verwijderen van watchlist mislukt:', deleteError)
+      setError(`Kon het item niet van de watchlist verwijderen: ${deleteError.message}`)
+      return
+    }
+    if (!deletedRow || deletedRow.length === 0) {
+      setError('Het item leek van de watchlist verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
+      return
+    }
+
+    setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
+  }
+
   if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
 
   const movieItems = items.filter((i) => i.media_type === 'movie')
@@ -169,7 +197,15 @@ export default function Watchlist() {
               />
             )}
             <div className="flex-1 min-w-0">
-              <p className="font-medium">{item.title}</p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium">{item.title}</p>
+                <button
+                  onClick={() => handleRemove(item)}
+                  className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors flex-shrink-0"
+                >
+                  Verwijderen
+                </button>
+              </div>
               <p className="text-sm text-[#9FB0C2] mt-0.5">
                 {item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
                 {item.watchOn && (

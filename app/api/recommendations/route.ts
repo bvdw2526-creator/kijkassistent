@@ -69,6 +69,7 @@ interface ScoredCandidate extends TmdbItem {
 
 interface RankedCandidate extends TmdbItem {
   score: number
+  matchPercent: number
   basedOn: string[]
   coreScore: number
   okScore: number
@@ -1038,6 +1039,10 @@ export async function GET(request: NextRequest) {
       return {
         ...item,
         score: Math.pow(Math.log2(1 + Math.max(0, rawScore)), modeConfig.dampingFactor),
+        // Voorlopige waarde — pas na de round-robin/long-tail-selectie hieronder weten
+        // we welke titels daadwerkelijk in dit tabblad belanden, dus wordt dit verderop
+        // (zie addMatchPercent) herberekend t.o.v. de sterkste match in die uiteindelijke lijst.
+        matchPercent: 0,
         basedOn: Array.from(item.basedOn).slice(0, 3),
       }
     })
@@ -1095,10 +1100,24 @@ export async function GET(request: NextRequest) {
 
   const exploreResults = buildModeResults('explore', new Set([...focusedKeys, ...balancedKeys]))
 
+  // Zet de ruwe score om in een percentage "hoe goed dit bij je smaak past", relatief
+  // aan de sterkste match binnen hetzelfde tabblad (die krijgt 100%). Een absolute
+  // drempel zou niet werken: de scoreschaal verschilt sterk per modus (bv. "explore"
+  // dempt scores bewust sterker, zie MODE_CONFIG) en per gebruiker (meer favorieten/
+  // ratings geeft hogere ruwe scores). Relatief per tabblad blijft dus altijd 0-100%.
+  function addMatchPercent(items: RankedCandidate[]): RankedCandidate[] {
+    if (items.length === 0) return items
+    const maxScore = Math.max(...items.map((i) => i.score))
+    return items.map((item) => ({
+      ...item,
+      matchPercent: maxScore > 0 ? Math.round((item.score / maxScore) * 100) : 0,
+    }))
+  }
+
   const sortedByMode: Record<RecommendationMode, RankedCandidate[]> = {
-    focused: focusedResults,
-    balanced: balancedResults,
-    explore: exploreResults,
+    focused: addMatchPercent(focusedResults),
+    balanced: addMatchPercent(balancedResults),
+    explore: addMatchPercent(exploreResults),
   }
 
   const userSourceIds = new Set(streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))

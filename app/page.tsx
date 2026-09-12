@@ -10,6 +10,7 @@ type Movie = {
   poster_path: string | null
   vote_average: number
   score: number
+  matchPercent: number
   watchOn?: string
   watchUrl?: string
   media_type: 'movie' | 'tv'
@@ -302,7 +303,7 @@ export default function Home() {
               <div className="min-w-0">
                 <p className="font-medium hover:text-[#E8A33D] transition-colors">{movie.title}</p>
                 <p className="text-sm text-[#9FB0C2] mt-0.5">
-                  Match {movie.score}x
+                  {movie.matchPercent}% match
                   {movie.watchOn && <span className="text-[#E8A33D]"> · {movie.watchOn}</span>}
                 </p>
               </div>
@@ -331,7 +332,7 @@ export default function Home() {
               <div>
                 <h2 className="font-display text-xl">{selected.title}</h2>
                 <p className="text-sm text-[#9FB0C2] mt-1">
-                  {selected.media_type === 'tv' ? 'Serie' : 'Film'}
+                  {selected.media_type === 'tv' ? 'Serie' : 'Film'} · {selected.matchPercent}% match
                   {selected.watchOn && <span className="text-[#E8A33D]"> · {selected.watchOn}</span>}
                 </p>
               </div>
