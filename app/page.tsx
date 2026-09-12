@@ -123,6 +123,9 @@ export default function Home() {
       title: movie.title,
       poster_path: movie.poster_path,
       media_type: movie.media_type,
+      watch_on: movie.watchOn ?? null,
+      watch_url: movie.watchUrl ?? null,
+      source_mode: mode,
     })
     if (!error) {
       removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)

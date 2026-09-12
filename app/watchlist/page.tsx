@@ -4,11 +4,24 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
+type RecommendationMode = 'focused' | 'balanced' | 'explore'
+
 type WatchlistItem = {
   id: number
   title: string
   poster_path: string | null
   media_type: 'movie' | 'tv'
+  watchOn: string | null
+  watchUrl: string | null
+  sourceMode: RecommendationMode | null
+}
+
+// Zelfde labels als op de aanbevelingenpagina (app/page.tsx) — hier alleen als platte
+// tekst getoond, geen tabblad-navigatie nodig.
+const MODE_LABELS: Record<RecommendationMode, string> = {
+  focused: 'Puur mijn smaak',
+  balanced: 'Mijn smaak, breder',
+  explore: 'Verras me',
 }
 
 export default function Watchlist() {
@@ -23,7 +36,7 @@ export default function Watchlist() {
 
     const { data } = await supabase
       .from('watchlist')
-      .select('tmdb_id, title, poster_path, media_type')
+      .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, source_mode')
       .eq('user_id', user.id)
       .order('added_at', { ascending: false })
 
@@ -34,6 +47,9 @@ export default function Watchlist() {
           title: w.title,
           poster_path: w.poster_path,
           media_type: w.media_type as 'movie' | 'tv',
+          watchOn: w.watch_on,
+          watchUrl: w.watch_url,
+          sourceMode: w.source_mode as RecommendationMode | null,
         }))
       )
     }
@@ -155,6 +171,26 @@ export default function Watchlist() {
             <div className="flex-1 min-w-0">
               <p className="font-medium">{item.title}</p>
               <p className="text-sm text-[#9FB0C2] mt-0.5">
+                {item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
+                {item.watchOn && (
+                  <>
+                    {item.sourceMode && ' · '}
+                    {item.watchUrl ? (
+                      <a
+                        href={item.watchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#E8A33D] hover:text-[#F0B457] transition-colors"
+                      >
+                        {item.watchOn}
+                      </a>
+                    ) : (
+                      <span className="text-[#E8A33D]">{item.watchOn}</span>
+                    )}
+                  </>
+                )}
+              </p>
+              <p className="text-sm text-[#9FB0C2] mt-1">
                 Heb je &apos;m al gezien? Laat weten wat je ervan vond:
               </p>
               <div className="flex gap-2 mt-2 flex-wrap">

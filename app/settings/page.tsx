@@ -63,6 +63,7 @@ export default function Settings() {
   const [excludedGenres, setExcludedGenres] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const [favoritePeople, setFavoritePeople] = useState<FavoritePerson[]>([])
   const [personQuery, setPersonQuery] = useState('')
@@ -115,10 +116,19 @@ export default function Settings() {
   async function handleSave() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase
+    setSaved(false)
+    setErrorMessage(null)
+    const { error } = await supabase
       .from('profiles')
       .update({ streaming_services: selected, excluded_genres: excludedGenres })
       .eq('id', user.id)
+    if (error) {
+      console.error('Voorkeuren opslaan mislukt:', error)
+      setErrorMessage(
+        `Kon niet opslaan: ${error.message}. Is de migratie "excluded_genres" al uitgevoerd in Supabase?`
+      )
+      return
+    }
     setSaved(true)
   }
 
@@ -135,26 +145,38 @@ export default function Settings() {
     if (favoritePeople.find((p) => p.person_id === person.id)) return
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setErrorMessage(null)
     const { error } = await supabase.from('favorite_people').insert({
       user_id: user.id,
       person_id: person.id,
       name: person.name,
       profile_path: person.profile_path,
     })
-    if (!error) {
-      setFavoritePeople([{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...favoritePeople])
+    if (error) {
+      console.error('Favoriete acteur toevoegen mislukt:', error)
+      setErrorMessage(
+        `Kon "${person.name}" niet toevoegen: ${error.message}. Is de migratie "favorite_people" al uitgevoerd in Supabase?`
+      )
+      return
     }
+    setFavoritePeople([{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...favoritePeople])
   }
 
   async function removeFavoritePerson(personId: number) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    setErrorMessage(null)
     const { error } = await supabase
       .from('favorite_people')
       .delete()
       .eq('user_id', user.id)
       .eq('person_id', personId)
-    if (!error) setFavoritePeople(favoritePeople.filter((p) => p.person_id !== personId))
+    if (error) {
+      console.error('Favoriete acteur verwijderen mislukt:', error)
+      setErrorMessage(`Kon niet verwijderen: ${error.message}`)
+      return
+    }
+    setFavoritePeople(favoritePeople.filter((p) => p.person_id !== personId))
   }
 
   if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
@@ -163,6 +185,12 @@ export default function Settings() {
     <main className="max-w-sm mx-auto px-6 py-10">
       <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
       <p className="text-[#9FB0C2] mb-6">Stel in wat je aanbevelingen beter maakt.</p>
+
+      {errorMessage && (
+        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-6">
+          {errorMessage}
+        </p>
+      )}
 
       <h2 className="font-display text-lg mb-2">Streamingdiensten</h2>
       <p className="text-[#9FB0C2] text-sm mb-3">Selecteer waar je een abonnement op hebt.</p>
