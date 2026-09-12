@@ -205,13 +205,13 @@ export default function Home() {
 
       <nav className="flex gap-4 mb-6 text-sm items-center">
         <a href="/onboarding" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-          Zoeken &amp; beoordelen
+          Favorieten en beoordelingen
         </a>
         <a href="/watchlist" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
           Watchlist
         </a>
         <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-          Streamingdiensten
+          Instellingen
         </a>
         <button
           onClick={() => loadRecommendations()}
