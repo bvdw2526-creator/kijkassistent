@@ -41,42 +41,42 @@ export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: authHeader } } }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-
-  const { data: connections, error: connectionsError } = await supabase
-    .from('partner_connections')
-    .select('requester_id, partner_id')
-    .eq('status', 'accepted')
-    .or(`requester_id.eq.${user.id},partner_id.eq.${user.id}`)
-    .limit(1)
-
-  if (connectionsError) {
-    console.error('Koppeling ophalen mislukt:', connectionsError)
-    return NextResponse.json(
-      { error: `Koppeling ophalen mislukt: ${connectionsError.message}` },
-      { status: 500 }
-    )
-  }
-
-  if (!connections || connections.length === 0) {
-    return NextResponse.json({ connected: false, tier: 'none', items: [] })
-  }
-
-  const connection = connections[0]
-  const partnerId = connection.requester_id === user.id ? connection.partner_id : connection.requester_id
-
-  // De rest staat in een try/catch: dit roept een lange keten van Supabase- en
-  // TMDB-calls aan (zie lib/recommendationEngine.ts), en een onafgevangen fout daar
-  // leverde eerder een kale 500-pagina op — waardoor de client "0 resultaten" liet
-  // zien zonder enige aanwijzing wat er misging.
+  // De hele body staat in een try/catch: een onafgevangen fout waar dan ook hierin
+  // (bv. Supabase- of TMDB-calls in lib/recommendationEngine.ts) leverde eerder een
+  // kale HTML-foutpagina van Next.js op — de client kreeg dan "Unexpected token '<'"
+  // te zien bij het parsen als JSON, zonder enige aanwijzing wat er echt misging.
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+
+    const { data: connections, error: connectionsError } = await supabase
+      .from('partner_connections')
+      .select('requester_id, partner_id')
+      .eq('status', 'accepted')
+      .or(`requester_id.eq.${user.id},partner_id.eq.${user.id}`)
+      .limit(1)
+
+    if (connectionsError) {
+      console.error('Koppeling ophalen mislukt:', connectionsError)
+      return NextResponse.json(
+        { error: `Koppeling ophalen mislukt: ${connectionsError.message}` },
+        { status: 500 }
+      )
+    }
+
+    if (!connections || connections.length === 0) {
+      return NextResponse.json({ connected: false, tier: 'none', items: [] })
+    }
+
+    const connection = connections[0]
+    const partnerId = connection.requester_id === user.id ? connection.partner_id : connection.requester_id
+
     // Zelfde RLS-client, maar dankzij de "accepted partner"-leesbeleid (zie de
     // partner_connections-migratie) mag deze ook de smaakgegevens van de partner ophalen.
     const [inputsA, inputsB] = await Promise.all([
