@@ -123,14 +123,24 @@ export default function Home() {
   // koppeling mag nooit de gewone drie tabbladen blokkeren of vertragen.
   async function loadTogetherRecommendations() {
     const requestId = ++togetherRequestIdRef.current
+    console.log('loadTogetherRecommendations: gestart')
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+    if (!session) {
+      console.warn('loadTogetherRecommendations: geen actieve sessie, kan niet ophalen')
+      if (requestId === togetherRequestIdRef.current) {
+        setTogetherError('Geen actieve sessie gevonden — herlaad de pagina en probeer opnieuw.')
+      }
+      return
+    }
     try {
       const res = await fetch('/api/recommendations-together', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const data = await res.json()
-      if (requestId !== togetherRequestIdRef.current) return
+      if (requestId !== togetherRequestIdRef.current) {
+        console.warn('loadTogetherRecommendations: verouderde aanvraag genegeerd (er liep al een nieuwere)')
+        return
+      }
       if (!res.ok || data.error) {
         console.error('Samen-aanbevelingen ophalen mislukt:', data.error)
         setTogetherError(data.error || `Onbekende fout (status ${res.status})`)
@@ -139,7 +149,7 @@ export default function Home() {
       // Nuttig om even in de devtools-console te bekijken als "Samen" leeg blijft:
       // laat zien of het aan een lege doorsnede/fallback ligt, of aan het wegfilteren
       // op streamingdiensten daarna.
-      if (data.debug) console.log('Samen-aanbevelingen debug-info:', data.debug)
+      console.log('loadTogetherRecommendations: klaar', { connected: data.connected, tier: data.tier, items: (data.items || []).length, debug: data.debug })
       setTogetherError(null)
       setTogetherConnected(!!data.connected)
       setTogetherTier(data.tier || null)
@@ -301,6 +311,12 @@ export default function Home() {
           )
         })}
       </div>
+
+      {/* Tijdelijke debug-regel om te zien of byMode.samen daadwerkelijk gevuld is bij
+          deze render, i.p.v. te moeten gokken op eventueel verouderde console-logs. */}
+      <p className="text-xs text-[#6B7A8C] mb-2">
+        debug: mode={mode} · samen={byMode.samen.length} · connected={String(togetherConnected)} · tier={togetherTier ?? 'null'}
+      </p>
 
       <div className="flex border-b border-[#3A4A5C] mb-6">
         <button
