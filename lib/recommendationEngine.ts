@@ -848,6 +848,12 @@ const EMPTY_SORTED_BY_MODE: Record<RecommendationMode, RankedCandidate[]> = {
 
 export interface TasteProfile {
   sortedByMode: Record<RecommendationMode, RankedCandidate[]>
+  // Alle gescoorde kandidaten, ongefilterd door de per-genre weergavelimiet van
+  // sortedByMode (die per tabblad maar 3-8 titels per genre toont). Bedoeld voor de
+  // "samen"-route: die vergelijkt twee smaakprofielen, en bij een klein profiel (weinig
+  // favorieten) is de weergavelijst zo smal dat een echte overlap er toevallig net niet
+  // in kan zitten — de volledige kandidatenpool geeft een veel eerlijkere kans op een match.
+  allCandidates: RankedCandidate[]
   movieGenres: GenreAffinity[]
   tvGenres: GenreAffinity[]
 }
@@ -861,7 +867,7 @@ export async function computeTasteProfile(
   inputs: ProfileInputs
 ): Promise<TasteProfile> {
   if (inputs.favorites.length === 0) {
-    return { sortedByMode: EMPTY_SORTED_BY_MODE, movieGenres: [], tvGenres: [] }
+    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [] }
   }
 
   const { favorites, ratings, watchlist, excludedGenreIds, favoritePeopleList } = inputs
@@ -1062,14 +1068,14 @@ export async function computeTasteProfile(
   const movieGenreIds = movieGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
   const tvGenreIds = tvGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
 
-  function buildModeResults(mode: RecommendationMode, excludeKeys: Set<string>): RankedCandidate[] {
+  function scoreCandidates(mode: RecommendationMode, excludeKeys: Set<string>): RankedCandidate[] {
     const modeConfig = MODE_CONFIG[mode]
 
     // Titels die al in een smaller/eerder tabblad staan, komen hier niet nog eens in
     // — anders zie je "zeker leuk" ook terug bij "oké" en "verras me".
     const availableCandidates = candidates.filter((item) => !excludeKeys.has(`${item.media_type}-${item.id}`))
 
-    const allScored: RankedCandidate[] = availableCandidates.map((item) => {
+    return availableCandidates.map((item) => {
       const rawScore =
         item.coreScore +
         (modeConfig.includeOkAsSource ? item.okScore : 0) +
@@ -1087,6 +1093,11 @@ export async function computeTasteProfile(
         basedOn: Array.from(item.basedOn).slice(0, 3),
       }
     })
+  }
+
+  function buildModeResults(mode: RecommendationMode, excludeKeys: Set<string>): RankedCandidate[] {
+    const modeConfig = MODE_CONFIG[mode]
+    const allScored = scoreCandidates(mode, excludeKeys)
 
     const forcedMovies = allScored.filter((m) => m.media_type === 'movie' && collectionKeys.has(`movie-${m.id}`))
     const forcedTv = allScored.filter((m) => m.media_type === 'tv' && collectionKeys.has(`tv-${m.id}`))
@@ -1155,12 +1166,17 @@ export async function computeTasteProfile(
     }))
   }
 
+  // Bredest mogelijke weging ("explore") over de hele kandidatenpool, zonder de
+  // per-genre round-robin/long-tail-inperking van sortedByMode — zie TasteProfile.
+  const allCandidates = addMatchPercent(scoreCandidates('explore', new Set()))
+
   return {
     sortedByMode: {
       focused: addMatchPercent(focusedResults),
       balanced: addMatchPercent(balancedResults),
       explore: addMatchPercent(exploreResults),
     },
+    allCandidates,
     movieGenres,
     tvGenres,
   }

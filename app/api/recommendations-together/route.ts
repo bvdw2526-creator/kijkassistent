@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import {
-  MODES,
   SOURCE_IDS,
   fetchProfileInputs,
   computeTasteProfile,
@@ -28,14 +27,8 @@ const COUPLE_GENRE_BOOST_PER_WEIGHT = 5
 // media-type — puur om de payload en het aantal kijkprovider-checks te begrenzen.
 const FALLBACK_LIMIT_PER_TYPE = 20
 
-function flattenByKey(sortedByMode: Record<string, RankedCandidate[]>): Map<string, RankedCandidate> {
-  const map = new Map<string, RankedCandidate>()
-  for (const mode of MODES) {
-    for (const item of sortedByMode[mode] || []) {
-      map.set(`${item.media_type}-${item.id}`, item)
-    }
-  }
-  return map
+function keyByTitle(items: RankedCandidate[]): Map<string, RankedCandidate> {
+  return new Map(items.map((item) => [`${item.media_type}-${item.id}`, item]))
 }
 
 function mergeGenreAffinities(a: GenreAffinity[], b: GenreAffinity[]): GenreAffinity[] {
@@ -125,8 +118,12 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const mapA = flattenByKey(tasteA.sortedByMode)
-    const mapB = flattenByKey(tasteB.sortedByMode)
+    // De volledige kandidatenpool (allCandidates), niet de smalle sortedByMode-
+    // weergavelijstjes: die tonen per tabblad maar 3-8 titels per genre, waardoor een
+    // echte overlap er bij een klein profiel (weinig favorieten) toevallig net buiten
+    // kan vallen terwijl de onderliggende smaak wel degelijk overeenkomt.
+    const mapA = keyByTitle(tasteA.allCandidates)
+    const mapB = keyByTitle(tasteB.allCandidates)
 
     const intersectionKeys = Array.from(mapA.keys()).filter((key) => mapB.has(key) && !coupleRatedKeys.has(key))
 
@@ -163,6 +160,13 @@ export async function GET(request: NextRequest) {
         ...coupleRatedKeys,
       ])
 
+      // Unie van beide uitsluitlijsten: als één van jullie beiden een genre uitsluit,
+      // mag dat genre ook niet via de ander alsnog in de gedeelde Samen-lijst sluipen —
+      // bij de doorsnede (tier "intersection") kan dat toch al niet (elke titel moest
+      // al door ieders eigen, al gefilterde lijst komen), maar deze fallback-zoektocht
+      // start helemaal opnieuw op genre en had die filtering nog niet.
+      const combinedExcludedGenreIds = new Set([...inputsA.excludedGenreIds, ...inputsB.excludedGenreIds])
+
       const mergedMovieGenres = mergeGenreAffinities(tasteA.movieGenres, tasteB.movieGenres)
       const mergedTvGenres = mergeGenreAffinities(tasteA.tvGenres, tasteB.tvGenres)
 
@@ -174,6 +178,7 @@ export async function GET(request: NextRequest) {
       const buildFallbackItems = (discover: { results: TmdbItem[]; label: string }): RankedCandidate[] => {
         const filtered = discover.results
           .filter((item) => !excludeIds.has(`${item.media_type}-${item.id}`))
+          .filter((item) => !item.genre_ids.some((g) => combinedExcludedGenreIds.has(g)))
           .slice(0, FALLBACK_LIMIT_PER_TYPE)
         const maxVote = Math.max(1, ...filtered.map((item) => item.vote_average))
         return filtered.map((item) => ({
@@ -245,6 +250,9 @@ export async function GET(request: NextRequest) {
       debug: {
         favoritesA: inputsA.favorites.length,
         favoritesB: inputsB.favorites.length,
+        candidatesA: tasteA.allCandidates.length,
+        candidatesB: tasteB.allCandidates.length,
+        intersectionSize: intersectionKeys.length,
         itemsBeforeStreamingFilter: items.length,
         itemsAfterStreamingFilter: resultItems.length,
         combinedStreamingServices: [...inputsA.streamingServices, ...inputsB.streamingServices],
