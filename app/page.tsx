@@ -64,6 +64,7 @@ export default function Home() {
   const [mode, setMode] = useState<RecommendationMode>('balanced')
   const [togetherConnected, setTogetherConnected] = useState<boolean | null>(null)
   const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
+  const [togetherError, setTogetherError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -130,12 +131,23 @@ export default function Home() {
       })
       const data = await res.json()
       if (requestId !== togetherRequestIdRef.current) return
+      if (!res.ok || data.error) {
+        console.error('Samen-aanbevelingen ophalen mislukt:', data.error)
+        setTogetherError(data.error || `Onbekende fout (status ${res.status})`)
+        return
+      }
+      // Nuttig om even in de devtools-console te bekijken als "Samen" leeg blijft:
+      // laat zien of het aan een lege doorsnede/fallback ligt, of aan het wegfilteren
+      // op streamingdiensten daarna.
+      if (data.debug) console.log('Samen-aanbevelingen debug-info:', data.debug)
+      setTogetherError(null)
       setTogetherConnected(!!data.connected)
       setTogetherTier(data.tier || null)
       setByMode((current) => ({ ...current, samen: data.items || [] }))
-    } catch {
+    } catch (err) {
       if (requestId !== togetherRequestIdRef.current) return
-      setTogetherConnected(false)
+      console.error('Samen-aanbevelingen ophalen mislukt:', err)
+      setTogetherError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van Samen-aanbevelingen')
     }
   }
 
@@ -311,6 +323,12 @@ export default function Home() {
 
       {loading && (
         <p className="text-sm text-[#9FB0C2] mb-4">Nieuwe aanbevelingen laden...</p>
+      )}
+
+      {mode === 'samen' && togetherError && (
+        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-4">
+          Samen-aanbevelingen laden mislukt: {togetherError}
+        </p>
       )}
 
       {mode === 'samen' && togetherConnected === false && (
