@@ -417,7 +417,7 @@ async function fetchDetails(mediaType: MediaType, tmdbId: number): Promise<Title
 
 const EMPTY_DETAILS: TitleDetails = { genres: [], overview: '', collectionId: null, collectionName: null }
 
-async function getCachedDetails(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<TitleDetails> {
+export async function getCachedDetails(supabase: SupabaseClient, mediaType: MediaType, tmdbId: number): Promise<TitleDetails> {
   const { data: cached } = await supabase
     .from('tmdb_details_cache')
     .select('genres, overview, collection_id, collection_name, fetched_at')

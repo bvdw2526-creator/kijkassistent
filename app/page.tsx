@@ -65,6 +65,7 @@ export default function Home() {
   const [togetherConnected, setTogetherConnected] = useState<boolean | null>(null)
   const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
   const [togetherError, setTogetherError] = useState<string | null>(null)
+  const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -152,6 +153,7 @@ export default function Home() {
       console.log('loadTogetherRecommendations: klaar', { connected: data.connected, tier: data.tier, items: (data.items || []).length, debug: data.debug })
       setTogetherError(null)
       setTogetherConnected(!!data.connected)
+      setTogetherConnectionId(data.connectionId || null)
       setTogetherTier(data.tier || null)
       setByMode((current) => ({ ...current, samen: data.items || [] }))
     } catch (err) {
@@ -210,6 +212,26 @@ export default function Home() {
       console.error('Rating opslaan mislukt:', error)
       return
     }
+
+    // Beoordeel je iets vanuit de Samen-tab, dan telt dat ook als koppel-beoordeling:
+    // "niet voor mij" sluit de titel voorgoed uit van toekomstige Samen-aanbevelingen,
+    // "zeker leuk"/"was oké" laat de genresmaak van jullie als koppel meewegen — los
+    // van dit individuele profiel hierboven.
+    if (mode === 'samen' && togetherConnectionId) {
+      const { error: coupleError } = await supabase.from('couple_ratings').upsert(
+        {
+          connection_id: togetherConnectionId,
+          tmdb_id: movie.id,
+          media_type: movie.media_type,
+          title: movie.title,
+          rating,
+          rated_by: user.id,
+        },
+        { onConflict: 'connection_id,tmdb_id,media_type' }
+      )
+      if (coupleError) console.error('Koppel-beoordeling opslaan mislukt:', coupleError)
+    }
+
     removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
     setSelected(null)
     // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond

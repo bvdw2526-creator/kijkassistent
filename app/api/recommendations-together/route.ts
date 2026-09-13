@@ -7,11 +7,22 @@ import {
   computeTasteProfile,
   discoverByGenres,
   resolveWatchInfo,
+  getCachedDetails,
   type RankedCandidate,
   type RecommendationItem,
   type GenreAffinity,
   type TmdbItem,
+  type MediaType,
 } from '@/lib/recommendationEngine'
+
+// Zelfde weging als bij persoonlijke ratings ("love" telt dubbel zo zwaar als
+// favoriet, "ok" half) — zie computeTasteProfile in lib/recommendationEngine.ts.
+const COUPLE_LOVE_WEIGHT = 2
+const COUPLE_OK_WEIGHT = 0.5
+// Punten matchpercentage per eenheid genre-overlap-gewicht met wat het koppel al
+// samen goed beoordeelde — bewust bescheiden, dit is een bijsturing, geen nieuwe
+// hoofdscore.
+const COUPLE_GENRE_BOOST_PER_WEIGHT = 5
 
 // Hoeveel titels de genre-fallback (tier 2, zie hieronder) maximaal teruggeeft per
 // media-type — puur om de payload en het aantal kijkprovider-checks te begrenzen.
@@ -57,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     const { data: connections, error: connectionsError } = await supabase
       .from('partner_connections')
-      .select('requester_id, partner_id')
+      .select('id, requester_id, partner_id')
       .eq('status', 'accepted')
       .or(`requester_id.eq.${user.id},partner_id.eq.${user.id}`)
       .limit(1)
@@ -79,9 +90,13 @@ export async function GET(request: NextRequest) {
 
     // Zelfde RLS-client, maar dankzij de "accepted partner"-leesbeleid (zie de
     // partner_connections-migratie) mag deze ook de smaakgegevens van de partner ophalen.
-    const [inputsA, inputsB] = await Promise.all([
+    const [inputsA, inputsB, coupleRatingsResult] = await Promise.all([
       fetchProfileInputs(supabase, user.id),
       fetchProfileInputs(supabase, partnerId),
+      supabase
+        .from('couple_ratings')
+        .select('tmdb_id, media_type, rating')
+        .eq('connection_id', connection.id),
     ])
 
     const [tasteA, tasteB] = await Promise.all([
@@ -89,10 +104,31 @@ export async function GET(request: NextRequest) {
       computeTasteProfile(supabase, inputsB),
     ])
 
+    const coupleRatings = coupleRatingsResult.data || []
+    // Eenmaal samen beoordeeld (positief of negatief) komt een titel niet nog eens
+    // terug in Samen — net als bij persoonlijke ratings.
+    const coupleRatedKeys = new Set(coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}`))
+
+    // Genresmaak van het koppel: wat jullie samen als "zeker leuk"/"was oké" hebben
+    // beoordeeld, telt mee als extra signaal voor toekomstige Samen-aanbevelingen —
+    // los van ieders individuele profiel. "Niet voor mij" wordt hier bewust
+    // overgeslagen: dat mag alleen uitsluiten, niet negatief meewegen in de genresmaak.
+    const coupleLovedOrOk = coupleRatings.filter((r) => r.rating === 'love' || r.rating === 'ok')
+    const coupleGenreDetails = await Promise.all(
+      coupleLovedOrOk.map((r) => getCachedDetails(supabase, r.media_type as MediaType, r.tmdb_id))
+    )
+    const coupleGenreWeight = new Map<number, number>()
+    coupleLovedOrOk.forEach((r, i) => {
+      const weight = r.rating === 'love' ? COUPLE_LOVE_WEIGHT : COUPLE_OK_WEIGHT
+      for (const genre of coupleGenreDetails[i].genres) {
+        coupleGenreWeight.set(genre.id, (coupleGenreWeight.get(genre.id) || 0) + weight)
+      }
+    })
+
     const mapA = flattenByKey(tasteA.sortedByMode)
     const mapB = flattenByKey(tasteB.sortedByMode)
 
-    const intersectionKeys = Array.from(mapA.keys()).filter((key) => mapB.has(key))
+    const intersectionKeys = Array.from(mapA.keys()).filter((key) => mapB.has(key) && !coupleRatedKeys.has(key))
 
     let items: RankedCandidate[]
     let tier: 'intersection' | 'fallback' | 'empty'
@@ -124,6 +160,7 @@ export async function GET(request: NextRequest) {
         ...inputsB.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
         ...inputsB.ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
         ...inputsB.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
+        ...coupleRatedKeys,
       ])
 
       const mergedMovieGenres = mergeGenreAffinities(tasteA.movieGenres, tasteB.movieGenres)
@@ -160,6 +197,24 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Bijsturing op basis van wat het koppel al samen goed beoordeelde: titels die qua
+    // genre aansluiten bij eerdere "zeker leuk"/"was oké"-beoordelingen samen krijgen
+    // een bescheiden boost, ongeacht of ze uit de doorsnede of de fallback komen.
+    if (coupleGenreWeight.size > 0) {
+      items = items
+        .map((item) => {
+          const overlapWeight = item.genre_ids.reduce((sum, g) => sum + (coupleGenreWeight.get(g) || 0), 0)
+          if (overlapWeight === 0) return item
+          const label = 'wat jullie samen al waardeerden'
+          return {
+            ...item,
+            matchPercent: Math.min(100, Math.round(item.matchPercent + overlapWeight * COUPLE_GENRE_BOOST_PER_WEIGHT)),
+            basedOn: item.basedOn.includes(label) ? item.basedOn : [...item.basedOn, label].slice(0, 4),
+          }
+        })
+        .sort((a, b) => b.matchPercent - a.matchPercent)
+    }
+
     const combinedSourceIds = new Set(
       [...inputsA.streamingServices, ...inputsB.streamingServices]
         .map((s) => SOURCE_IDS[s])
@@ -184,6 +239,7 @@ export async function GET(request: NextRequest) {
     // lege doorsnede/fallback, of door het wegfilteren op streamingdiensten daarna.
     return NextResponse.json({
       connected: true,
+      connectionId: connection.id,
       tier,
       items: resultItems,
       debug: {
@@ -192,6 +248,7 @@ export async function GET(request: NextRequest) {
         itemsBeforeStreamingFilter: items.length,
         itemsAfterStreamingFilter: resultItems.length,
         combinedStreamingServices: [...inputsA.streamingServices, ...inputsB.streamingServices],
+        coupleRatingsCount: coupleRatings.length,
       },
     })
   } catch (err) {
