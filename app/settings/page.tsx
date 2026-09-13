@@ -57,6 +57,13 @@ const TV_GENRES = [
 
 type FavoritePerson = { person_id: number; name: string; profile_path: string | null }
 type PersonResult = { id: number; name: string; profile_path: string | null }
+type PartnerConnection = {
+  id: string
+  other_email: string
+  status: 'pending' | 'accepted'
+  direction: 'incoming' | 'outgoing'
+  created_at: string
+}
 
 export default function Settings() {
   const [selected, setSelected] = useState<string[]>([])
@@ -70,9 +77,14 @@ export default function Settings() {
   const [personResults, setPersonResults] = useState<PersonResult[]>([])
   const [personSearchLoading, setPersonSearchLoading] = useState(false)
 
+  const [connections, setConnections] = useState<PartnerConnection[]>([])
+  const [partnerEmail, setPartnerEmail] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
+
   useEffect(() => {
     loadProfile()
     loadFavoritePeople()
+    loadConnections()
   }, [])
 
   async function loadProfile() {
@@ -177,6 +189,59 @@ export default function Settings() {
       return
     }
     setFavoritePeople(favoritePeople.filter((p) => p.person_id !== personId))
+  }
+
+  async function loadConnections() {
+    const { data, error } = await supabase.rpc('list_partner_connections')
+    if (error) {
+      console.error('Koppelingen ophalen mislukt:', error)
+      return
+    }
+    if (data) setConnections(data)
+  }
+
+  async function sendInvite() {
+    if (!partnerEmail) return
+    setErrorMessage(null)
+    setInviteLoading(true)
+    const { error } = await supabase.rpc('invite_partner', { partner_email: partnerEmail })
+    setInviteLoading(false)
+    if (error) {
+      console.error('Partner uitnodigen mislukt:', error)
+      setErrorMessage(
+        error.message.includes('Geen account gevonden')
+          ? 'Geen account gevonden met dit e-mailadres.'
+          : `Kon niet uitnodigen: ${error.message}. Is de migratie "partner_connections" al uitgevoerd in Supabase?`
+      )
+      return
+    }
+    setPartnerEmail('')
+    loadConnections()
+  }
+
+  async function acceptConnection(id: string) {
+    setErrorMessage(null)
+    const { error } = await supabase
+      .from('partner_connections')
+      .update({ status: 'accepted', responded_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) {
+      console.error('Uitnodiging accepteren mislukt:', error)
+      setErrorMessage(`Kon de uitnodiging niet accepteren: ${error.message}`)
+      return
+    }
+    loadConnections()
+  }
+
+  async function removeConnection(id: string) {
+    setErrorMessage(null)
+    const { error } = await supabase.from('partner_connections').delete().eq('id', id)
+    if (error) {
+      console.error('Koppeling verwijderen mislukt:', error)
+      setErrorMessage(`Kon de koppeling niet verwijderen: ${error.message}`)
+      return
+    }
+    setConnections(connections.filter((c) => c.id !== id))
   }
 
   if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
@@ -331,6 +396,72 @@ export default function Settings() {
               >
                 Verwijderen
               </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 className="font-display text-lg mb-2">Partner koppelen</h2>
+      <p className="text-[#9FB0C2] text-sm mb-3">
+        Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf
+        accepteren voordat jullie smaak wordt gecombineerd.
+      </p>
+
+      <div className="flex gap-2 mb-4">
+        <input
+          type="email"
+          value={partnerEmail}
+          onChange={(e) => setPartnerEmail(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && sendInvite()}
+          placeholder="E-mailadres van je partner"
+          className="flex-1 bg-[#202B3A] border border-[#3A4A5C] rounded-sm px-3 py-2.5 text-[#F2EFE9] placeholder:text-[#6B7A8C] outline-none focus:border-[#E8A33D] transition-colors"
+        />
+        <button
+          onClick={sendInvite}
+          disabled={inviteLoading}
+          className="bg-[#E8A33D] text-[#171F2B] font-medium rounded-sm px-5 hover:bg-[#F0B457] transition-colors disabled:opacity-50"
+        >
+          Uitnodigen
+        </button>
+      </div>
+
+      {connections.length === 0 && (
+        <p className="text-[#9FB0C2] text-sm mb-8">Nog geen koppeling met een partner.</p>
+      )}
+      {connections.length > 0 && (
+        <div className="flex flex-col mb-8">
+          {connections.map((c, i) => (
+            <div
+              key={c.id}
+              className={`flex items-center gap-3 py-2.5 flex-wrap ${i !== connections.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
+            >
+              <span className="flex-1 text-sm min-w-[160px]">
+                {c.other_email}
+                <span className="text-xs text-[#6B7A8C]">
+                  {' '}
+                  {c.status === 'accepted'
+                    ? '· gekoppeld'
+                    : c.direction === 'incoming'
+                      ? '· wil koppelen'
+                      : '· wacht op reactie'}
+                </span>
+              </span>
+              <div className="flex gap-2">
+                {c.status === 'pending' && c.direction === 'incoming' && (
+                  <button
+                    onClick={() => acceptConnection(c.id)}
+                    className="text-sm border border-[#52A9A0] text-[#52A9A0] rounded-sm px-3 py-1 hover:bg-[#52A9A0]/10 transition-colors"
+                  >
+                    Accepteren
+                  </button>
+                )}
+                <button
+                  onClick={() => removeConnection(c.id)}
+                  className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors"
+                >
+                  {c.status === 'pending' && c.direction === 'incoming' ? 'Weigeren' : 'Verwijderen'}
+                </button>
+              </div>
             </div>
           ))}
         </div>

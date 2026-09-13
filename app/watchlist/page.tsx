@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-type RecommendationMode = 'focused' | 'balanced' | 'explore'
+type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
 
 type WatchlistItem = {
   id: number
@@ -22,6 +22,7 @@ const MODE_LABELS: Record<RecommendationMode, string> = {
   focused: 'Puur mijn smaak',
   balanced: 'Mijn smaak, breder',
   explore: 'Verras me',
+  samen: 'Samen',
 }
 
 export default function Watchlist() {

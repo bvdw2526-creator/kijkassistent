@@ -18,15 +18,17 @@ type Movie = {
   basedOn?: string[]
 }
 
-type RecommendationMode = 'focused' | 'balanced' | 'explore'
+type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
+type TogetherTier = 'intersection' | 'fallback' | 'empty' | 'none'
 
 const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> = {
   focused: { label: 'Puur mijn smaak', hint: 'Alleen wat ik echt leuk vind' },
   balanced: { label: 'Mijn smaak, breder', hint: 'Leuk + oké vind ik' },
   explore: { label: 'Verras me', hint: 'Doe maar wat aanbevelingen' },
+  samen: { label: 'Samen', hint: 'Wat we allebei leuk zouden vinden' },
 }
 
-const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [] }
+const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [], samen: [] }
 
 const RECOMMENDATIONS_CACHE_KEY_PREFIX = 'kijkassistent:recommendations:'
 
@@ -36,7 +38,10 @@ const RECOMMENDATIONS_CACHE_KEY_PREFIX = 'kijkassistent:recommendations:'
 function loadCachedRecommendations(userId: string): Record<RecommendationMode, Movie[]> | null {
   try {
     const raw = localStorage.getItem(RECOMMENDATIONS_CACHE_KEY_PREFIX + userId)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    // Spread over EMPTY_RESULTS zodat een cache van vóór de "Samen"-tab (zonder dat
+    // veld) niet crasht op een undefined array.
+    return { ...EMPTY_RESULTS, ...JSON.parse(raw) }
   } catch {
     return null
   }
@@ -57,7 +62,10 @@ export default function Home() {
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
   const [mode, setMode] = useState<RecommendationMode>('balanced')
+  const [togetherConnected, setTogetherConnected] = useState<boolean | null>(null)
+  const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
   const requestIdRef = useRef(0)
+  const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
   // Mobiele browsers wachten na een tik nog ~300ms af of het een dubbele tik (zoom)
   // wordt. Tikt iemand snel twee keer op dezelfde plek, dan opent de eerste tik deze
@@ -75,6 +83,7 @@ export default function Home() {
           setLoading(false)
         }
         loadRecommendations()
+        loadTogetherRecommendations()
       } else {
         setLoading(false)
       }
@@ -98,9 +107,36 @@ export default function Home() {
       balanced: data.balanced || [],
       explore: data.explore || [],
     }
-    setByMode(fresh)
     setLoading(false)
-    saveCachedRecommendations(session.user.id, fresh)
+    // "Samen" (fresh.samen ontbreekt hier bewust) mag niet worden overschreven met een
+    // lege lijst — behoud wat loadTogetherRecommendations daar eventueel al in zette.
+    setByMode((current) => {
+      const merged = { ...current, ...fresh }
+      saveCachedRecommendations(session.user.id, merged)
+      return merged
+    })
+  }
+
+  // Los van loadRecommendations: "Samen" draait op een eigen endpoint (combineert twee
+  // smaakprofielen) en heeft dus geen eigen resultaat-cache — een ontbrekende/verouderde
+  // koppeling mag nooit de gewone drie tabbladen blokkeren of vertragen.
+  async function loadTogetherRecommendations() {
+    const requestId = ++togetherRequestIdRef.current
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    try {
+      const res = await fetch('/api/recommendations-together', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      const data = await res.json()
+      if (requestId !== togetherRequestIdRef.current) return
+      setTogetherConnected(!!data.connected)
+      setTogetherTier(data.tier || null)
+      setByMode((current) => ({ ...current, samen: data.items || [] }))
+    } catch {
+      if (requestId !== togetherRequestIdRef.current) return
+      setTogetherConnected(false)
+    }
   }
 
   function handleModeChange(nextMode: RecommendationMode) {
@@ -112,6 +148,7 @@ export default function Home() {
       focused: current.focused.filter((m) => !movieKey(m)),
       balanced: current.balanced.filter((m) => !movieKey(m)),
       explore: current.explore.filter((m) => !movieKey(m)),
+      samen: current.samen.filter((m) => !movieKey(m)),
     }))
   }
 
@@ -156,6 +193,7 @@ export default function Home() {
     // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond
     // verversen zodat dat effect zichtbaar wordt zonder dat je zelf hoeft te vernieuwen.
     loadRecommendations()
+    if (togetherConnected) loadTogetherRecommendations()
   }
 
   async function handleLogout() {
@@ -215,7 +253,10 @@ export default function Home() {
           Instellingen
         </a>
         <button
-          onClick={() => loadRecommendations()}
+          onClick={() => {
+            loadRecommendations()
+            loadTogetherRecommendations()
+          }}
           disabled={loading}
           className="ml-auto text-sm text-[#9FB0C2] hover:text-[#F2EFE9] transition-colors disabled:opacity-50"
         >
@@ -272,11 +313,30 @@ export default function Home() {
         <p className="text-sm text-[#9FB0C2] mb-4">Nieuwe aanbevelingen laden...</p>
       )}
 
-      {!loading && visible.length === 0 && (
+      {mode === 'samen' && togetherConnected === false && (
+        <p className="text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-6 mb-4">
+          Je hebt nog geen partner gekoppeld.{' '}
+          <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
+            Koppel er een bij Instellingen
+          </a>{' '}
+          om samen aanbevelingen te zien.
+        </p>
+      )}
+
+      {mode === 'samen' && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
+        <p className="text-sm text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-3 mb-4">
+          Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
+          zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
+        </p>
+      )}
+
+      {!loading && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
         <p className="text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-6">
-          {tab === 'movie'
-            ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
-            : 'Geen serie-aanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete series toe of pas je diensten aan.'}
+          {mode === 'samen'
+            ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
+            : tab === 'movie'
+              ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
+              : 'Geen serie-aanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete series toe of pas je diensten aan.'}
         </p>
       )}
 
