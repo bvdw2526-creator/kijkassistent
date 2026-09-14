@@ -323,8 +323,10 @@ export default function Home() {
     )
   }
 
-  const movieResults = movies.filter((m) => m.media_type === 'movie')
-  const tvResults = movies.filter((m) => m.media_type === 'tv')
+  // Hoogste match% bovenaan, ongeacht de volgorde waarin de aanbevelingsengine ze
+  // aanleverde (die mixt met opzet genres door elkaar voor variatie).
+  const movieResults = movies.filter((m) => m.media_type === 'movie').sort((a, b) => b.matchPercent - a.matchPercent)
+  const tvResults = movies.filter((m) => m.media_type === 'tv').sort((a, b) => b.matchPercent - a.matchPercent)
   const visible = tab === 'movie' ? movieResults : tvResults
   const showSkeleton = loading && movies.length === 0
 
