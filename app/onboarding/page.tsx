@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BottomNav from '../components/BottomNav'
+import { btnPrimary, input, chip, card } from '../components/ui'
+import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from '../components/Icons'
 
 type Movie = {
   id: number
@@ -15,10 +17,10 @@ type Movie = {
 type Rating = 'love' | 'ok' | 'dislike'
 type RatedMovie = { id: number; title: string; media_type: 'movie' | 'tv'; rating: Rating }
 
-const RATING_BUTTONS: { rating: Rating; label: string; activeClass: string; hoverClass: string }[] = [
-  { rating: 'love', label: 'Zeker meer zoals dit', activeClass: 'border-[#E8A33D] text-[#E8A33D]', hoverClass: 'hover:border-[#E8A33D] hover:text-[#E8A33D]' },
-  { rating: 'ok', label: 'Was oké', activeClass: 'border-[#52A9A0] text-[#52A9A0]', hoverClass: 'hover:border-[#52A9A0] hover:text-[#52A9A0]' },
-  { rating: 'dislike', label: 'Niet voor mij', activeClass: 'border-[#C97064] text-[#C97064]', hoverClass: 'hover:border-[#C97064] hover:text-[#C97064]' },
+const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' | 'coral' }[] = [
+  { rating: 'love', label: 'Zeker meer zoals dit', tone: 'accent' },
+  { rating: 'ok', label: 'Was oké', tone: 'teal' },
+  { rating: 'dislike', label: 'Niet voor mij', tone: 'coral' },
 ]
 
 export default function Onboarding() {
@@ -209,183 +211,171 @@ export default function Onboarding() {
   const tvFavorites = favorites.filter((f) => f.media_type === 'tv')
 
   return (
-    <main className="max-w-xl mx-auto px-6 py-10">
-      <h1 className="font-display text-2xl mb-1">Films en series zoeken</h1>
-      <p className="text-[#9FB0C2] mb-6">
-        Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
-      </p>
-
-      {ratingError && (
-        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-6">
-          {ratingError}
+    <>
+      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+        <h1 className="font-display text-2xl mb-1">Films en series zoeken</h1>
+        <p className="text-[#93A3B5] mb-6 leading-relaxed">
+          Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
         </p>
-      )}
 
-      <div className="flex gap-2 mb-6">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="Zoek een film of serie..."
-          className="flex-1 bg-[#202B3A] border border-[#3A4A5C] rounded-sm px-3 py-2.5 text-[#F2EFE9] placeholder:text-[#6B7A8C] outline-none focus:border-[#E8A33D] transition-colors"
-        />
-        <button
-          onClick={handleSearch}
-          disabled={loading}
-          className="bg-[#E8A33D] text-[#171F2B] font-medium rounded-sm px-5 hover:bg-[#F0B457] transition-colors disabled:opacity-50"
-        >
-          Zoeken
-        </button>
-      </div>
+        {ratingError && (
+          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+            {ratingError}
+          </p>
+        )}
 
-      {results.length > 0 && (
-        <div className="flex flex-col mb-10">
-          {results.map((movie, i) => {
-            const added = favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)
-            const currentRating = ratings.get(ratingKey(movie))
-            return (
-              <div
-                key={`${movie.media_type}-${movie.id}`}
-                className={`flex flex-col gap-2 py-3 ${i !== results.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
-              >
-                <div className="flex items-center gap-3">
-                  {movie.poster_path && (
-                    <img
-                      src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                      alt={movie.title}
-                      className="w-10 rounded-sm flex-shrink-0"
-                    />
-                  )}
-                  <span className="flex-1 text-sm">
-                    {movie.title} <span className="text-[#9FB0C2]">({movie.release_date?.slice(0, 4)})</span>{' '}
-                    <span className="text-xs text-[#6B7A8C]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
-                  </span>
-                  <button
-                    onClick={() => addFavorite(movie)}
-                    className={`text-sm rounded-sm px-3 py-1 border transition-colors flex-shrink-0 ${
-                      added
-                        ? 'border-[#52A9A0] text-[#52A9A0]'
-                        : 'border-[#3A4A5C] hover:border-[#E8A33D] hover:text-[#E8A33D]'
-                    }`}
-                  >
-                    {added ? 'Toegevoegd' : 'Toevoegen'}
-                  </button>
-                </div>
-                <div className="flex gap-2 flex-wrap pl-[52px]">
-                  {RATING_BUTTONS.map(({ rating, label, activeClass, hoverClass }) => (
+        <div className="flex gap-2 mb-6">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Zoek een film of serie..."
+              className={`${input} pl-10`}
+            />
+          </div>
+          <button onClick={handleSearch} disabled={loading} className={btnPrimary}>
+            Zoeken
+          </button>
+        </div>
+
+        {results.length > 0 && (
+          <div className="flex flex-col gap-2 mb-10">
+            {results.map((movie) => {
+              const added = favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)
+              const currentRating = ratings.get(ratingKey(movie))
+              return (
+                <div key={`${movie.media_type}-${movie.id}`} className={`${card} p-3`}>
+                  <div className="flex items-center gap-3">
+                    {movie.poster_path ? (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                        alt={movie.title}
+                        className="w-11 rounded-lg flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-11 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
+                    )}
+                    <span className="flex-1 text-sm min-w-0">
+                      <span className="block font-medium truncate">{movie.title}</span>
+                      <span className="text-xs text-[#93A3B5]">
+                        {movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}
+                      </span>
+                    </span>
                     <button
-                      key={rating}
-                      onClick={() => rateMovie(movie, rating)}
-                      className={`text-xs rounded-sm px-2.5 py-1 border transition-colors ${
-                        currentRating === rating ? activeClass : `border-[#3A4A5C] ${hoverClass}`
+                      onClick={() => addFavorite(movie)}
+                      className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
+                        added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
                       }`}
                     >
-                      {label}
+                      {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
+                      {added ? 'Toegevoegd' : 'Toevoegen'}
                     </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
-
-      {favorites.length === 0 && (
-        <p className="text-[#9FB0C2] text-sm mb-6">Nog geen favorieten toegevoegd.</p>
-      )}
-
-      {movieFavorites.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm text-[#9FB0C2] mb-2">Films ({movieFavorites.length})</h3>
-          <div className="flex flex-col">
-            {movieFavorites.map((movie, i) => (
-              <div
-                key={`movie-${movie.id}`}
-                className={`flex items-center gap-3 py-2.5 ${i !== movieFavorites.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
-              >
-                <span className="flex-1 text-sm">{movie.title}</span>
-                <button
-                  onClick={() => removeFavorite(movie)}
-                  className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors"
-                >
-                  Verwijderen
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tvFavorites.length > 0 && (
-        <div className="mb-6">
-          <h3 className="text-sm text-[#9FB0C2] mb-2">Series ({tvFavorites.length})</h3>
-          <div className="flex flex-col">
-            {tvFavorites.map((movie, i) => (
-              <div
-                key={`tv-${movie.id}`}
-                className={`flex items-center gap-3 py-2.5 ${i !== tvFavorites.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
-              >
-                <span className="flex-1 text-sm">{movie.title}</span>
-                <button
-                  onClick={() => removeFavorite(movie)}
-                  className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors"
-                >
-                  Verwijderen
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <h2 className="font-display text-lg mb-3">Jouw beoordelingen ({ratedMovies.length})</h2>
-
-      {ratedMovies.length === 0 && (
-        <p className="text-[#9FB0C2] text-sm mb-6">Nog geen films of series beoordeeld.</p>
-      )}
-
-      {RATING_BUTTONS.map(({ rating: groupRating, label: groupLabel }) => {
-        const items = ratedMovies.filter((r) => r.rating === groupRating)
-        if (items.length === 0) return null
-        return (
-          <div key={groupRating} className="mb-6">
-            <h3 className="text-sm text-[#9FB0C2] mb-2">{groupLabel} ({items.length})</h3>
-            <div className="flex flex-col">
-              {items.map((movie, i) => (
-                <div
-                  key={ratingKey(movie)}
-                  className={`flex items-center gap-3 py-2.5 flex-wrap ${i !== items.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
-                >
-                  <span className="flex-1 text-sm min-w-[140px]">
-                    {movie.title}{' '}
-                    <span className="text-xs text-[#6B7A8C]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
-                  </span>
-                  <div className="flex gap-2 flex-wrap">
-                    {RATING_BUTTONS.map(({ rating, label, activeClass, hoverClass }) => (
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap mt-3 pl-[56px]">
+                    {RATING_BUTTONS.map(({ rating, label, tone }) => (
                       <button
                         key={rating}
                         onClick={() => rateMovie(movie, rating)}
-                        className={`text-xs rounded-sm px-2.5 py-1 border transition-colors ${
-                          movie.rating === rating ? activeClass : `border-[#3A4A5C] ${hoverClass}`
-                        }`}
+                        className={`${chip(currentRating === rating, tone, "sm")}`}
                       >
                         {label}
                       </button>
                     ))}
                   </div>
                 </div>
+              )
+            })}
+          </div>
+        )}
+
+        <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
+
+        {favorites.length === 0 && (
+          <p className="text-[#93A3B5] text-sm mb-6">Nog geen favorieten toegevoegd.</p>
+        )}
+
+        {movieFavorites.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm text-[#93A3B5] mb-2">Films ({movieFavorites.length})</h3>
+            <div className="flex flex-col gap-1.5">
+              {movieFavorites.map((movie) => (
+                <div key={`movie-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
+                  <span className="flex-1 text-sm truncate">{movie.title}</span>
+                  <button
+                    onClick={() => removeFavorite(movie)}
+                    className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                    aria-label="Verwijderen"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
-        )
-      })}
+        )}
 
-      <Link href="/" className="inline-block mt-4 text-[#E8A33D] hover:text-[#F0B457] transition-colors text-sm">
-        Naar je aanbevelingen
-      </Link>
-    </main>
+        {tvFavorites.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm text-[#93A3B5] mb-2">Series ({tvFavorites.length})</h3>
+            <div className="flex flex-col gap-1.5">
+              {tvFavorites.map((movie) => (
+                <div key={`tv-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
+                  <span className="flex-1 text-sm truncate">{movie.title}</span>
+                  <button
+                    onClick={() => removeFavorite(movie)}
+                    className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                    aria-label="Verwijderen"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <h2 className="font-display text-lg mb-3">Jouw beoordelingen ({ratedMovies.length})</h2>
+
+        {ratedMovies.length === 0 && (
+          <p className="text-[#93A3B5] text-sm mb-6">Nog geen films of series beoordeeld.</p>
+        )}
+
+        {RATING_BUTTONS.map(({ rating: groupRating, label: groupLabel }) => {
+          const items = ratedMovies.filter((r) => r.rating === groupRating)
+          if (items.length === 0) return null
+          return (
+            <div key={groupRating} className="mb-6">
+              <h3 className="text-sm text-[#93A3B5] mb-2">{groupLabel} ({items.length})</h3>
+              <div className="flex flex-col gap-1.5">
+                {items.map((movie) => (
+                  <div key={ratingKey(movie)} className={`${card} flex items-center gap-3 flex-wrap px-4 py-2.5`}>
+                    <span className="flex-1 text-sm min-w-[140px] truncate">
+                      {movie.title}{' '}
+                      <span className="text-xs text-[#5E6D80]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                    </span>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {RATING_BUTTONS.map(({ rating, label, tone }) => (
+                        <button
+                          key={rating}
+                          onClick={() => rateMovie(movie, rating)}
+                          className={`${chip(movie.rating === rating, tone, "sm")}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </main>
+
+      <BottomNav />
+    </>
   )
 }

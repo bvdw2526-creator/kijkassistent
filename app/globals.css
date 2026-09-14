@@ -1,29 +1,101 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #10151C;
+  --surface: #1A2330;
+  --surface-2: #212C3B;
+  --border: #2A3644;
+  --border-soft: #232D3B;
+  --foreground: #F2EFE9;
+  --muted: #93A3B5;
+  --faint: #5E6D80;
+  --accent: #E8A33D;
+  --accent-hover: #F0B457;
+  --accent-soft: rgba(232, 163, 61, 0.14);
+  --teal: #52A9A0;
+  --teal-soft: rgba(82, 169, 160, 0.14);
+  --coral: #C97064;
+  --coral-soft: rgba(201, 112, 100, 0.14);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  overscroll-behavior-y: none;
 }
+
 .font-display {
   font-family: var(--font-display), serif;
+}
+
+/* Subtle warm glow behind the top of the page for depth, without any images. */
+.bg-glow {
+  background:
+    radial-gradient(90% 55% at 50% 0%, rgba(232, 163, 61, 0.10), transparent 60%),
+    var(--background);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-pop-in {
+  animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+.animate-skeleton {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
 }

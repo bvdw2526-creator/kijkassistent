@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import BottomNav from './components/BottomNav'
+import MovieCard from './components/MovieCard'
+import { btnPrimary, btnGhost } from './components/ui'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, LogoutIcon } from './components/Icons'
 
 type Movie = {
   id: number
@@ -53,6 +57,16 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
   } catch {
     // Privénavigatie of volle quota — dan cachen we gewoon niet, geen probleem.
   }
+}
+
+function PosterSkeletonGrid() {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="aspect-[2/3] rounded-xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+      ))}
+    </div>
+  )
 }
 
 export default function Home() {
@@ -247,25 +261,25 @@ export default function Home() {
 
   const movies = byMode[mode]
 
-  if (loading && movies.length === 0) {
+  if (loading && movies.length === 0 && !user) {
     return (
-      <p className="p-8 text-[#9FB0C2]">
-        Laden... de allereerste keer (of na nieuwe favorieten/beoordelingen) duurt dit door alle TMDB-opzoekingen wat langer, daarna gaat het sneller.
-      </p>
+      <main className="max-w-xl mx-auto px-6 py-10">
+        <PosterSkeletonGrid />
+      </main>
     )
   }
 
-  if (!user) {
+  if (!user && !loading) {
     return (
-      <main className="max-w-md mx-auto px-6 py-16">
-        <h1 className="font-display text-3xl mb-2">Kijkassistent</h1>
-        <p className="text-[#9FB0C2] mb-6">
+      <main className="min-h-screen flex flex-col justify-center max-w-md mx-auto px-6 py-16">
+        <p className="font-display text-sm tracking-[0.2em] uppercase text-[#E8A33D] mb-3">Kijkassistent</p>
+        <h1 className="font-display text-4xl leading-tight mb-3">
+          Weten wat je vanavond gaat kijken.
+        </h1>
+        <p className="text-[#93A3B5] mb-8 leading-relaxed">
           Persoonlijke films- en series-aanbevelingen, op basis van wat jij mooi vindt.
         </p>
-        <a
-          href="/login"
-          className="inline-block bg-[#E8A33D] text-[#171F2B] px-5 py-2.5 rounded-sm font-medium hover:bg-[#F0B457] transition-colors"
-        >
+        <a href="/login" className={btnPrimary}>
           Log in of registreer
         </a>
       </main>
@@ -275,231 +289,221 @@ export default function Home() {
   const movieResults = movies.filter((m) => m.media_type === 'movie')
   const tvResults = movies.filter((m) => m.media_type === 'tv')
   const visible = tab === 'movie' ? movieResults : tvResults
+  const showSkeleton = loading && movies.length === 0
 
   return (
-    <main className="max-w-xl mx-auto px-6 py-10">
-      <header className="flex items-baseline justify-between mb-1">
-        <h1 className="font-display text-2xl">Voor jou</h1>
-        <button onClick={handleLogout} className="text-sm text-[#9FB0C2] hover:text-[#F2EFE9] transition-colors">
-          Uitloggen
-        </button>
-      </header>
-      <p className="text-[#9FB0C2] mb-6">Wat bij jouw smaak past, nu te zien</p>
-
-      <nav className="flex gap-4 mb-6 text-sm items-center">
-        <a href="/onboarding" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-          Favorieten en beoordelingen
-        </a>
-        <a href="/watchlist" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-          Watchlist
-        </a>
-        <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-          Instellingen
-        </a>
-        <button
-          onClick={() => {
-            loadRecommendations()
-            loadTogetherRecommendations()
-          }}
-          disabled={loading}
-          className="ml-auto text-sm text-[#9FB0C2] hover:text-[#F2EFE9] transition-colors disabled:opacity-50"
-        >
-          {loading ? 'Vernieuwen...' : 'Vernieuw aanbevelingen'}
-        </button>
-      </nav>
-
-      {/* Mode-slicer, ticket-stub stijl */}
-      <div className="flex gap-3 mb-8">
-        {(Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => {
-          const active = mode === m
-          return (
-            <button
-              key={m}
-              onClick={() => handleModeChange(m)}
-              className={`flex-1 text-left px-3 py-2.5 rounded-sm border transition-colors ${
-                active
-                  ? 'border-[#E8A33D] bg-[#E8A33D]/10'
-                  : 'border-dashed border-[#3A4A5C] hover:border-[#9FB0C2]'
-              }`}
-              style={{
-                borderStyle: active ? 'solid' : 'dashed',
-              }}
-            >
-              <p className={`text-sm font-medium ${active ? 'text-[#E8A33D]' : 'text-[#F2EFE9]'}`}>
-                {MODE_LABELS[m].label}
-              </p>
-              <p className="text-xs text-[#9FB0C2] mt-0.5">{MODE_LABELS[m].hint}</p>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Tijdelijke debug-regel om te zien of byMode.samen daadwerkelijk gevuld is bij
-          deze render, i.p.v. te moeten gokken op eventueel verouderde console-logs. */}
-      <p className="text-xs text-[#6B7A8C] mb-2">
-        debug: mode={mode} · samen={byMode.samen.length} · connected={String(togetherConnected)} · tier={togetherTier ?? 'null'}
-      </p>
-
-      <div className="flex border-b border-[#3A4A5C] mb-6">
-        <button
-          onClick={() => setTab('movie')}
-          className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
-            tab === 'movie' ? 'border-[#E8A33D] text-[#E8A33D]' : 'border-transparent text-[#9FB0C2] hover:text-[#F2EFE9]'
-          }`}
-        >
-          Films ({movieResults.length})
-        </button>
-        <button
-          onClick={() => setTab('tv')}
-          className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
-            tab === 'tv' ? 'border-[#E8A33D] text-[#E8A33D]' : 'border-transparent text-[#9FB0C2] hover:text-[#F2EFE9]'
-          }`}
-        >
-          Series ({tvResults.length})
-        </button>
-      </div>
-
-      {loading && (
-        <p className="text-sm text-[#9FB0C2] mb-4">Nieuwe aanbevelingen laden...</p>
-      )}
-
-      {mode === 'samen' && togetherError && (
-        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-4">
-          Samen-aanbevelingen laden mislukt: {togetherError}
-        </p>
-      )}
-
-      {mode === 'samen' && togetherConnected === false && (
-        <p className="text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-6 mb-4">
-          Je hebt nog geen partner gekoppeld.{' '}
-          <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
-            Koppel er een bij Instellingen
-          </a>{' '}
-          om samen aanbevelingen te zien.
-        </p>
-      )}
-
-      {mode === 'samen' && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
-        <p className="text-sm text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-3 mb-4">
-          Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
-          zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
-        </p>
-      )}
-
-      {!loading && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
-        <p className="text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-6">
-          {mode === 'samen'
-            ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
-            : tab === 'movie'
-              ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
-              : 'Geen serie-aanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete series toe of pas je diensten aan.'}
-        </p>
-      )}
-
-      <div className="flex flex-col">
-        {visible.map((movie, i) => (
-          <div
-            key={`${movie.media_type}-${movie.id}`}
-            className={`flex gap-4 py-4 ${i !== visible.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
+    <>
+      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+        <header className="flex items-center justify-between mb-5">
+          <div>
+            <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D]">Kijkassistent</p>
+            <h1 className="font-display text-2xl mt-0.5">Voor jou</h1>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors px-3 py-2 rounded-full hover:bg-white/5"
           >
-            <button
-              onClick={() => {
-                selectedAtRef.current = Date.now()
-                setSelected(movie)
-              }}
-              className="flex gap-4 flex-1 text-left min-w-0 touch-manipulation"
-            >
-              {movie.poster_path && (
-                <img
-                  src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`}
-                  alt={movie.title}
-                  className="w-16 rounded-sm flex-shrink-0"
-                />
-              )}
-              <div className="min-w-0">
-                <p className="font-medium hover:text-[#E8A33D] transition-colors">{movie.title}</p>
-                <p className="text-sm text-[#9FB0C2] mt-0.5">
-                  {movie.matchPercent}% match
-                  {movie.watchOn && <span className="text-[#E8A33D]"> · {movie.watchOn}</span>}
+            <LogoutIcon className="w-4 h-4" />
+          </button>
+        </header>
+
+        {/* Mode-slicer */}
+        <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
+          {(Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => {
+            const active = mode === m
+            return (
+              <button
+                key={m}
+                onClick={() => handleModeChange(m)}
+                className={`flex-shrink-0 text-left px-4 py-2.5 rounded-2xl border transition-all touch-manipulation active:scale-[0.97] ${
+                  active
+                    ? 'border-[#E8A33D] bg-[#E8A33D]/10'
+                    : 'border-[#2A3644] hover:border-[#3d4c60]'
+                }`}
+              >
+                <p className={`text-sm font-semibold ${active ? 'text-[#E8A33D]' : 'text-[#F2EFE9]'}`}>
+                  {MODE_LABELS[m].label}
                 </p>
-              </div>
+                <p className="text-[11px] text-[#93A3B5] mt-0.5 whitespace-nowrap">{MODE_LABELS[m].hint}</p>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644]">
+            <button
+              onClick={() => setTab('movie')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                tab === 'movie' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+              }`}
+            >
+              Films ({movieResults.length})
+            </button>
+            <button
+              onClick={() => setTab('tv')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                tab === 'tv' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+              }`}
+            >
+              Series ({tvResults.length})
             </button>
           </div>
-        ))}
-      </div>
+          <button
+            onClick={() => {
+              loadRecommendations()
+              loadTogetherRecommendations()
+            }}
+            disabled={loading}
+            className="text-xs font-medium text-[#93A3B5] hover:text-[#F2EFE9] transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Vernieuwen...' : 'Vernieuwen'}
+          </button>
+        </div>
+
+        {mode === 'samen' && togetherError && (
+          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">
+            Samen-aanbevelingen laden mislukt: {togetherError}
+          </p>
+        )}
+
+        {mode === 'samen' && togetherConnected === false && (
+          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-6 mb-5 text-center">
+            Je hebt nog geen partner gekoppeld.{' '}
+            <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
+              Koppel er een bij Instellingen
+            </a>{' '}
+            om samen aanbevelingen te zien.
+          </p>
+        )}
+
+        {mode === 'samen' && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
+          <p className="text-sm text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-3 mb-5">
+            Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
+            zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
+          </p>
+        )}
+
+        {showSkeleton && <PosterSkeletonGrid />}
+
+        {!showSkeleton && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
+          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center leading-relaxed">
+            {mode === 'samen'
+              ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
+              : tab === 'movie'
+                ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
+                : 'Geen serie-aanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete series toe of pas je diensten aan.'}
+          </p>
+        )}
+
+        {!showSkeleton && visible.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {visible.map((movie) => (
+              <MovieCard
+                key={`${movie.media_type}-${movie.id}`}
+                movie={movie}
+                onClick={() => {
+                  selectedAtRef.current = Date.now()
+                  setSelected(movie)
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <BottomNav />
 
       {selected && (
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 animate-fade-in"
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-[#1F2937] border border-[#3A4A5C] rounded-sm max-w-md w-full p-6 max-h-[85vh] overflow-y-auto"
+            className="w-full sm:max-w-md bg-[#1A2330] border border-[#2A3644] rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex gap-4 mb-4">
-              {selected.poster_path && (
-                <img
-                  src={`https://image.tmdb.org/t/p/w200${selected.poster_path}`}
-                  alt={selected.title}
-                  className="w-20 rounded-sm flex-shrink-0"
-                />
-              )}
-              <div>
-                <h2 className="font-display text-xl">{selected.title}</h2>
-                <p className="text-sm text-[#9FB0C2] mt-1">
-                  {selected.media_type === 'tv' ? 'Serie' : 'Film'} · {selected.matchPercent}% match
-                  {selected.watchOn && <span className="text-[#E8A33D]"> · {selected.watchOn}</span>}
-                </p>
-              </div>
+            <div className="flex justify-center pt-3 sm:hidden">
+              <div className="w-10 h-1 rounded-full bg-[#3A4A5C]" />
             </div>
 
-            {selected.overview && (
-              <p className="text-sm text-[#F2EFE9] leading-relaxed mb-4">{selected.overview}</p>
-            )}
+            <div className="p-6">
+              <div className="flex gap-4 mb-4">
+                {selected.poster_path ? (
+                  <img
+                    src={`https://image.tmdb.org/t/p/w200${selected.poster_path}`}
+                    alt={selected.title}
+                    className="w-24 rounded-xl flex-shrink-0 shadow-lg"
+                  />
+                ) : (
+                  <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl leading-tight">{selected.title}</h2>
+                  <p className="text-sm text-[#93A3B5] mt-1.5">
+                    {selected.media_type === 'tv' ? 'Serie' : 'Film'}
+                  </p>
+                  <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
+                    {selected.matchPercent}% match
+                  </span>
+                  {selected.watchOn && (
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
+                      {selected.watchOn}
+                    </span>
+                  )}
+                </div>
+              </div>
 
-            {selected.basedOn && selected.basedOn.length > 0 && (
-              <p className="text-sm text-[#9FB0C2] mb-6">
-                Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{selected.basedOn.join(', ')}</span>
-              </p>
-            )}
+              {selected.overview && (
+                <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-4">{selected.overview}</p>
+              )}
 
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => handleAddToWatchlist(selected)}
-                className="text-sm bg-[#E8A33D] text-[#171F2B] rounded-sm px-3 py-1.5 hover:bg-[#F0B457] transition-colors font-medium touch-manipulation"
-              >
+              {selected.basedOn && selected.basedOn.length > 0 && (
+                <p className="text-sm text-[#93A3B5] mb-6">
+                  Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{selected.basedOn.join(', ')}</span>
+                </p>
+              )}
+
+              <button onClick={() => handleAddToWatchlist(selected)} className={`${btnPrimary} w-full mb-3`}>
+                <PlusIcon className="w-4 h-4" />
                 Op watchlist
               </button>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => handleRate(selected, 'love')}
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#E8A33D] hover:text-[#E8A33D]"
+                >
+                  <HeartIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium">Zeker</span>
+                </button>
+                <button
+                  onClick={() => handleRate(selected, 'ok')}
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#52A9A0] hover:text-[#52A9A0]"
+                >
+                  <OkIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium">Was oké</span>
+                </button>
+                <button
+                  onClick={() => handleRate(selected, 'dislike')}
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#C97064] hover:text-[#C97064]"
+                >
+                  <DislikeIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium">Niet voor mij</span>
+                </button>
+              </div>
+
               <button
-                onClick={() => handleRate(selected, 'love')}
-                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#E8A33D] hover:text-[#E8A33D] transition-colors touch-manipulation"
+                onClick={() => setSelected(null)}
+                className={`${btnGhost} w-full mt-3`}
               >
-                Zeker meer zoals dit
-              </button>
-              <button
-                onClick={() => handleRate(selected, 'ok')}
-                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#52A9A0] hover:text-[#52A9A0] transition-colors touch-manipulation"
-              >
-                Was oké
-              </button>
-              <button
-                onClick={() => handleRate(selected, 'dislike')}
-                className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1.5 hover:border-[#C97064] hover:text-[#C97064] transition-colors touch-manipulation"
-              >
-                Niet voor mij
+                <CloseIcon className="w-4 h-4" />
+                Sluiten
               </button>
             </div>
-
-            <button
-              onClick={() => setSelected(null)}
-              className="text-sm text-[#9FB0C2] hover:text-[#F2EFE9] transition-colors mt-4"
-            >
-              Sluiten
-            </button>
           </div>
         </div>
       )}
-    </main>
+    </>
   )
 }

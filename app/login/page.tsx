@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { btnPrimary, btnSecondary, input } from '../components/ui'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -30,43 +31,48 @@ export default function Login() {
   }
 
   return (
-    <main className="max-w-sm mx-auto px-6 py-16">
+    <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-2">Welkom terug</p>
       <h1 className="font-display text-3xl mb-1">Kijkassistent</h1>
-      <p className="text-[#9FB0C2] mb-8">Log in of maak een account aan.</p>
+      <p className="text-[#93A3B5] mb-8">Log in of maak een account aan.</p>
 
-      <div className="flex flex-col gap-3">
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          handleSignIn()
+        }}
+      >
         <input
           type="email"
           placeholder="E-mailadres"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="bg-[#202B3A] border border-[#3A4A5C] rounded-sm px-3 py-2.5 text-[#F2EFE9] placeholder:text-[#6B7A8C] outline-none focus:border-[#E8A33D] transition-colors"
+          className={input}
         />
         <input
           type="password"
           placeholder="Wachtwoord"
+          autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="bg-[#202B3A] border border-[#3A4A5C] rounded-sm px-3 py-2.5 text-[#F2EFE9] placeholder:text-[#6B7A8C] outline-none focus:border-[#E8A33D] transition-colors"
+          className={input}
         />
 
-        <button
-          onClick={handleSignIn}
-          disabled={loading}
-          className="bg-[#E8A33D] text-[#171F2B] font-medium rounded-sm px-4 py-2.5 mt-2 hover:bg-[#F0B457] transition-colors disabled:opacity-50"
-        >
+        {error && (
+          <p className="text-[#C97064] text-sm bg-[#C97064]/5 border border-[#C97064]/40 rounded-xl px-3.5 py-2.5">
+            {error}
+          </p>
+        )}
+
+        <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
           Inloggen
         </button>
-        <button
-          onClick={handleSignUp}
-          disabled={loading}
-          className="border border-[#3A4A5C] rounded-sm px-4 py-2.5 hover:border-[#E8A33D] hover:text-[#E8A33D] transition-colors disabled:opacity-50"
-        >
+        <button type="button" onClick={handleSignUp} disabled={loading} className={btnSecondary}>
           Account aanmaken
         </button>
-
-        {error && <p className="text-[#C97064] text-sm mt-1">{error}</p>}
-      </div>
+      </form>
     </main>
   )
 }

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import BottomNav from '../components/BottomNav'
+import { btnPrimary, input, chip, card } from '../components/ui'
+import { SearchIcon, PlusIcon, CheckIcon, TrashIcon, UsersIcon } from '../components/Icons'
 
 const AVAILABLE_SERVICES = [
   { id: 'netflix', label: 'Netflix' },
@@ -63,6 +66,15 @@ type PartnerConnection = {
   status: 'pending' | 'accepted'
   direction: 'incoming' | 'outgoing'
   created_at: string
+}
+
+function SectionTitle({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="mb-3">
+      <h2 className="font-display text-lg">{title}</h2>
+      {hint && <p className="text-[#93A3B5] text-sm mt-0.5 leading-relaxed">{hint}</p>}
+    </div>
+  )
 }
 
 export default function Settings() {
@@ -244,240 +256,226 @@ export default function Settings() {
     setConnections(connections.filter((c) => c.id !== id))
   }
 
-  if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
+  if (loading) {
+    return (
+      <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
+        <div className="h-7 w-40 rounded-lg bg-[#1A2330] animate-skeleton mb-8" />
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-12 rounded-xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+          ))}
+        </div>
+      </main>
+    )
+  }
 
   return (
-    <main className="max-w-sm mx-auto px-6 py-10">
-      <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
-      <p className="text-[#9FB0C2] mb-6">Stel in wat je aanbevelingen beter maakt.</p>
+    <>
+      <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
+        <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
+        <p className="text-[#93A3B5] mb-6">Stel in wat je aanbevelingen beter maakt.</p>
 
-      {errorMessage && (
-        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-6">
-          {errorMessage}
-        </p>
-      )}
+        {errorMessage && (
+          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+            {errorMessage}
+          </p>
+        )}
 
-      <h2 className="font-display text-lg mb-2">Streamingdiensten</h2>
-      <p className="text-[#9FB0C2] text-sm mb-3">Selecteer waar je een abonnement op hebt.</p>
-      <div className="flex flex-col gap-2 mb-8">
-        {AVAILABLE_SERVICES.map((service) => {
-          const active = selected.includes(service.id)
-          return (
-            <button
-              key={service.id}
-              onClick={() => toggleService(service.id)}
-              className={`text-left rounded-sm border px-4 py-2.5 transition-colors ${
-                active ? 'border-[#E8A33D] text-[#E8A33D] bg-[#E8A33D]/10' : 'border-[#3A4A5C] hover:border-[#6B7A8C]'
-              }`}
-            >
-              {service.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <h2 className="font-display text-lg mb-2">Genres uitsluiten</h2>
-      <p className="text-[#9FB0C2] text-sm mb-3">
-        Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt.
-      </p>
-      <h3 className="text-sm text-[#9FB0C2] mb-2">Films</h3>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {MOVIE_GENRES.map((genre) => {
-          const active = excludedGenres.includes(genre.id)
-          return (
-            <button
-              key={genre.id}
-              onClick={() => toggleGenre(genre.id)}
-              className={`text-sm rounded-sm border px-3 py-1.5 transition-colors ${
-                active ? 'border-[#C97064] text-[#C97064] bg-[#C97064]/10' : 'border-[#3A4A5C] hover:border-[#6B7A8C]'
-              }`}
-            >
-              {genre.label}
-            </button>
-          )
-        })}
-      </div>
-      <h3 className="text-sm text-[#9FB0C2] mb-2">Series</h3>
-      <div className="flex flex-wrap gap-2 mb-8">
-        {TV_GENRES.map((genre) => {
-          const active = excludedGenres.includes(genre.id)
-          return (
-            <button
-              key={genre.id}
-              onClick={() => toggleGenre(genre.id)}
-              className={`text-sm rounded-sm border px-3 py-1.5 transition-colors ${
-                active ? 'border-[#C97064] text-[#C97064] bg-[#C97064]/10' : 'border-[#3A4A5C] hover:border-[#6B7A8C]'
-              }`}
-            >
-              {genre.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <h2 className="font-display text-lg mb-2">Favoriete acteurs &amp; actrices</h2>
-      <p className="text-[#9FB0C2] text-sm mb-3">
-        Tellen zwaar mee: films en series met een favoriet erin komen hoger in je aanbevelingen.
-      </p>
-
-      <div className="flex gap-2 mb-4">
-        <input
-          type="text"
-          value={personQuery}
-          onChange={(e) => setPersonQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handlePersonSearch()}
-          placeholder="Zoek een acteur of actrice..."
-          className="flex-1 bg-[#202B3A] border border-[#3A4A5C] rounded-sm px-3 py-2.5 text-[#F2EFE9] placeholder:text-[#6B7A8C] outline-none focus:border-[#E8A33D] transition-colors"
-        />
-        <button
-          onClick={handlePersonSearch}
-          disabled={personSearchLoading}
-          className="bg-[#E8A33D] text-[#171F2B] font-medium rounded-sm px-5 hover:bg-[#F0B457] transition-colors disabled:opacity-50"
-        >
-          Zoeken
-        </button>
-      </div>
-
-      {personResults.length > 0 && (
-        <div className="flex flex-col mb-6">
-          {personResults.map((person, i) => {
-            const added = favoritePeople.some((p) => p.person_id === person.id)
+        <SectionTitle title="Streamingdiensten" hint="Selecteer waar je een abonnement op hebt." />
+        <div className="grid grid-cols-2 gap-2 mb-8">
+          {AVAILABLE_SERVICES.map((service) => {
+            const active = selected.includes(service.id)
             return (
-              <div
-                key={person.id}
-                className={`flex items-center gap-3 py-2.5 ${i !== personResults.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
+              <button
+                key={service.id}
+                onClick={() => toggleService(service.id)}
+                className={`flex items-center gap-2 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.97] ${
+                  active ? 'border-[#E8A33D] text-[#E8A33D] bg-[#E8A33D]/10' : 'border-[#2A3644] hover:border-[#3d4c60]'
+                }`}
               >
-                {person.profile_path && (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
-                    alt={person.name}
-                    className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                  />
-                )}
-                <span className="flex-1 text-sm">{person.name}</span>
-                <button
-                  onClick={() => addFavoritePerson(person)}
-                  className={`text-sm rounded-sm px-3 py-1 border transition-colors flex-shrink-0 ${
-                    added
-                      ? 'border-[#52A9A0] text-[#52A9A0]'
-                      : 'border-[#3A4A5C] hover:border-[#E8A33D] hover:text-[#E8A33D]'
-                  }`}
-                >
-                  {added ? 'Toegevoegd' : 'Toevoegen'}
-                </button>
-              </div>
+                <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${
+                  active ? 'border-[#E8A33D] bg-[#E8A33D]' : 'border-[#3A4A5C]'
+                }`}>
+                  {active && <CheckIcon className="w-3 h-3 text-[#171F2B]" />}
+                </span>
+                <span className="text-sm font-medium">{service.label}</span>
+              </button>
             )
           })}
         </div>
-      )}
 
-      <h3 className="text-sm text-[#9FB0C2] mb-2">Jouw favorieten ({favoritePeople.length})</h3>
-      {favoritePeople.length === 0 && (
-        <p className="text-[#9FB0C2] text-sm mb-8">Nog geen favoriete acteurs of actrices toegevoegd.</p>
-      )}
-      {favoritePeople.length > 0 && (
-        <div className="flex flex-col mb-8">
-          {favoritePeople.map((person, i) => (
-            <div
-              key={person.person_id}
-              className={`flex items-center gap-3 py-2.5 ${i !== favoritePeople.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
-            >
-              {person.profile_path && (
-                <img
-                  src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
-                  alt={person.name}
-                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                />
-              )}
-              <span className="flex-1 text-sm">{person.name}</span>
-              <button
-                onClick={() => removeFavoritePerson(person.person_id)}
-                className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors"
-              >
-                Verwijderen
-              </button>
-            </div>
+        <SectionTitle
+          title="Genres uitsluiten"
+          hint="Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt."
+        />
+        <h3 className="text-sm text-[#93A3B5] mb-2">Films</h3>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {MOVIE_GENRES.map((genre) => (
+            <button key={genre.id} onClick={() => toggleGenre(genre.id)} className={chip(excludedGenres.includes(genre.id), 'coral')}>
+              {genre.label}
+            </button>
           ))}
         </div>
-      )}
+        <h3 className="text-sm text-[#93A3B5] mb-2">Series</h3>
+        <div className="flex flex-wrap gap-2 mb-8">
+          {TV_GENRES.map((genre) => (
+            <button key={genre.id} onClick={() => toggleGenre(genre.id)} className={chip(excludedGenres.includes(genre.id), 'coral')}>
+              {genre.label}
+            </button>
+          ))}
+        </div>
 
-      <h2 className="font-display text-lg mb-2">Partner koppelen</h2>
-      <p className="text-[#9FB0C2] text-sm mb-3">
-        Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf
-        accepteren voordat jullie smaak wordt gecombineerd.
-      </p>
-
-      <div className="flex gap-2 mb-4">
-        <input
-          type="email"
-          value={partnerEmail}
-          onChange={(e) => setPartnerEmail(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && sendInvite()}
-          placeholder="E-mailadres van je partner"
-          className="flex-1 bg-[#202B3A] border border-[#3A4A5C] rounded-sm px-3 py-2.5 text-[#F2EFE9] placeholder:text-[#6B7A8C] outline-none focus:border-[#E8A33D] transition-colors"
+        <SectionTitle
+          title="Favoriete acteurs & actrices"
+          hint="Tellen zwaar mee: films en series met een favoriet erin komen hoger in je aanbevelingen."
         />
-        <button
-          onClick={sendInvite}
-          disabled={inviteLoading}
-          className="bg-[#E8A33D] text-[#171F2B] font-medium rounded-sm px-5 hover:bg-[#F0B457] transition-colors disabled:opacity-50"
-        >
-          Uitnodigen
-        </button>
-      </div>
 
-      {connections.length === 0 && (
-        <p className="text-[#9FB0C2] text-sm mb-8">Nog geen koppeling met een partner.</p>
-      )}
-      {connections.length > 0 && (
-        <div className="flex flex-col mb-8">
-          {connections.map((c, i) => (
-            <div
-              key={c.id}
-              className={`flex items-center gap-3 py-2.5 flex-wrap ${i !== connections.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
-            >
-              <span className="flex-1 text-sm min-w-[160px]">
-                {c.other_email}
-                <span className="text-xs text-[#6B7A8C]">
-                  {' '}
-                  {c.status === 'accepted'
-                    ? '· gekoppeld'
-                    : c.direction === 'incoming'
-                      ? '· wil koppelen'
-                      : '· wacht op reactie'}
-                </span>
-              </span>
-              <div className="flex gap-2">
-                {c.status === 'pending' && c.direction === 'incoming' && (
+        <div className="flex gap-2 mb-4">
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+            <input
+              type="text"
+              value={personQuery}
+              onChange={(e) => setPersonQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePersonSearch()}
+              placeholder="Zoek een acteur of actrice..."
+              className={`${input} pl-10`}
+            />
+          </div>
+          <button onClick={handlePersonSearch} disabled={personSearchLoading} className={btnPrimary}>
+            Zoeken
+          </button>
+        </div>
+
+        {personResults.length > 0 && (
+          <div className="flex flex-col gap-1.5 mb-6">
+            {personResults.map((person) => {
+              const added = favoritePeople.some((p) => p.person_id === person.id)
+              return (
+                <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
+                  {person.profile_path ? (
+                    <img
+                      src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
+                      alt={person.name}
+                      className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
+                  )}
+                  <span className="flex-1 text-sm truncate">{person.name}</span>
                   <button
-                    onClick={() => acceptConnection(c.id)}
-                    className="text-sm border border-[#52A9A0] text-[#52A9A0] rounded-sm px-3 py-1 hover:bg-[#52A9A0]/10 transition-colors"
+                    onClick={() => addFavoritePerson(person)}
+                    className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
+                      added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
+                    }`}
                   >
-                    Accepteren
+                    {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
+                    {added ? 'Toegevoegd' : 'Toevoegen'}
                   </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <h3 className="text-sm text-[#93A3B5] mb-2">Jouw favorieten ({favoritePeople.length})</h3>
+        {favoritePeople.length === 0 && (
+          <p className="text-[#93A3B5] text-sm mb-8">Nog geen favoriete acteurs of actrices toegevoegd.</p>
+        )}
+        {favoritePeople.length > 0 && (
+          <div className="flex flex-col gap-1.5 mb-8">
+            {favoritePeople.map((person) => (
+              <div key={person.person_id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
+                {person.profile_path ? (
+                  <img
+                    src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
+                    alt={person.name}
+                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
                 )}
+                <span className="flex-1 text-sm truncate">{person.name}</span>
                 <button
-                  onClick={() => removeConnection(c.id)}
-                  className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors"
+                  onClick={() => removeFavoritePerson(person.person_id)}
+                  className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                  aria-label="Verwijderen"
                 >
-                  {c.status === 'pending' && c.direction === 'incoming' ? 'Weigeren' : 'Verwijderen'}
+                  <TrashIcon className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        )}
+
+        <SectionTitle
+          title="Partner koppelen"
+          hint="Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf accepteren voordat jullie smaak wordt gecombineerd."
+        />
+
+        <div className="flex gap-2 mb-4">
+          <input
+            type="email"
+            value={partnerEmail}
+            onChange={(e) => setPartnerEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && sendInvite()}
+            placeholder="E-mailadres van je partner"
+            className={`${input} flex-1`}
+          />
+          <button onClick={sendInvite} disabled={inviteLoading} className={btnPrimary}>
+            Uitnodigen
+          </button>
         </div>
-      )}
 
-      <button
-        onClick={handleSave}
-        className="bg-[#E8A33D] text-[#171F2B] font-medium rounded-sm px-5 py-2.5 hover:bg-[#F0B457] transition-colors"
-      >
-        Opslaan
-      </button>
-      {saved && <p className="text-[#52A9A0] text-sm mt-2">Opgeslagen</p>}
+        {connections.length === 0 && (
+          <p className="text-[#93A3B5] text-sm mb-8 flex items-center gap-2">
+            <UsersIcon className="w-4 h-4 text-[#5E6D80]" />
+            Nog geen koppeling met een partner.
+          </p>
+        )}
+        {connections.length > 0 && (
+          <div className="flex flex-col gap-1.5 mb-8">
+            {connections.map((c) => (
+              <div key={c.id} className={`${card} flex items-center gap-3 flex-wrap px-4 py-3`}>
+                <span className="flex-1 text-sm min-w-[160px]">
+                  {c.other_email}
+                  <span className="block text-xs text-[#5E6D80] mt-0.5">
+                    {c.status === 'accepted'
+                      ? 'Gekoppeld'
+                      : c.direction === 'incoming'
+                        ? 'Wil koppelen'
+                        : 'Wacht op reactie'}
+                  </span>
+                </span>
+                <div className="flex gap-2">
+                  {c.status === 'pending' && c.direction === 'incoming' && (
+                    <button
+                      onClick={() => acceptConnection(c.id)}
+                      className="text-sm font-medium border border-[#52A9A0] text-[#52A9A0] rounded-full px-3.5 py-1.5 hover:bg-[#52A9A0]/10 transition-colors touch-manipulation active:scale-[0.96]"
+                    >
+                      Accepteren
+                    </button>
+                  )}
+                  <button
+                    onClick={() => removeConnection(c.id)}
+                    className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1.5"
+                    aria-label="Verwijderen"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      <a href="/" className="block mt-6 text-[#E8A33D] hover:text-[#F0B457] transition-colors text-sm">
-        Terug naar aanbevelingen
-      </a>
-    </main>
+        <button onClick={handleSave} className={`${btnPrimary} w-full`}>
+          {saved ? <CheckIcon className="w-4 h-4" /> : null}
+          {saved ? 'Opgeslagen' : 'Opslaan'}
+        </button>
+      </main>
+
+      <BottomNav />
+    </>
   )
 }

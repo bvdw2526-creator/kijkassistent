@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import BottomNav from '../components/BottomNav'
+import { card, chip } from '../components/ui'
+import { TrashIcon, HeartIcon, OkIcon, DislikeIcon } from '../components/Icons'
 
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
 
@@ -142,122 +144,127 @@ export default function Watchlist() {
     setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
-  if (loading) return <p className="p-8 text-[#9FB0C2]">Laden...</p>
-
   const movieItems = items.filter((i) => i.media_type === 'movie')
   const tvItems = items.filter((i) => i.media_type === 'tv')
   const visible = tab === 'movie' ? movieItems : tvItems
 
   return (
-    <main className="max-w-xl mx-auto px-6 py-10">
-      <h1 className="font-display text-2xl mb-1">Watchlist</h1>
-      <p className="text-[#9FB0C2] mb-6">Wat je nog wilt zien.</p>
+    <>
+      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+        <h1 className="font-display text-2xl mb-1">Watchlist</h1>
+        <p className="text-[#93A3B5] mb-6">Wat je nog wilt zien.</p>
 
-      {error && (
-        <p className="text-sm text-[#C97064] border border-[#C97064] rounded-sm px-3 py-2 mb-6">
-          {error}
-        </p>
-      )}
+        {error && (
+          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+            {error}
+          </p>
+        )}
 
-      <div className="flex border-b border-[#3A4A5C] mb-6">
-        <button
-          onClick={() => setTab('movie')}
-          className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
-            tab === 'movie' ? 'border-[#E8A33D] text-[#E8A33D]' : 'border-transparent text-[#9FB0C2] hover:text-[#F2EFE9]'
-          }`}
-        >
-          Films ({movieItems.length})
-        </button>
-        <button
-          onClick={() => setTab('tv')}
-          className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${
-            tab === 'tv' ? 'border-[#E8A33D] text-[#E8A33D]' : 'border-transparent text-[#9FB0C2] hover:text-[#F2EFE9]'
-          }`}
-        >
-          Series ({tvItems.length})
-        </button>
-      </div>
-
-      {visible.length === 0 && (
-        <p className="text-[#9FB0C2] border border-dashed border-[#3A4A5C] rounded-sm px-4 py-6">
-          Nog niets op je watchlist. Voeg iets toe vanuit je aanbevelingen.
-        </p>
-      )}
-
-      <div className="flex flex-col">
-        {visible.map((item, i) => (
-          <div
-            key={`${item.media_type}-${item.id}`}
-            className={`flex gap-4 py-4 ${i !== visible.length - 1 ? 'border-b border-dashed border-[#3A4A5C]' : ''}`}
+        <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-6 w-fit">
+          <button
+            onClick={() => setTab('movie')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+              tab === 'movie' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+            }`}
           >
-            {item.poster_path && (
-              <img
-                src={`https://image.tmdb.org/t/p/w200${item.poster_path}`}
-                alt={item.title}
-                className="w-16 rounded-sm flex-shrink-0"
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-medium">{item.title}</p>
-                <button
-                  onClick={() => handleRemove(item)}
-                  className="text-sm text-[#9FB0C2] hover:text-[#C97064] transition-colors flex-shrink-0"
-                >
-                  Verwijderen
-                </button>
-              </div>
-              <p className="text-sm text-[#9FB0C2] mt-0.5">
-                {item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
-                {item.watchOn && (
-                  <>
-                    {item.sourceMode && ' · '}
-                    {item.watchUrl ? (
-                      <a
-                        href={item.watchUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#E8A33D] hover:text-[#F0B457] transition-colors"
-                      >
-                        {item.watchOn}
-                      </a>
-                    ) : (
-                      <span className="text-[#E8A33D]">{item.watchOn}</span>
-                    )}
-                  </>
+            Films ({movieItems.length})
+          </button>
+          <button
+            onClick={() => setTab('tv')}
+            className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+              tab === 'tv' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+            }`}
+          >
+            Series ({tvItems.length})
+          </button>
+        </div>
+
+        {loading && (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-28 rounded-2xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+            ))}
+          </div>
+        )}
+
+        {!loading && visible.length === 0 && (
+          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center">
+            Nog niets op je watchlist. Voeg iets toe vanuit je aanbevelingen.
+          </p>
+        )}
+
+        <div className="flex flex-col gap-3">
+          {visible.map((item) => (
+            <div key={`${item.media_type}-${item.id}`} className={`${card} p-3`}>
+              <div className="flex gap-3">
+                {item.poster_path ? (
+                  <img
+                    src={`https://image.tmdb.org/t/p/w200${item.poster_path}`}
+                    alt={item.title}
+                    className="w-16 rounded-lg flex-shrink-0 object-cover"
+                  />
+                ) : (
+                  <div className="w-16 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
                 )}
-              </p>
-              <p className="text-sm text-[#9FB0C2] mt-1">
-                Heb je &apos;m al gezien? Laat weten wat je ervan vond:
-              </p>
-              <div className="flex gap-2 mt-2 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-medium leading-tight">{item.title}</p>
+                    <button
+                      onClick={() => handleRemove(item)}
+                      className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1 -mt-1 -mr-1 flex-shrink-0"
+                      aria-label="Verwijderen"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-[#93A3B5] mt-1">
+                    {item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
+                    {item.watchOn && (
+                      <>
+                        {item.sourceMode && ' · '}
+                        {item.watchUrl ? (
+                          <a
+                            href={item.watchUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#E8A33D] hover:text-[#F0B457] transition-colors"
+                          >
+                            {item.watchOn}
+                          </a>
+                        ) : (
+                          <span className="text-[#E8A33D]">{item.watchOn}</span>
+                        )}
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-1.5 flex-wrap mt-3 pl-[76px]">
                 <button
                   onClick={() => handleRate(item, 'love')}
-                  className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1 hover:border-[#E8A33D] hover:text-[#E8A33D] transition-colors"
+                  className={`${chip(false, 'accent', 'sm')} flex items-center gap-1`}
                 >
-                  Zeker meer zoals dit
+                  <HeartIcon className="w-3 h-3" /> Zeker
                 </button>
                 <button
                   onClick={() => handleRate(item, 'ok')}
-                  className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1 hover:border-[#52A9A0] hover:text-[#52A9A0] transition-colors"
+                  className={`${chip(false, 'teal', 'sm')} flex items-center gap-1`}
                 >
-                  Was oké
+                  <OkIcon className="w-3 h-3" /> Oké
                 </button>
                 <button
                   onClick={() => handleRate(item, 'dislike')}
-                  className="text-sm border border-[#3A4A5C] rounded-sm px-3 py-1 hover:border-[#C97064] hover:text-[#C97064] transition-colors"
+                  className={`${chip(false, 'coral', 'sm')} flex items-center gap-1`}
                 >
-                  Niet voor mij
+                  <DislikeIcon className="w-3 h-3" /> Niet voor mij
                 </button>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </main>
 
-      <Link href="/" className="inline-block mt-8 text-[#E8A33D] hover:text-[#F0B457] transition-colors text-sm">
-        Terug naar aanbevelingen
-      </Link>
-    </main>
+      <BottomNav />
+    </>
   )
 }
