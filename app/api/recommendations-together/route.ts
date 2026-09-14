@@ -34,6 +34,10 @@ const COUPLE_GENRE_BOOST_PER_WEIGHT = 5
 // media-type — puur om de payload en het aantal kijkprovider-checks te begrenzen.
 const FALLBACK_LIMIT_PER_TYPE = 20
 
+// Hoeveel titels er uiteindelijk getoond worden in Samen, per media-type (films/series
+// apart) — de beste matches eerst, de rest wordt afgekapt.
+const SAMEN_MAX_PER_TYPE = 15
+
 // Zelfde aanpak als recommendations_cache (zie app/api/recommendations/route.ts): het
 // complete resultaat (incl. kijkproviders) wordt hergebruikt zolang geen van beide
 // profielen of de koppel-beoordelingen zijn gewijzigd. Zonder deze cache rekent deze
@@ -276,6 +280,15 @@ export async function GET(request: NextRequest) {
         })
         .sort((a, b) => b.matchPercent - a.matchPercent)
     }
+
+    // Beperk tot de beste SAMEN_MAX_PER_TYPE per type — anders kan vooral tier
+    // "intersection" (die niet, zoals de gewone modi, al door een round-robin/long-tail-
+    // limiet gaat) onbeperkt groeien. Per type i.p.v. één gecombineerde cap, zodat een
+    // sterke overlap in films niet ten koste gaat van het aantal series (of andersom).
+    items = [
+      ...items.filter((i) => i.media_type === 'movie').sort((a, b) => b.matchPercent - a.matchPercent).slice(0, SAMEN_MAX_PER_TYPE),
+      ...items.filter((i) => i.media_type === 'tv').sort((a, b) => b.matchPercent - a.matchPercent).slice(0, SAMEN_MAX_PER_TYPE),
+    ]
 
     const combinedSourceIds = new Set(
       [...inputsA.streamingServices, ...inputsB.streamingServices]
