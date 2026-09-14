@@ -81,6 +81,7 @@ export default function Home() {
   const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
   const [togetherError, setTogetherError] = useState<string | null>(null)
   const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -198,6 +199,7 @@ export default function Home() {
   async function handleAddToWatchlist(movie: Movie) {
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
+    setActionError(null)
     const { error } = await supabase.from('watchlist').insert({
       user_id: user.id,
       tmdb_id: movie.id,
@@ -208,15 +210,19 @@ export default function Home() {
       watch_url: movie.watchUrl ?? null,
       source_mode: mode,
     })
-    if (!error) {
-      removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
-      setSelected(null)
+    if (error) {
+      console.error('Op watchlist zetten mislukt:', error)
+      setActionError(`Kon niet op de watchlist zetten: ${error.message}`)
+      return
     }
+    removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
+    setSelected(null)
   }
 
   async function handleRate(movie: Movie, rating: 'dislike' | 'ok' | 'love') {
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
+    setActionError(null)
     const movieKey = (m: Movie) => m.id === movie.id && m.media_type === movie.media_type
 
     // In de Samen-tab beoordeel je vanuit het koppel, niet vanuit jezelf: "niet voor
@@ -227,7 +233,10 @@ export default function Home() {
     // gewoon op basis van je eigen smaak in je persoonlijke tabbladen kan blijven
     // verschijnen, los van wat er in Samen mee gebeurt.
     if (mode === 'samen') {
-      if (!togetherConnectionId) return
+      if (!togetherConnectionId) {
+        setActionError('Geen actieve koppeling gevonden — herlaad de pagina en probeer opnieuw.')
+        return
+      }
       const { error } = await supabase.from('couple_ratings').upsert(
         {
           connection_id: togetherConnectionId,
@@ -241,6 +250,9 @@ export default function Home() {
       )
       if (error) {
         console.error('Koppel-beoordeling opslaan mislukt:', error)
+        setActionError(
+          `Kon de beoordeling niet opslaan: ${error.message}. Is de migratie "couple_ratings" al uitgevoerd in Supabase?`
+        )
         return
       }
       removeFromSamen(movieKey)
@@ -261,6 +273,7 @@ export default function Home() {
     )
     if (error) {
       console.error('Rating opslaan mislukt:', error)
+      setActionError(`Kon de beoordeling niet opslaan: ${error.message}`)
       return
     }
 
@@ -423,6 +436,7 @@ export default function Home() {
                 priority={i < 4}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
+                  setActionError(null)
                   setSelected(movie)
                 }}
               />
@@ -484,6 +498,12 @@ export default function Home() {
               {selected.basedOn && selected.basedOn.length > 0 && (
                 <p className="text-sm text-[#93A3B5] mb-6">
                   Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{selected.basedOn.join(', ')}</span>
+                </p>
+              )}
+
+              {actionError && (
+                <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-3">
+                  {actionError}
                 </p>
               )}
 
