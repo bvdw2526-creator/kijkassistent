@@ -191,6 +191,10 @@ export default function Home() {
     }))
   }
 
+  function removeFromSamen(movieKey: (m: Movie) => boolean) {
+    setByMode((current) => ({ ...current, samen: current.samen.filter((m) => !movieKey(m)) }))
+  }
+
   async function handleAddToWatchlist(movie: Movie) {
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
@@ -213,6 +217,38 @@ export default function Home() {
   async function handleRate(movie: Movie, rating: 'dislike' | 'ok' | 'love') {
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
+    const movieKey = (m: Movie) => m.id === movie.id && m.media_type === movie.media_type
+
+    // In de Samen-tab beoordeel je vanuit het koppel, niet vanuit jezelf: "niet voor
+    // mij" hier betekent "dit past niet bij ons", niet per se "dit vind ik zelf niet
+    // leuk" (en omgekeerd kan "zeker leuk" hier ook een compromis zijn, geen puur
+    // persoonlijke smaak). Dit raakt daarom uitsluitend couple_ratings — nooit je eigen
+    // ratings-profiel — zodat een titel die jij zelf wél (of juist niet) waardeert
+    // gewoon op basis van je eigen smaak in je persoonlijke tabbladen kan blijven
+    // verschijnen, los van wat er in Samen mee gebeurt.
+    if (mode === 'samen') {
+      if (!togetherConnectionId) return
+      const { error } = await supabase.from('couple_ratings').upsert(
+        {
+          connection_id: togetherConnectionId,
+          tmdb_id: movie.id,
+          media_type: movie.media_type,
+          title: movie.title,
+          rating,
+          rated_by: user.id,
+        },
+        { onConflict: 'connection_id,tmdb_id,media_type' }
+      )
+      if (error) {
+        console.error('Koppel-beoordeling opslaan mislukt:', error)
+        return
+      }
+      removeFromSamen(movieKey)
+      setSelected(null)
+      loadTogetherRecommendations()
+      return
+    }
+
     const { error } = await supabase.from('ratings').upsert(
       {
         user_id: user.id,
@@ -228,26 +264,7 @@ export default function Home() {
       return
     }
 
-    // Beoordeel je iets vanuit de Samen-tab, dan telt dat ook als koppel-beoordeling:
-    // "niet voor mij" sluit de titel voorgoed uit van toekomstige Samen-aanbevelingen,
-    // "zeker leuk"/"was oké" laat de genresmaak van jullie als koppel meewegen — los
-    // van dit individuele profiel hierboven.
-    if (mode === 'samen' && togetherConnectionId) {
-      const { error: coupleError } = await supabase.from('couple_ratings').upsert(
-        {
-          connection_id: togetherConnectionId,
-          tmdb_id: movie.id,
-          media_type: movie.media_type,
-          title: movie.title,
-          rating,
-          rated_by: user.id,
-        },
-        { onConflict: 'connection_id,tmdb_id,media_type' }
-      )
-      if (coupleError) console.error('Koppel-beoordeling opslaan mislukt:', coupleError)
-    }
-
-    removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
+    removeEverywhere(movieKey)
     setSelected(null)
     // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond
     // verversen zodat dat effect zichtbaar wordt zonder dat je zelf hoeft te vernieuwen.
@@ -475,27 +492,33 @@ export default function Home() {
                 Op watchlist
               </button>
 
+              {mode === 'samen' && (
+                <p className="text-xs text-[#5E6D80] mb-2 text-center">
+                  Dit geldt alleen voor Samen — jouw eigen aanbevelingen blijven ongewijzigd.
+                </p>
+              )}
+
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleRate(selected, 'love')}
                   className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#E8A33D] hover:text-[#E8A33D]"
                 >
                   <HeartIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Zeker</span>
+                  <span className="text-xs font-medium">{mode === 'samen' ? 'Zeker, samen' : 'Zeker'}</span>
                 </button>
                 <button
                   onClick={() => handleRate(selected, 'ok')}
                   className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#52A9A0] hover:text-[#52A9A0]"
                 >
                   <OkIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Was oké</span>
+                  <span className="text-xs font-medium">{mode === 'samen' ? 'Oké, samen' : 'Was oké'}</span>
                 </button>
                 <button
                   onClick={() => handleRate(selected, 'dislike')}
                   className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#C97064] hover:text-[#C97064]"
                 >
                   <DislikeIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Niet voor mij</span>
+                  <span className="text-xs font-medium">{mode === 'samen' ? 'Niet voor ons' : 'Niet voor mij'}</span>
                 </button>
               </div>
 
