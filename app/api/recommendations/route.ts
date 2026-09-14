@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   const inputs = await fetchProfileInputs(supabase, user.id)
 
   const emptyResponse = { focused: [], balanced: [], explore: [] }
-  if (inputs.favorites.length === 0) {
+  if (inputs.favorites.length === 0 && inputs.ratings.length === 0) {
     return NextResponse.json(emptyResponse)
   }
 

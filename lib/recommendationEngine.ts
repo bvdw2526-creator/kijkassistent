@@ -63,6 +63,7 @@ interface ScoredCandidate extends TmdbItem {
   collectionScore: number
   embeddingBonus: number
   actorScore: number
+  directorScore: number
   basedOn: Set<string>
 }
 
@@ -76,6 +77,7 @@ export interface RankedCandidate extends TmdbItem {
   collectionScore: number
   embeddingBonus: number
   actorScore: number
+  directorScore: number
 }
 
 export interface RecommendationItem extends RankedCandidate {
@@ -112,6 +114,9 @@ const TMDB_CREDITS_CACHE_MAX_AGE_HOURS = 24 * 7
 // (3) en veel hoger dan een losse discover-hit, zodat een titel met een favoriete
 // acteur/actrice ook echt naar boven komt, ook zonder andere match met het smaakprofiel.
 const ACTOR_MATCH_WEIGHT = 5
+// Zelfde gewicht als een favoriete acteur/actrice — geen van beide weegt zwaarder,
+// simpel te verfijnen later als daar aanleiding toe is.
+const DIRECTOR_MATCH_WEIGHT = 5
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
 // gebruiker die acteur/actrice nog herkent, en het houdt de gecachete payload klein.
 const CAST_TOP_N = 10
@@ -317,7 +322,14 @@ export async function resolveWatchInfo(
   return new Map(entries)
 }
 
-async function fetchCastLive(mediaType: MediaType, tmdbId: number): Promise<CastMember[] | null> {
+interface CreditsResult {
+  cast: CastMember[]
+  directors: CastMember[]
+}
+
+// Regisseurs worden samen met de cast opgehaald uit hetzelfde /credits-endpoint (het
+// "crew"-veld, gefilterd op job "Director") — geen aparte TMDB-call nodig.
+async function fetchCreditsLive(mediaType: MediaType, tmdbId: number): Promise<CreditsResult | null> {
   const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
   try {
     const res = await fetch(
@@ -326,44 +338,50 @@ async function fetchCastLive(mediaType: MediaType, tmdbId: number): Promise<Cast
     )
     if (!res.ok) return null
     const data = await res.json()
-    return (data.cast || [])
+    const cast: CastMember[] = (data.cast || [])
       .slice(0, CAST_TOP_N)
       .map((c: { id: number; name: string }) => ({ id: c.id, name: c.name }))
+    const directors: CastMember[] = (data.crew || [])
+      .filter((c: { job?: string }) => c.job === 'Director')
+      .map((c: { id: number; name: string }) => ({ id: c.id, name: c.name }))
+    return { cast, directors }
   } catch {
     return null
   }
 }
 
-// Bulk-variant zoals getWatchProvidersBulk hierboven: alleen live TMDB-calls voor cast
-// die niet of verouderd in de cache staat, en één gebundelde upsert daarna. Wordt alleen
-// aangeroepen als er favoriete acteurs/actrices zijn ingesteld, zodat gebruikers zonder
-// die voorkeur geen extra TMDB-calls kosten.
-async function getCastBulk(
+// Bulk-variant zoals getWatchProvidersBulk hierboven: alleen live TMDB-calls voor
+// cast/regisseurs die niet of verouderd in de cache staan, en één gebundelde upsert
+// daarna. Wordt alleen aangeroepen als er favoriete acteurs/actrices en/of favoriete
+// regisseurs zijn ingesteld, zodat gebruikers zonder die voorkeuren geen extra
+// TMDB-calls kosten.
+async function getCreditsBulk(
   supabase: SupabaseClient,
   items: { mediaType: MediaType; tmdbId: number }[]
-): Promise<Map<string, CastMember[]>> {
-  const result = new Map<string, CastMember[]>()
-  const staleFallback = new Map<string, CastMember[]>()
+): Promise<Map<string, CreditsResult>> {
+  const result = new Map<string, CreditsResult>()
+  const staleFallback = new Map<string, CreditsResult>()
   const cutoffMs = Date.now() - TMDB_CREDITS_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
 
   const movieIds = items.filter((i) => i.mediaType === 'movie').map((i) => i.tmdbId)
   const tvIds = items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId)
 
-  type CachedRow = { tmdb_id: number; cast_members: CastMember[]; fetched_at: string }
+  type CachedRow = { tmdb_id: number; cast_members: CastMember[]; directors: CastMember[]; fetched_at: string }
   const [movieRows, tvRows] = await Promise.all([
     movieIds.length
-      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, fetched_at').eq('media_type', 'movie').in('tmdb_id', movieIds)
+      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, directors, fetched_at').eq('media_type', 'movie').in('tmdb_id', movieIds)
       : Promise.resolve({ data: [] as CachedRow[] }),
     tvIds.length
-      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, fetched_at').eq('media_type', 'tv').in('tmdb_id', tvIds)
+      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, directors, fetched_at').eq('media_type', 'tv').in('tmdb_id', tvIds)
       : Promise.resolve({ data: [] as CachedRow[] }),
   ])
 
   for (const [mediaType, rows] of [['movie', movieRows.data], ['tv', tvRows.data]] as const) {
     for (const row of rows || []) {
       const key = `${mediaType}-${row.tmdb_id}`
-      staleFallback.set(key, row.cast_members)
-      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, row.cast_members)
+      const credits: CreditsResult = { cast: row.cast_members, directors: row.directors || [] }
+      staleFallback.set(key, credits)
+      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, credits)
     }
   }
 
@@ -375,21 +393,27 @@ async function getCastBulk(
         key: `${item.mediaType}-${item.tmdbId}`,
         mediaType: item.mediaType,
         tmdbId: item.tmdbId,
-        cast: await fetchCastLive(item.mediaType, item.tmdbId),
+        credits: await fetchCreditsLive(item.mediaType, item.tmdbId),
       }))
     )
 
     const upserts = fetched
-      .filter((f) => f.cast !== null)
-      .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, cast_members: f.cast, fetched_at: new Date().toISOString() }))
+      .filter((f) => f.credits !== null)
+      .map((f) => ({
+        media_type: f.mediaType,
+        tmdb_id: f.tmdbId,
+        cast_members: f.credits!.cast,
+        directors: f.credits!.directors,
+        fetched_at: new Date().toISOString(),
+      }))
 
     if (upserts.length > 0) {
       await supabase.from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
     }
 
     for (const f of fetched) {
-      if (f.cast !== null) result.set(f.key, f.cast)
-      else result.set(f.key, staleFallback.get(f.key) ?? [])
+      if (f.credits !== null) result.set(f.key, f.credits)
+      else result.set(f.key, staleFallback.get(f.key) ?? { cast: [], directors: [] })
     }
   }
 
@@ -793,13 +817,15 @@ export interface ProfileInputs {
   streamingServices: string[]
   excludedGenreIds: Set<number>
   favoritePeopleList: { person_id: number; name: string }[]
+  favoriteDirectorsList: { person_id: number; name: string }[]
 }
 
 // Haalt alle ruwe smaakgegevens van één gebruiker op — favorieten, ratings, watchlist,
-// profiel (streamingdiensten/uitgesloten genres) en favoriete acteurs. Gedeeld tussen de
-// gewone aanbevelingsroute (voor de ingelogde gebruiker) en de "samen"-route (voor beide
-// partners): die laatste kan dit gewoon twee keer aanroepen met een ander userId, zolang
-// de RLS-policies geaccepteerde partners leestoegang geven (zie de partner_connections-migratie).
+// profiel (streamingdiensten/uitgesloten genres), favoriete acteurs en favoriete
+// regisseurs. Gedeeld tussen de gewone aanbevelingsroute (voor de ingelogde gebruiker) en
+// de "samen"-route (voor beide partners): die laatste kan dit gewoon twee keer aanroepen
+// met een ander userId, zolang de RLS-policies geaccepteerde partners leestoegang geven
+// (zie de partner_connections-migratie).
 export async function fetchProfileInputs(supabase: SupabaseClient, userId: string): Promise<ProfileInputs> {
   const [
     { data: favorites },
@@ -807,12 +833,14 @@ export async function fetchProfileInputs(supabase: SupabaseClient, userId: strin
     { data: watchlist },
     { data: profile },
     { data: favoritePeople },
+    { data: favoriteDirectors },
   ] = await Promise.all([
     supabase.from('favorite_movies').select('tmdb_id, title, media_type').eq('user_id', userId),
     supabase.from('ratings').select('tmdb_id, title, rating, media_type').eq('user_id', userId),
     supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', userId),
     supabase.from('profiles').select('streaming_services, excluded_genres').eq('id', userId).single(),
     supabase.from('favorite_people').select('person_id, name').eq('user_id', userId),
+    supabase.from('favorite_directors').select('person_id, name').eq('user_id', userId),
   ])
 
   return {
@@ -822,13 +850,14 @@ export async function fetchProfileInputs(supabase: SupabaseClient, userId: strin
     streamingServices: profile?.streaming_services || [],
     excludedGenreIds: new Set<number>(profile?.excluded_genres || []),
     favoritePeopleList: favoritePeople || [],
+    favoriteDirectorsList: favoriteDirectors || [],
   }
 }
 
 // Vangt de staat waarop een berekend resultaat is gebaseerd, voor de resultaat-cache
 // van de gewone aanbevelingsroute. Wijzigt er iets aan favorieten/ratings/watchlist/
-// streamingdiensten/uitgesloten genres/favoriete acteurs, dan verandert de signature en
-// is een eerder gecachet resultaat vanzelf ongeldig.
+// streamingdiensten/uitgesloten genres/favoriete acteurs/favoriete regisseurs, dan
+// verandert de signature en is een eerder gecachet resultaat vanzelf ongeldig.
 export function buildProfileSignature(inputs: ProfileInputs): string {
   return [
     'fav:' + inputs.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`).sort().join(','),
@@ -837,6 +866,7 @@ export function buildProfileSignature(inputs: ProfileInputs): string {
     'svc:' + [...inputs.streamingServices].sort().join(','),
     'exgen:' + [...inputs.excludedGenreIds].sort((a, b) => a - b).join(','),
     'ppl:' + inputs.favoritePeopleList.map((p) => p.person_id).sort((a, b) => a - b).join(','),
+    'dir:' + inputs.favoriteDirectorsList.map((p) => p.person_id).sort((a, b) => a - b).join(','),
   ].join('|')
 }
 
@@ -866,12 +896,17 @@ export async function computeTasteProfile(
   supabase: SupabaseClient,
   inputs: ProfileInputs
 ): Promise<TasteProfile> {
-  if (inputs.favorites.length === 0) {
+  // Vroeger gaf dit al bij nul favorieten meteen niets terug, ook niet als iemand wél
+  // al beoordelingen had gegeven — terwijl de onboarding-pagina expliciet zegt dat
+  // beoordelen zonder favorieten toe te voegen ook meetelt. Nu pas leeg als er echt
+  // helemaal niets is om op te bouwen.
+  if (inputs.favorites.length === 0 && inputs.ratings.length === 0) {
     return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [] }
   }
 
-  const { favorites, ratings, watchlist, excludedGenreIds, favoritePeopleList } = inputs
+  const { favorites, ratings, watchlist, excludedGenreIds, favoritePeopleList, favoriteDirectorsList } = inputs
   const favoritePersonNames = new Map(favoritePeopleList.map((p) => [p.person_id, p.name]))
+  const favoriteDirectorNames = new Map(favoriteDirectorsList.map((p) => [p.person_id, p.name]))
 
   const excludeIds = new Set([
     ...favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
@@ -974,6 +1009,7 @@ export async function computeTasteProfile(
         collectionScore: 0,
         embeddingBonus: 0,
         actorScore: 0,
+        directorScore: 0,
         basedOn: new Set<string>(),
       })
     }
@@ -1048,20 +1084,34 @@ export async function computeTasteProfile(
     }
   }
 
-  // Alleen cast opzoeken als er favoriete acteurs/actrices zijn ingesteld — anders
-  // kost dit gebruikers zonder die voorkeur extra TMDB-calls voor niets.
-  if (favoritePersonNames.size > 0) {
-    const castByKey = await getCastBulk(
+  // Alleen cast/regisseurs opzoeken als er favoriete acteurs/actrices en/of favoriete
+  // regisseurs zijn ingesteld — anders kost dit gebruikers zonder die voorkeuren extra
+  // TMDB-calls voor niets. Let op: dit kan alleen kandidaten die al via een ander
+  // signaal (favoriet/rating/genre-ontdekking/collectie) in `candidates` staan een
+  // bonus geven — een titel die alleen via een favoriete acteur/regisseur zou
+  // kwalificeren komt hier nooit binnen, waardoor een uitgesloten genre (dat de
+  // kandidaat al eerder blokkeerde, zie addScore hierboven) hier automatisch ook geldt.
+  if (favoritePersonNames.size > 0 || favoriteDirectorNames.size > 0) {
+    const creditsByKey = await getCreditsBulk(
       supabase,
       candidates.map((c) => ({ mediaType: c.media_type, tmdbId: c.id }))
     )
 
     for (const candidate of candidates) {
-      const cast = castByKey.get(`${candidate.media_type}-${candidate.id}`) || []
-      const matches = cast.filter((member) => favoritePersonNames.has(member.id))
-      if (matches.length === 0) continue
-      candidate.actorScore = matches.length * ACTOR_MATCH_WEIGHT
-      for (const match of matches.slice(0, 2)) candidate.basedOn.add(match.name)
+      const credits = creditsByKey.get(`${candidate.media_type}-${candidate.id}`)
+      if (!credits) continue
+
+      const actorMatches = credits.cast.filter((member) => favoritePersonNames.has(member.id))
+      if (actorMatches.length > 0) {
+        candidate.actorScore = actorMatches.length * ACTOR_MATCH_WEIGHT
+        for (const match of actorMatches.slice(0, 2)) candidate.basedOn.add(match.name)
+      }
+
+      const directorMatches = credits.directors.filter((member) => favoriteDirectorNames.has(member.id))
+      if (directorMatches.length > 0) {
+        candidate.directorScore = directorMatches.length * DIRECTOR_MATCH_WEIGHT
+        for (const match of directorMatches.slice(0, 2)) candidate.basedOn.add(match.name)
+      }
     }
   }
 
@@ -1082,7 +1132,8 @@ export async function computeTasteProfile(
         item.discoverScore * modeConfig.discoverWeight +
         item.collectionScore +
         item.embeddingBonus * EMBEDDING_BONUS_WEIGHT +
-        item.actorScore
+        item.actorScore +
+        item.directorScore
       return {
         ...item,
         score: Math.pow(Math.log2(1 + Math.max(0, rawScore)), modeConfig.dampingFactor),

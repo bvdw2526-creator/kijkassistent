@@ -253,6 +253,7 @@ export async function GET(request: NextRequest) {
           collectionScore: 0,
           embeddingBonus: 0,
           actorScore: 0,
+          directorScore: 0,
         }))
       }
 
