@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
@@ -354,9 +355,11 @@ export default function Settings() {
               return (
                 <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
                   {person.profile_path ? (
-                    <img
+                    <Image
                       src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
                       alt={person.name}
+                      width={36}
+                      height={36}
                       className="w-9 h-9 rounded-full object-cover flex-shrink-0"
                     />
                   ) : (
@@ -387,9 +390,11 @@ export default function Settings() {
             {favoritePeople.map((person) => (
               <div key={person.person_id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
                 {person.profile_path ? (
-                  <img
+                  <Image
                     src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
                     alt={person.name}
+                    width={36}
+                    height={36}
                     className="w-9 h-9 rounded-full object-cover flex-shrink-0"
                   />
                 ) : (

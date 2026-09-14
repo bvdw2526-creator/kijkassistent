@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
@@ -250,11 +251,15 @@ export default function Onboarding() {
                 <div key={`${movie.media_type}-${movie.id}`} className={`${card} p-3`}>
                   <div className="flex items-center gap-3">
                     {movie.poster_path ? (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                        alt={movie.title}
-                        className="w-11 rounded-lg flex-shrink-0"
-                      />
+                      <div className="relative w-11 aspect-[2/3] rounded-lg flex-shrink-0 overflow-hidden">
+                        <Image
+                          src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
+                          alt={movie.title}
+                          fill
+                          sizes="44px"
+                          className="object-cover"
+                        />
+                      </div>
                     ) : (
                       <div className="w-11 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
                     )}

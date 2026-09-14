@@ -1,3 +1,5 @@
+import Image from 'next/image'
+
 type MovieCardMovie = {
   id: number
   title: string
@@ -10,10 +12,12 @@ export default function MovieCard({
   movie,
   onClick,
   badge,
+  priority,
 }: {
   movie: MovieCardMovie
   onClick: () => void
   badge?: string
+  priority?: boolean
 }) {
   return (
     <button
@@ -22,11 +26,13 @@ export default function MovieCard({
     >
       <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-[#2A3644] bg-[#212C3B] shadow-[0_4px_14px_rgba(0,0,0,0.3)]">
         {movie.poster_path ? (
-          <img
+          <Image
             src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
             alt={movie.title}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-active:scale-105"
+            fill
+            sizes="(min-width: 640px) 33vw, 50vw"
+            priority={priority}
+            className="object-cover transition-transform duration-300 group-active:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center p-3 text-center">

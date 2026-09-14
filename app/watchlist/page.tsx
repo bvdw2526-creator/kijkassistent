@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card, chip } from '../components/ui'
@@ -198,11 +199,15 @@ export default function Watchlist() {
             <div key={`${item.media_type}-${item.id}`} className={`${card} p-3`}>
               <div className="flex gap-3">
                 {item.poster_path ? (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w200${item.poster_path}`}
-                    alt={item.title}
-                    className="w-16 rounded-lg flex-shrink-0 object-cover"
-                  />
+                  <div className="relative w-16 aspect-[2/3] rounded-lg flex-shrink-0 overflow-hidden">
+                    <Image
+                      src={`https://image.tmdb.org/t/p/w200${item.poster_path}`}
+                      alt={item.title}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  </div>
                 ) : (
                   <div className="w-16 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
                 )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
@@ -398,10 +399,11 @@ export default function Home() {
 
         {!showSkeleton && visible.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {visible.map((movie) => (
+            {visible.map((movie, i) => (
               <MovieCard
                 key={`${movie.media_type}-${movie.id}`}
                 movie={movie}
+                priority={i < 4}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
                   setSelected(movie)
@@ -430,11 +432,15 @@ export default function Home() {
             <div className="p-6">
               <div className="flex gap-4 mb-4">
                 {selected.poster_path ? (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w200${selected.poster_path}`}
-                    alt={selected.title}
-                    className="w-24 rounded-xl flex-shrink-0 shadow-lg"
-                  />
+                  <div className="relative w-24 aspect-[2/3] rounded-xl flex-shrink-0 shadow-lg overflow-hidden">
+                    <Image
+                      src={`https://image.tmdb.org/t/p/w200${selected.poster_path}`}
+                      alt={selected.title}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  </div>
                 ) : (
                   <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
                 )}
