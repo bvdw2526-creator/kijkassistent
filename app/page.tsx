@@ -45,8 +45,13 @@ function loadCachedRecommendations(userId: string): Record<RecommendationMode, M
     const raw = localStorage.getItem(RECOMMENDATIONS_CACHE_KEY_PREFIX + userId)
     if (!raw) return null
     // Spread over EMPTY_RESULTS zodat een cache van vóór de "Samen"-tab (zonder dat
-    // veld) niet crasht op een undefined array.
-    return { ...EMPTY_RESULTS, ...JSON.parse(raw) }
+    // veld) niet crasht op een undefined array. "Samen" wordt hier altijd leeg
+    // teruggegeven, ook als er ooit per ongeluk toch iets voor is opgeslagen (zie
+    // saveCachedRecommendations): die lijst hoort te komen van een verse
+    // loadTogetherRecommendations()-aanroep, mét een bijbehorende, actuele
+    // togetherConnectionId — nooit uit een verouderde cache, anders kun je een tikje op
+    // "Niet voor ons" geven vóórdat de echte koppeling opnieuw is opgehaald.
+    return { ...EMPTY_RESULTS, ...JSON.parse(raw), samen: [] }
   } catch {
     return null
   }
@@ -54,7 +59,8 @@ function loadCachedRecommendations(userId: string): Record<RecommendationMode, M
 
 function saveCachedRecommendations(userId: string, data: Record<RecommendationMode, Movie[]>) {
   try {
-    localStorage.setItem(RECOMMENDATIONS_CACHE_KEY_PREFIX + userId, JSON.stringify(data))
+    // "Samen" bewust nooit meecachen — zie loadCachedRecommendations hierboven.
+    localStorage.setItem(RECOMMENDATIONS_CACHE_KEY_PREFIX + userId, JSON.stringify({ ...data, samen: [] }))
   } catch {
     // Privénavigatie of volle quota — dan cachen we gewoon niet, geen probleem.
   }
