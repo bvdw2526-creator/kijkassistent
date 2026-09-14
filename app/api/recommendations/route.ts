@@ -12,6 +12,11 @@ import {
   type RecommendationItem,
 } from '@/lib/recommendationEngine'
 
+// Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort voor
+// deze route bij een koude cache: veel losse TMDB-calls (aanbevelingen/cast/details per
+// favoriet/rating) plus embeddings. 60s is het maximum dat zowel op Hobby als Pro werkt.
+export const maxDuration = 60
+
 // Hoelang een compleet berekend resultaat (alle 3 modi, inclusief kijkproviders)
 // hergebruikt wordt zolang favorieten/ratings/watchlist/streamingdiensten niet zijn
 // gewijzigd. Dit is de belangrijkste knop voor "voelt de app-start lokaal aan": een

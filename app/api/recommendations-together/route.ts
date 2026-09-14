@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   SOURCE_IDS,
   fetchProfileInputs,
+  buildProfileSignature,
   computeTasteProfile,
   discoverByGenres,
   resolveWatchInfo,
@@ -13,6 +14,12 @@ import {
   type TmdbItem,
   type MediaType,
 } from '@/lib/recommendationEngine'
+
+// Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort: deze
+// route berekent het volledige smaakprofiel van twee mensen na elkaar/parallel (zie
+// Promise.all hieronder), dus zwaarder dan de gewone /api/recommendations-route. 60s is
+// het maximum dat zowel op Hobby als Pro werkt.
+export const maxDuration = 60
 
 // Zelfde weging als bij persoonlijke ratings ("love" telt dubbel zo zwaar als
 // favoriet, "ok" half) — zie computeTasteProfile in lib/recommendationEngine.ts.
@@ -27,6 +34,13 @@ const COUPLE_GENRE_BOOST_PER_WEIGHT = 5
 // media-type — puur om de payload en het aantal kijkprovider-checks te begrenzen.
 const FALLBACK_LIMIT_PER_TYPE = 20
 
+// Zelfde aanpak als recommendations_cache (zie app/api/recommendations/route.ts): het
+// complete resultaat (incl. kijkproviders) wordt hergebruikt zolang geen van beide
+// profielen of de koppel-beoordelingen zijn gewijzigd. Zonder deze cache rekent deze
+// route bij élke aanvraag het volledige smaakprofiel van beide partners opnieuw uit —
+// dat is de belangrijkste oorzaak van een trage/timeoutende Samen-tab.
+const COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 6
+
 function keyByTitle(items: RankedCandidate[]): Map<string, RankedCandidate> {
   return new Map(items.map((item) => [`${item.media_type}-${item.id}`, item]))
 }
@@ -39,6 +53,19 @@ function mergeGenreAffinities(a: GenreAffinity[], b: GenreAffinity[]): GenreAffi
     else map.set(g.id, { ...g })
   }
   return Array.from(map.values()).sort((x, y) => y.count - x.count)
+}
+
+async function cacheCoupleRecommendationsResult(
+  supabase: SupabaseClient,
+  connectionId: string,
+  signature: string,
+  tier: 'intersection' | 'fallback' | 'empty',
+  items: RecommendationItem[]
+): Promise<void> {
+  await supabase.from('couple_recommendations_cache').upsert(
+    { connection_id: connectionId, signature, tier, items, fetched_at: new Date().toISOString() },
+    { onConflict: 'connection_id' }
+  )
 }
 
 export async function GET(request: NextRequest) {
@@ -92,12 +119,42 @@ export async function GET(request: NextRequest) {
         .eq('connection_id', connection.id),
     ])
 
+    const coupleRatings = coupleRatingsResult.data || []
+
+    // "signature" vangt de staat van beide profielen + de koppel-beoordelingen. Wijzigt
+    // daar niets aan sinds de vorige berekening, dan kan de complete, dure pijplijn
+    // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
+    // overgeslagen worden.
+    const signature = [
+      buildProfileSignature(inputsA),
+      buildProfileSignature(inputsB),
+      'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
+    ].join('||')
+
+    const { data: cachedResult } = await supabase
+      .from('couple_recommendations_cache')
+      .select('signature, tier, items, fetched_at')
+      .eq('connection_id', connection.id)
+      .single()
+
+    if (cachedResult && cachedResult.signature === signature) {
+      const ageHours = (Date.now() - new Date(cachedResult.fetched_at).getTime()) / (1000 * 60 * 60)
+      if (ageHours < COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS) {
+        return NextResponse.json({
+          connected: true,
+          connectionId: connection.id,
+          tier: cachedResult.tier,
+          items: cachedResult.items,
+          debug: { cached: true, coupleRatingsCount: coupleRatings.length },
+        })
+      }
+    }
+
     const [tasteA, tasteB] = await Promise.all([
       computeTasteProfile(supabase, inputsA),
       computeTasteProfile(supabase, inputsB),
     ])
 
-    const coupleRatings = coupleRatingsResult.data || []
     // Eenmaal samen beoordeeld (positief of negatief) komt een titel niet nog eens
     // terug in Samen — net als bij persoonlijke ratings.
     const coupleRatedKeys = new Set(coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}`))
@@ -239,6 +296,8 @@ export async function GET(request: NextRequest) {
         })
         .filter((m): m is RecommendationItem => m !== null)
     }
+
+    await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems)
 
     // Tijdelijke debug-info: helpt te achterhalen of een leeg resultaat komt door een
     // lege doorsnede/fallback, of door het wegfilteren op streamingdiensten daarna.
