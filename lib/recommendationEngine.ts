@@ -117,6 +117,13 @@ const ACTOR_MATCH_WEIGHT = 5
 // Zelfde gewicht als een favoriete acteur/actrice — geen van beide weegt zwaarder,
 // simpel te verfijnen later als daar aanleiding toe is.
 const DIRECTOR_MATCH_WEIGHT = 5
+// Afnemend rendement per extra bron (favoriet/"zeker leuk"/"was oké") die naar dezelfde
+// titel wijst — zie de toelichting bij hitsByCandidate in computeTasteProfile. 0.75
+// betekent: de 2e bron telt voor 75%, de 3e voor ~56%, enz. Gekozen zodat een titel met
+// 7-11 matchende bronnen (bv. bij een oververtegenwoordigd genre in iemands profiel) nog
+// wel duidelijk hoger scoort dan eentje met 1-2 bronnen, maar niet meer lineair blijft
+// oplopen tot een score die alles overstemt.
+const CORE_SOURCE_DECAY = 0.75
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
 // gebruiker die acteur/actrice nog herkent, en het houdt de gecachete payload klein.
 const CAST_TOP_N = 10
@@ -944,15 +951,6 @@ export async function computeTasteProfile(
       )
     ),
   ])
-  const titleRecommendationLists = profileSources.flatMap((source) =>
-    RECOMMENDATION_PAGES.map((page) => ({
-      results: recommendationPagesByKey.get(`${source.media_type}-${source.tmdb_id}-${page}`) || [],
-      weight: source.weight,
-      sourceTitle: source.title,
-      tier: source.tier,
-    }))
-  )
-
   const genreCounts: Record<MediaType, Map<number, { name: string; count: number }>> = {
     movie: new Map(),
     tv: new Map(),
@@ -1029,9 +1027,47 @@ export async function computeTasteProfile(
     }
   }
 
-  for (const list of titleRecommendationLists) {
-    addScore(list.results, list.tier === 'core' ? 'coreScore' : 'okScore', list.weight, list.sourceTitle)
+  // Diminishing returns: elke extra bron (favoriet/"zeker leuk"/"was oké") die naar
+  // dezelfde titel wijst, telt iets minder zwaar mee dan de vorige (CORE_SOURCE_DECAY per
+  // extra bron). Zonder dit blijft coreScore/okScore onbeperkt optellen, waardoor een
+  // oververtegenwoordigd genre in iemands profiel (bv. 8 Star Wars-films) alles overstemt
+  // wat er ook maar losjes op lijkt — ook een middelmatige titel die toevallig in
+  // hetzelfde cluster valt. Meerdere TMDB-aanbevelingspagina's van dezelfde bron tellen
+  // hierbij als één bron, niet twee (vandaar de binnenste Map, per sourceKey).
+  const hitsByCandidate = new Map<string, Map<string, { item: TmdbItem; weight: number; tier: Tier; sourceTitle: string }>>()
+  for (const source of profileSources) {
+    const sourceKey = `${source.media_type}-${source.tmdb_id}`
+    for (const page of RECOMMENDATION_PAGES) {
+      const results = recommendationPagesByKey.get(`${source.media_type}-${source.tmdb_id}-${page}`) || []
+      for (const item of results) {
+        const candidateKey = `${item.media_type}-${item.id}`
+        if (excludeIds.has(candidateKey)) continue
+        // Uitgesloten genres nooit als kandidaat laten instromen — zie excludedGenreIds
+        // hierboven en dezelfde check in addScore hieronder.
+        if (item.genre_ids.some((g) => excludedGenreIds.has(g))) continue
+        let sourcesForCandidate = hitsByCandidate.get(candidateKey)
+        if (!sourcesForCandidate) {
+          sourcesForCandidate = new Map()
+          hitsByCandidate.set(candidateKey, sourcesForCandidate)
+        }
+        if (!sourcesForCandidate.has(sourceKey)) {
+          sourcesForCandidate.set(sourceKey, { item, weight: source.weight, tier: source.tier, sourceTitle: source.title })
+        }
+      }
+    }
   }
+  for (const sourcesForCandidate of hitsByCandidate.values()) {
+    // Sterkste bronnen (favoriet/"zeker leuk" wegen zwaarder dan "was oké") tellen als
+    // eerst mee, dus die krijgen de minste demping.
+    const hits = Array.from(sourcesForCandidate.values()).sort((a, b) => b.weight - a.weight)
+    const entry = ensureEntry(hits[0].item)
+    hits.forEach((hit, index) => {
+      const field: ScoreField = hit.tier === 'core' ? 'coreScore' : 'okScore'
+      entry[field] += hit.weight * Math.pow(CORE_SOURCE_DECAY, index)
+      entry.basedOn.add(hit.sourceTitle)
+    })
+  }
+
   addScore(movieGenreResults.results, 'discoverScore', 1, movieGenreResults.label)
   addScore(tvGenreResults.results, 'discoverScore', 1, tvGenreResults.label)
   for (const collection of collectionResults) {
