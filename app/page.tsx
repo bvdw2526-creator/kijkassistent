@@ -263,7 +263,6 @@ export default function Home() {
       }
       removeFromSamen(movieKey)
       setSelected(null)
-      loadTogetherRecommendations()
       return
     }
 
@@ -283,12 +282,14 @@ export default function Home() {
       return
     }
 
+    // Geen automatische loadRecommendations()/loadTogetherRecommendations() meer hier:
+    // die herberekent bij een cache-miss (wat na elke rating het geval is, want je
+    // ratings zitten in de cache-signature) de volledige, zware aanbevelingspijplijn op
+    // Vercel — dat voelde aan alsof de ratingknop zelf traag reageerde. De net beoordeelde
+    // titel verdwijnt al direct uit de lijst (hieronder); voor bijgewerkte aanbevelingen
+    // die je nieuwste smaak meewegen is er de handmatige "Vernieuwen"-knop.
     removeEverywhere(movieKey)
     setSelected(null)
-    // Je score telt mee in de aanbevelingen voor andere films; op de achtergrond
-    // verversen zodat dat effect zichtbaar wordt zonder dat je zelf hoeft te vernieuwen.
-    loadRecommendations()
-    if (togetherConnected) loadTogetherRecommendations()
   }
 
   async function handleLogout() {
