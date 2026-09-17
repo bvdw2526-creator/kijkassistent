@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
@@ -76,7 +77,14 @@ function PosterSkeletonGrid() {
   )
 }
 
+// Na deze termijn stoppen we met verplicht naar de wizard doorsturen als iemand 'm nooit
+// heeft afgemaakt — de app blijft dan gewoon bruikbaar (met een niet-opdringerig
+// "maak je profiel af"-hintje bij Instellingen) in plaats van iemand voor altijd vast te
+// houden op een onboarding die hij kennelijk niet wil afronden.
+const ONBOARDING_FORCE_DAYS = 5
+
 export default function Home() {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
   const [loading, setLoading] = useState(true)
@@ -98,9 +106,24 @@ export default function Home() {
   const GHOST_TAP_GUARD_MS = 400
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user)
       if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed_at, onboarding_started_at')
+          .eq('id', data.user.id)
+          .single()
+
+        if (profile && !profile.onboarding_completed_at) {
+          const startedAt = profile.onboarding_started_at ? new Date(profile.onboarding_started_at).getTime() : null
+          const daysSinceStart = startedAt ? (Date.now() - startedAt) / (1000 * 60 * 60 * 24) : 0
+          if (startedAt === null || daysSinceStart <= ONBOARDING_FORCE_DAYS) {
+            router.push('/wizard')
+            return
+          }
+        }
+
         const cached = loadCachedRecommendations(data.user.id)
         if (cached) {
           setByMode(cached)
@@ -112,7 +135,7 @@ export default function Home() {
         setLoading(false)
       }
     })
-  }, [])
+  }, [router])
 
   async function loadRecommendations() {
     const requestId = ++requestIdRef.current

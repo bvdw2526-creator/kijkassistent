@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
@@ -84,6 +85,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [onboardingComplete, setOnboardingComplete] = useState(true)
 
   const [favoritePeople, setFavoritePeople] = useState<FavoritePerson[]>([])
   const [personQuery, setPersonQuery] = useState('')
@@ -111,11 +113,12 @@ export default function Settings() {
     if (!user) return
     const { data } = await supabase
       .from('profiles')
-      .select('streaming_services, excluded_genres')
+      .select('streaming_services, excluded_genres, onboarding_completed_at')
       .eq('id', user.id)
       .single()
     setSelected(data?.streaming_services || [])
     setExcludedGenres(data?.excluded_genres || [])
+    setOnboardingComplete(!!data?.onboarding_completed_at)
     setLoading(false)
   }
 
@@ -339,6 +342,18 @@ export default function Settings() {
       <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
         <p className="text-[#93A3B5] mb-6">Stel in wat je aanbevelingen beter maakt.</p>
+
+        {!onboardingComplete && (
+          <Link
+            href="/wizard"
+            className="flex items-center justify-between gap-3 rounded-xl border border-[#E8A33D]/40 bg-[#E8A33D]/10 px-4 py-3.5 mb-6 hover:border-[#E8A33D] transition-colors"
+          >
+            <span>
+              <span className="block text-sm font-medium text-[#E8A33D]">Maak je profiel af</span>
+              <span className="block text-xs text-[#93A3B5] mt-0.5">Rond de starthulp af voor scherpere aanbevelingen</span>
+            </span>
+          </Link>
+        )}
 
         {errorMessage && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
