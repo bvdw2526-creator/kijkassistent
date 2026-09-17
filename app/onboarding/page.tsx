@@ -361,7 +361,7 @@ export default function Onboarding() {
                       {movie.title}{' '}
                       <span className="text-xs text-[#5E6D80]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
                     </span>
-                    <div className="flex gap-1.5 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap items-center">
                       {RATING_BUTTONS.map(({ rating, label, tone }) => (
                         <button
                           key={rating}
@@ -371,6 +371,16 @@ export default function Onboarding() {
                           {label}
                         </button>
                       ))}
+                      <button
+                        // Zelfde knop nogmaals met de al actieve rating triggert de
+                        // "opheffen"-tak in rateMovie hierboven — geen aparte verwijder-
+                        // aanroep nodig, gewoon een duidelijker knopje voor diezelfde actie.
+                        onClick={() => rateMovie(movie, movie.rating)}
+                        className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                        aria-label="Beoordeling verwijderen"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
