@@ -129,6 +129,16 @@ export function LogoutIcon({ className }: IconProps) {
   )
 }
 
+export function ChartIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="M4 20V10" />
+      <path d="M12 20V4" />
+      <path d="M20 20v-7" />
+    </svg>
+  )
+}
+
 export function StarIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className}>

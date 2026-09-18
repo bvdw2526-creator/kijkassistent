@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from '../components/Icons'
@@ -42,7 +42,7 @@ export default function Onboarding() {
   const ratings = new Map(ratedMovies.map((r) => [ratingKey(r), r.rating]))
 
   async function loadFavorites() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
 
     const { data } = await supabase
@@ -64,7 +64,7 @@ export default function Onboarding() {
   }
 
   async function loadRatings() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
 
     const { data } = await supabase
@@ -100,7 +100,7 @@ export default function Onboarding() {
 
   async function addFavorite(movie: Movie) {
     if (favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)) return
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     const { error } = await supabase.from('favorite_movies').insert({
       user_id: user.id,
@@ -112,7 +112,7 @@ export default function Onboarding() {
   }
 
   async function removeFavorite(movie: Movie) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setRatingError(null)
 
@@ -139,7 +139,7 @@ export default function Onboarding() {
   }
 
   async function rateMovie(movie: { id: number; title: string; media_type: 'movie' | 'tv' }, rating: Rating) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setRatingError(null)
 

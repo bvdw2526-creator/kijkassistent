@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card, chip } from '../components/ui'
 import { TrashIcon, HeartIcon, OkIcon, DislikeIcon } from '../components/Icons'
@@ -35,7 +35,7 @@ export default function Watchlist() {
   const [error, setError] = useState<string | null>(null)
 
   async function loadWatchlist() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
 
     const { data } = await supabase
@@ -65,7 +65,7 @@ export default function Watchlist() {
   }, [])
 
   async function handleRate(item: WatchlistItem, rating: 'dislike' | 'ok' | 'love') {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setError(null)
 
@@ -120,7 +120,7 @@ export default function Watchlist() {
   // Alleen van de watchlist af, zonder rating — zo blijft de titel ongewaardeerd en
   // telt hij weer gewoon mee als kandidaat in de aanbevelingscategorieën.
   async function handleRemove(item: WatchlistItem) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setError(null)
 

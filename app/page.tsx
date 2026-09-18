@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCurrentUser } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
@@ -83,6 +83,14 @@ function PosterSkeletonGrid() {
 // houden op een onboarding die hij kennelijk niet wil afronden.
 const ONBOARDING_FORCE_DAYS = 5
 
+// Blijft "true" zodra er één keer écht is opgehaald in deze bladwijzer-sessie (SPA — dus
+// niet bij elke keer terugnavigeren naar "Voor jou", wél weer bij een volledige herlaad).
+// Zonder deze guard zou elke keer tussen tabbladen wisselen en terugkomen op "Voor jou"
+// opnieuw de volledige aanbevelingspijplijn aanroepen, terwijl er al geldige gecachete
+// data in localStorage staat — dat voelde aan als "alles ververst steeds", terwijl er een
+// aparte, handmatige "Vernieuwen"-knop voor is bedoeld.
+let hasFetchedThisSession = false
+
 export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
@@ -106,13 +114,13 @@ export default function Home() {
   const GHOST_TAP_GUARD_MS = 400
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      setUser(data.user)
-      if (data.user) {
+    getCurrentUser().then(async (currentUser) => {
+      setUser(currentUser)
+      if (currentUser) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('onboarding_completed_at, onboarding_started_at')
-          .eq('id', data.user.id)
+          .eq('id', currentUser.id)
           .single()
 
         if (profile && !profile.onboarding_completed_at) {
@@ -124,13 +132,21 @@ export default function Home() {
           }
         }
 
-        const cached = loadCachedRecommendations(data.user.id)
+        const cached = loadCachedRecommendations(currentUser.id)
         if (cached) {
           setByMode(cached)
           setLoading(false)
         }
-        loadRecommendations()
-        loadTogetherRecommendations()
+        if (!hasFetchedThisSession) {
+          hasFetchedThisSession = true
+          loadRecommendations()
+          loadTogetherRecommendations()
+        } else if (!cached) {
+          // Geen sessievlag-cache-mismatch: wel al "gefetcht" deze sessie, maar deze tab
+          // heeft zelf nog niets — dan alsnog ophalen in plaats van leeg te laten staan.
+          loadRecommendations()
+          loadTogetherRecommendations()
+        }
       } else {
         setLoading(false)
       }

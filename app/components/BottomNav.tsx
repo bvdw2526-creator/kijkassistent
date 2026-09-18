@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { HomeIcon, SearchIcon, BookmarkIcon, SettingsIcon } from './Icons'
+import { HomeIcon, SearchIcon, BookmarkIcon, ChartIcon, SettingsIcon } from './Icons'
 
 const TABS = [
   { href: '/', label: 'Voor jou', icon: HomeIcon },
   { href: '/onboarding', label: 'Zoeken', icon: SearchIcon },
   { href: '/watchlist', label: 'Watchlist', icon: BookmarkIcon },
+  { href: '/profiel', label: 'Profiel', icon: ChartIcon },
   { href: '/settings', label: 'Instellingen', icon: SettingsIcon },
 ]
 
@@ -24,6 +25,14 @@ export default function BottomNav() {
               <Link
                 key={href}
                 href={href}
+                onClick={(e) => {
+                  // Nogmaals op een al-actieve tab tikken navigeert nergens heen (zelfde route),
+                  // dus dan springen we terug naar boven — bv. de zoekbalk na het scrollen.
+                  if (active) {
+                    e.preventDefault()
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }
+                }}
                 className="relative flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 transition-colors touch-manipulation"
               >
                 {active && (

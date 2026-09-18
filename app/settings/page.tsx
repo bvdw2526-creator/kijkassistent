@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon, UsersIcon } from '../components/Icons'
@@ -109,7 +109,7 @@ export default function Settings() {
   }, [])
 
   async function loadProfile() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     const { data } = await supabase
       .from('profiles')
@@ -123,7 +123,7 @@ export default function Settings() {
   }
 
   async function loadFavoritePeople() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     const { data } = await supabase
       .from('favorite_people')
@@ -148,7 +148,7 @@ export default function Settings() {
   }
 
   async function handleSave() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setSaved(false)
     setErrorMessage(null)
@@ -177,7 +177,7 @@ export default function Settings() {
 
   async function addFavoritePerson(person: PersonResult) {
     if (favoritePeople.find((p) => p.person_id === person.id)) return
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setErrorMessage(null)
     const { error } = await supabase.from('favorite_people').insert({
@@ -197,7 +197,7 @@ export default function Settings() {
   }
 
   async function removeFavoritePerson(personId: number) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setErrorMessage(null)
     const { error } = await supabase
@@ -214,7 +214,7 @@ export default function Settings() {
   }
 
   async function loadFavoriteDirectors() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     const { data } = await supabase
       .from('favorite_directors')
@@ -235,7 +235,7 @@ export default function Settings() {
 
   async function addFavoriteDirector(person: PersonResult) {
     if (favoriteDirectors.find((p) => p.person_id === person.id)) return
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setErrorMessage(null)
     const { error } = await supabase.from('favorite_directors').insert({
@@ -255,7 +255,7 @@ export default function Settings() {
   }
 
   async function removeFavoriteDirector(personId: number) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return
     setErrorMessage(null)
     const { error } = await supabase
