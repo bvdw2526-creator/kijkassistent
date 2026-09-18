@@ -346,7 +346,7 @@ export default function Settings() {
         {!onboardingComplete && (
           <Link
             href="/wizard"
-            className="flex items-center justify-between gap-3 rounded-xl border border-[#E8A33D]/40 bg-[#E8A33D]/10 px-4 py-3.5 mb-6 hover:border-[#E8A33D] transition-colors"
+            className="flex items-center justify-between gap-3 rounded-xl border border-[#E8A33D]/40 bg-[#E8A33D]/10 px-4 py-3.5 mb-3 hover:border-[#E8A33D] transition-colors"
           >
             <span>
               <span className="block text-sm font-medium text-[#E8A33D]">Maak je profiel af</span>
@@ -354,6 +354,16 @@ export default function Settings() {
             </span>
           </Link>
         )}
+
+        <Link
+          href="/profiel"
+          className="flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mb-6 hover:border-[#3d4c60] transition-colors"
+        >
+          <span>
+            <span className="block text-sm font-medium">Jouw kijkprofiel</span>
+            <span className="block text-xs text-[#93A3B5] mt-0.5">Statistieken over je favorieten en beoordelingen</span>
+          </span>
+        </Link>
 
         {errorMessage && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">

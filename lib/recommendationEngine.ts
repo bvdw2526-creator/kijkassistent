@@ -39,7 +39,7 @@ export interface WatchProviderSource {
   web_url: string
 }
 
-interface TitleDetails {
+export interface TitleDetails {
   genres: { id: number; name: string }[]
   overview: string
   collectionId: number | null
@@ -329,7 +329,7 @@ export async function resolveWatchInfo(
   return new Map(entries)
 }
 
-interface CreditsResult {
+export interface CreditsResult {
   cast: CastMember[]
   directors: CastMember[]
 }
@@ -362,7 +362,7 @@ async function fetchCreditsLive(mediaType: MediaType, tmdbId: number): Promise<C
 // daarna. Wordt alleen aangeroepen als er favoriete acteurs/actrices en/of favoriete
 // regisseurs zijn ingesteld, zodat gebruikers zonder die voorkeuren geen extra
 // TMDB-calls kosten.
-async function getCreditsBulk(
+export async function getCreditsBulk(
   supabase: SupabaseClient,
   items: { mediaType: MediaType; tmdbId: number }[]
 ): Promise<Map<string, CreditsResult>> {
