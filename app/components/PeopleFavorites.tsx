@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
-import { btnPrimary, input, card } from './ui'
+import { btnPrimary, btnSecondary, input, card } from './ui'
+import PersonInfoSheet, { type PersonInfoItem } from './PersonInfoSheet'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from './Icons'
 
 type Person = { person_id: number; name: string; profile_path: string | null }
@@ -50,6 +51,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
   const [results, setResults] = useState<PersonResult[]>([])
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [infoPerson, setInfoPerson] = useState<PersonInfoItem | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -149,8 +151,13 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
             const added = favorites.some((p) => p.person_id === person.id)
             return (
               <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                <Avatar name={person.name} path={person.profile_path} />
-                <span className="flex-1 text-sm truncate">{person.name}</span>
+                <button
+                  onClick={() => setInfoPerson({ id: person.id, name: person.name, profile_path: person.profile_path })}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation"
+                >
+                  <Avatar name={person.name} path={person.profile_path} />
+                  <span className="flex-1 text-sm truncate">{person.name}</span>
+                </button>
                 <button
                   onClick={() => add(person)}
                   className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
@@ -172,8 +179,13 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
         <div className="flex flex-col gap-1.5">
           {favorites.map((person) => (
             <div key={person.person_id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-              <Avatar name={person.name} path={person.profile_path} />
-              <span className="flex-1 text-sm truncate">{person.name}</span>
+              <button
+                onClick={() => setInfoPerson({ id: person.person_id, name: person.name, profile_path: person.profile_path })}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation"
+              >
+                <Avatar name={person.name} path={person.profile_path} />
+                <span className="flex-1 text-sm truncate">{person.name}</span>
+              </button>
               <button
                 onClick={() => remove(person.person_id)}
                 className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
@@ -184,6 +196,28 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
             </div>
           ))}
         </div>
+      )}
+
+      {infoPerson && (
+        <PersonInfoSheet person={infoPerson} onClose={() => setInfoPerson(null)}>
+          {favorites.some((p) => p.person_id === infoPerson.id) ? (
+            <button
+              onClick={async () => {
+                await remove(infoPerson.id)
+                setInfoPerson(null)
+              }}
+              className={`${btnSecondary} w-full`}
+            >
+              <TrashIcon className="w-4 h-4" />
+              Uit favorieten halen
+            </button>
+          ) : (
+            <button onClick={() => add({ id: infoPerson.id, name: infoPerson.name, profile_path: infoPerson.profile_path ?? null })} className={`${btnPrimary} w-full`}>
+              <PlusIcon className="w-4 h-4" />
+              Favoriet
+            </button>
+          )}
+        </PersonInfoSheet>
       )}
     </div>
   )

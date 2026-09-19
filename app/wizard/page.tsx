@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabase, authFetch } from '@/lib/supabase'
+import PersonInfoSheet from '../components/PersonInfoSheet'
 import { btnPrimary, btnGhost, input, card, chip } from '../components/ui'
 import {
   SearchIcon,
@@ -104,6 +105,7 @@ export default function Wizard() {
   const [favoriteDirectors, setFavoriteDirectors] = useState<FavoritePerson[]>([])
 
   const [error, setError] = useState<string | null>(null)
+  const [infoPerson, setInfoPerson] = useState<{ kind: 'actor' | 'director'; person: PersonResult } | null>(null)
   const [finishing, setFinishing] = useState(false)
 
   useEffect(() => {
@@ -514,12 +516,14 @@ export default function Wizard() {
                 const added = favoriteActors.some((p) => p.person_id === person.id)
                 return (
                   <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
+                    <button onClick={() => setInfoPerson({ kind: 'actor', person })} className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation">
                     {person.profile_path ? (
                       <Image src={`https://image.tmdb.org/t/p/w92${person.profile_path}`} alt={person.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-[#212C3B] flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm truncate">{person.name}</span>
+                    </button>
                     <button
                       onClick={() => addFavoriteActor(person)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
@@ -573,12 +577,14 @@ export default function Wizard() {
                 const added = favoriteDirectors.some((p) => p.person_id === person.id)
                 return (
                   <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
+                    <button onClick={() => setInfoPerson({ kind: 'director', person })} className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation">
                     {person.profile_path ? (
                       <Image src={`https://image.tmdb.org/t/p/w92${person.profile_path}`} alt={person.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-[#212C3B] flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm truncate">{person.name}</span>
+                    </button>
                     <button
                       onClick={() => addFavoriteDirector(person)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
@@ -668,6 +674,25 @@ export default function Wizard() {
             </button>
           </div>
         </div>
+      )}
+
+      {infoPerson && (
+        <PersonInfoSheet
+          person={{ id: infoPerson.person.id, name: infoPerson.person.name, profile_path: infoPerson.person.profile_path }}
+          onClose={() => setInfoPerson(null)}
+        >
+          <button
+            onClick={async () => {
+              if (infoPerson.kind === 'actor') await addFavoriteActor(infoPerson.person)
+              else await addFavoriteDirector(infoPerson.person)
+              setInfoPerson(null)
+            }}
+            className={`${btnPrimary} w-full`}
+          >
+            <PlusIcon className="w-4 h-4" />
+            Favoriet
+          </button>
+        </PersonInfoSheet>
       )}
     </main>
   )
