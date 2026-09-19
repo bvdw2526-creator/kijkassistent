@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { supabase, getCurrentUser } from '@/lib/supabase'
+import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import PeopleFavorites from '../components/PeopleFavorites'
 import TitleInfoSheet, { type TitleInfoItem } from '../components/TitleInfoSheet'
@@ -62,14 +62,8 @@ export default function Onboarding() {
     setBookLoading(true)
     setBookError(null)
     try {
-      const headers: Record<string, string> = {}
-      if (mineOnly) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) headers.Authorization = `Bearer ${session.access_token}`
-      }
-      const res = await fetch(
-        `/api/book-adaptations?type=${type}&page=${page}&mine=${mineOnly ? 1 : 0}&q=${encodeURIComponent(q)}`,
-        { headers }
+      const res = await authFetch(
+        `/api/book-adaptations?type=${type}&page=${page}&mine=${mineOnly ? 1 : 0}&q=${encodeURIComponent(q)}`
       )
       const data = await res.json()
       if (requestId !== bookRequestRef.current) return
@@ -173,8 +167,10 @@ export default function Onboarding() {
   async function handleSearch() {
     if (!query) return
     setLoading(true)
-    const res = await fetch(`/api/search-movies?query=${encodeURIComponent(query)}`)
+    setRatingError(null)
+    const res = await authFetch(`/api/search-movies?query=${encodeURIComponent(query)}`)
     const data = await res.json()
+    if (!res.ok) setRatingError(data.error || 'Zoeken mislukt')
     setResults(data.results || [])
     setLoading(false)
   }

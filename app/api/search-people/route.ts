@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 
 // TMDB's "known_for_department" is de afdeling waar iemand het bekendst om is — niet
 // waterdicht (een acteur-regisseur zoals Ben Affleck staat bv. onder "Acting"), maar
@@ -10,6 +11,9 @@ const DEPARTMENT_BY_TYPE = {
 } as const
 
 export async function GET(request: NextRequest) {
+  const guard = await guardRequest(request, 'search', LIMITS.search)
+  if (!guard.ok) return guard.response
+
   const query = request.nextUrl.searchParams.get('query')
   const type = request.nextUrl.searchParams.get('type') === 'director' ? 'director' : 'actor'
 

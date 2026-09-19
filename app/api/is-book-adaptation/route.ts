@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 
 const BOOK_KEYWORD_ID = 818
 const CACHE_SECONDS = 60 * 60 * 24 * 7
 
 export async function GET(request: NextRequest) {
+  const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
+  if (!guard.ok) return guard.response
+
   const mediaType = request.nextUrl.searchParams.get('type') === 'tv' ? 'tv' : 'movie'
   const id = parseInt(request.nextUrl.searchParams.get('id') || '', 10)
   if (!id) return NextResponse.json({ isBookAdaptation: false })

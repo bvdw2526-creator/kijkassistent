@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { supabase, getCurrentUser } from '@/lib/supabase'
+import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
@@ -106,6 +106,7 @@ export default function Home() {
   const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
+  const [refreshError, setRefreshError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -167,6 +168,14 @@ export default function Home() {
     // Als er intussen een nieuwere aanvraag is gestart (bv. door snel na elkaar
     // te scoren), negeer dit oudere antwoord zodat het niet de verse staat overschrijft.
     if (requestId !== requestIdRef.current) return
+    // Bij een fout (bv. te vaak vernieuwd) de bestaande lijst laten staan in plaats van
+    // die te vervangen door een lege.
+    if (!res.ok || data.error) {
+      setLoading(false)
+      setRefreshError(data.error || `Vernieuwen mislukt (status ${res.status})`)
+      return
+    }
+    setRefreshError(null)
     const fresh = {
       focused: data.focused || [],
       balanced: data.balanced || [],
@@ -231,7 +240,7 @@ export default function Home() {
   function checkBookAdaptation(movie: Movie) {
     const key = `${movie.media_type}-${movie.id}`
     if (bookTitles.has(key)) return
-    fetch(`/api/is-book-adaptation?type=${movie.media_type}&id=${movie.id}`)
+    authFetch(`/api/is-book-adaptation?type=${movie.media_type}&id=${movie.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.isBookAdaptation) setBookTitles((current) => new Set(current).add(key))
@@ -476,6 +485,12 @@ export default function Home() {
             {loading ? 'Vernieuwen...' : 'Vernieuwen'}
           </button>
         </div>
+
+        {refreshError && (
+          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">
+            {refreshError}
+          </p>
+        )}
 
         {mode === 'samen' && togetherError && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">

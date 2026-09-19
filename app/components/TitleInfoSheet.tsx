@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { authFetch } from '@/lib/supabase'
 import { btnGhost } from './ui'
 import { CloseIcon } from './Icons'
 
@@ -39,7 +40,7 @@ export default function TitleInfoSheet({
 
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/title-info?type=${item.media_type}&id=${item.id}`)
+    authFetch(`/api/title-info?type=${item.media_type}&id=${item.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return

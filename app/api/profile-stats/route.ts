@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import { getCachedDetails, getCreditsBulk, getWatchProvidersBulk, SOURCE_IDS, type MediaType } from '@/lib/recommendationEngine'
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -17,19 +17,11 @@ export const maxDuration = 60
 type WatchedTitle = { tmdb_id: number; title: string; media_type: MediaType }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  const guard = await guardRequest(request, 'profile-stats', LIMITS.profileStats)
+  if (!guard.ok) return guard.response
+  const { supabase, user } = guard
 
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: authHeader } } }
-    )
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-
     const [{ data: favorites }, { data: ratings }] = await Promise.all([
       supabase.from('favorite_movies').select('tmdb_id, title, media_type').eq('user_id', user.id),
       supabase.from('ratings').select('tmdb_id, title, media_type, rating').eq('user_id', user.id),

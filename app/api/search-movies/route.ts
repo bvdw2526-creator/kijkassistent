@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 
 export async function GET(request: NextRequest) {
+  const guard = await guardRequest(request, 'search', LIMITS.search)
+  if (!guard.ok) return guard.response
+
   const query = request.nextUrl.searchParams.get('query')
 
   if (!query) {

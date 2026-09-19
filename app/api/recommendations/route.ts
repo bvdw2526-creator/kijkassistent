@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
   MODES,
   SOURCE_IDS,
@@ -43,17 +44,9 @@ async function cacheRecommendationsResult(
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: authHeader } } }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  const guard = await guardRequest(request, 'recommendations', LIMITS.recommendations)
+  if (!guard.ok) return guard.response
+  const { supabase, user } = guard
 
   const inputs = await fetchProfileInputs(supabase, user.id)
 

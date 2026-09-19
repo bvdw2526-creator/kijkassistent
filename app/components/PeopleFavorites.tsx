@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { supabase, getCurrentUser } from '@/lib/supabase'
+import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import { btnPrimary, input, card } from './ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from './Icons'
 
@@ -72,8 +72,10 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
   async function handleSearch() {
     if (!query) return
     setSearching(true)
-    const res = await fetch(`/api/search-people?query=${encodeURIComponent(query)}${config.searchSuffix}`)
+    setError(null)
+    const res = await authFetch(`/api/search-people?query=${encodeURIComponent(query)}${config.searchSuffix}`)
     const data = await res.json()
+    if (!res.ok) setError(data.error || 'Zoeken mislukt')
     setResults(data.results || [])
     setSearching(false)
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
   SOURCE_IDS,
   fetchProfileInputs,
@@ -73,23 +74,15 @@ async function cacheCoupleRecommendationsResult(
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
+  const guard = await guardRequest(request, 'recommendations-together', LIMITS.recommendationsTogether)
+  if (!guard.ok) return guard.response
+  const { supabase, user } = guard
 
   // De hele body staat in een try/catch: een onafgevangen fout waar dan ook hierin
   // (bv. Supabase- of TMDB-calls in lib/recommendationEngine.ts) leverde eerder een
   // kale HTML-foutpagina van Next.js op — de client kreeg dan "Unexpected token '<'"
   // te zien bij het parsen als JSON, zonder enige aanwijzing wat er echt misging.
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: authHeader } } }
-    )
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-
     const { data: connections, error: connectionsError } = await supabase
       .from('partner_connections')
       .select('id, requester_id, partner_id')

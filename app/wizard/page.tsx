@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, authFetch } from '@/lib/supabase'
 import { btnPrimary, btnGhost, input, card, chip } from '../components/ui'
 import {
   SearchIcon,
@@ -181,8 +181,10 @@ export default function Wizard() {
   async function handleMovieSearch() {
     if (!movieQuery) return
     setMovieSearchLoading(true)
-    const res = await fetch(`/api/search-movies?query=${encodeURIComponent(movieQuery)}`)
+    setError(null)
+    const res = await authFetch(`/api/search-movies?query=${encodeURIComponent(movieQuery)}`)
     const data = await res.json()
+    if (!res.ok) setError(data.error || 'Zoeken mislukt')
     setMovieResults(data.results || [])
     setMovieSearchLoading(false)
   }
@@ -223,8 +225,10 @@ export default function Wizard() {
   async function handleActorSearch() {
     if (!actorQuery) return
     setActorSearchLoading(true)
-    const res = await fetch(`/api/search-people?query=${encodeURIComponent(actorQuery)}&type=actor`)
+    setError(null)
+    const res = await authFetch(`/api/search-people?query=${encodeURIComponent(actorQuery)}&type=actor`)
     const data = await res.json()
+    if (!res.ok) setError(data.error || 'Zoeken mislukt')
     setActorResults(data.results || [])
     setActorSearchLoading(false)
   }
@@ -260,8 +264,10 @@ export default function Wizard() {
   async function handleDirectorSearch() {
     if (!directorQuery) return
     setDirectorSearchLoading(true)
-    const res = await fetch(`/api/search-people?query=${encodeURIComponent(directorQuery)}&type=director`)
+    setError(null)
+    const res = await authFetch(`/api/search-people?query=${encodeURIComponent(directorQuery)}&type=director`)
     const data = await res.json()
+    if (!res.ok) setError(data.error || 'Zoeken mislukt')
     setDirectorResults(data.results || [])
     setDirectorSearchLoading(false)
   }

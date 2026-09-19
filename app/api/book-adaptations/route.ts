@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import { SOURCE_IDS } from '@/lib/recommendationEngine'
 
 // TMDB-trefwoord "based on novel or book". Door de community getagd, dus niet volledig:
@@ -60,6 +60,9 @@ async function searchBookAdaptations(mediaType: 'movie' | 'tv', query: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const guard = await guardRequest(request, 'book-adaptations', LIMITS.search)
+  if (!guard.ok) return guard.response
+
   const params = request.nextUrl.searchParams
   const mediaType = params.get('type') === 'tv' ? 'tv' : 'movie'
   const page = Math.min(Math.max(parseInt(params.get('page') || '1', 10) || 1, 1), 20)
@@ -75,16 +78,7 @@ export async function GET(request: NextRequest) {
 
   let providerFilter = ''
   if (mineOnly) {
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { global: { headers: { Authorization: authHeader } } }
-    )
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 })
-    const { data: profile } = await supabase.from('profiles').select('streaming_services').eq('id', user.id).single()
+    const { data: profile } = await guard.supabase.from('profiles').select('streaming_services').eq('id', guard.user.id).single()
     const providerIds = ((profile?.streaming_services || []) as string[])
       .map((s) => SOURCE_IDS[s])
       .filter((id): id is number => typeof id === 'number')
