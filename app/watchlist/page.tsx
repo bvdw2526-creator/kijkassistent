@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
+import TitleInfoSheet from '../components/TitleInfoSheet'
 import { card, chip } from '../components/ui'
 import { TrashIcon, HeartIcon, OkIcon, DislikeIcon } from '../components/Icons'
 
@@ -33,6 +34,7 @@ export default function Watchlist() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [error, setError] = useState<string | null>(null)
+  const [infoItem, setInfoItem] = useState<WatchlistItem | null>(null)
 
   async function loadWatchlist() {
     const user = await getCurrentUser()
@@ -198,6 +200,7 @@ export default function Watchlist() {
           {visible.map((item) => (
             <div key={`${item.media_type}-${item.id}`} className={`${card} p-3`}>
               <div className="flex gap-3">
+                <button onClick={() => setInfoItem(item)} className="flex-shrink-0 touch-manipulation" aria-label={`Info over ${item.title}`}>
                 {item.poster_path ? (
                   <div className="relative w-16 aspect-[2/3] rounded-lg flex-shrink-0 overflow-hidden">
                     <Image
@@ -211,9 +214,12 @@ export default function Watchlist() {
                 ) : (
                   <div className="w-16 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
                 )}
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium leading-tight">{item.title}</p>
+                    <button onClick={() => setInfoItem(item)} className="font-medium leading-tight text-left touch-manipulation">
+                      {item.title}
+                    </button>
                     <button
                       onClick={() => handleRemove(item)}
                       className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1 -mt-1 -mr-1 flex-shrink-0"
@@ -268,6 +274,25 @@ export default function Watchlist() {
           ))}
         </div>
       </main>
+
+      {infoItem && (
+        <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
+          <div className="flex gap-1.5 flex-wrap mb-1">
+            {(['love', 'ok', 'dislike'] as const).map((rating) => (
+              <button
+                key={rating}
+                onClick={async () => {
+                  await handleRate(infoItem, rating)
+                  setInfoItem(null)
+                }}
+                className={chip(false, rating === 'love' ? 'accent' : rating === 'ok' ? 'teal' : 'coral', 'sm')}
+              >
+                {rating === 'love' ? 'Zeker' : rating === 'ok' ? 'Oké' : 'Niet voor mij'}
+              </button>
+            ))}
+          </div>
+        </TitleInfoSheet>
+      )}
 
       <BottomNav />
     </>

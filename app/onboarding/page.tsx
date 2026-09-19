@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import PeopleFavorites from '../components/PeopleFavorites'
-import { btnPrimary, input, chip, card } from '../components/ui'
+import TitleInfoSheet, { type TitleInfoItem } from '../components/TitleInfoSheet'
+import { btnPrimary, btnSecondary, input, chip, card } from '../components/ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from '../components/Icons'
 
 type Movie = {
@@ -27,6 +28,7 @@ const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' |
 
 const SEGMENTS = [
   { id: 'titels', label: 'Titels' },
+  { id: 'boeken', label: 'Boeken' },
   { id: 'acteurs', label: 'Acteurs' },
   { id: 'regisseurs', label: 'Regisseurs' },
 ] as const
@@ -39,6 +41,77 @@ export default function Onboarding() {
   const [ratedMovies, setRatedMovies] = useState<RatedMovie[]>([])
   const [loading, setLoading] = useState(false)
   const [ratingError, setRatingError] = useState<string | null>(null)
+  const [infoItem, setInfoItem] = useState<TitleInfoItem | null>(null)
+
+  const [bookResults, setBookResults] = useState<Movie[]>([])
+  const [bookType, setBookType] = useState<'movie' | 'tv'>('movie')
+  const [bookMineOnly, setBookMineOnly] = useState(false)
+  const [bookPage, setBookPage] = useState(1)
+  const [bookTotalPages, setBookTotalPages] = useState(1)
+  const [bookQuery, setBookQuery] = useState('')
+  // Wat er daadwerkelijk is opgezocht — los van wat er nu in de zoekbalk getypt staat.
+  const [bookActiveQuery, setBookActiveQuery] = useState('')
+  const [bookLoading, setBookLoading] = useState(false)
+  const [bookError, setBookError] = useState<string | null>(null)
+  // Voorkomt dat een trager, ouder antwoord (bv. na snel wisselen tussen films/series)
+  // het nieuwere resultaat overschrijft.
+  const bookRequestRef = useRef(0)
+
+  async function loadBooks(type: 'movie' | 'tv', mineOnly: boolean, page: number, q = bookActiveQuery) {
+    const requestId = ++bookRequestRef.current
+    setBookLoading(true)
+    setBookError(null)
+    try {
+      const headers: Record<string, string> = {}
+      if (mineOnly) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) headers.Authorization = `Bearer ${session.access_token}`
+      }
+      const res = await fetch(
+        `/api/book-adaptations?type=${type}&page=${page}&mine=${mineOnly ? 1 : 0}&q=${encodeURIComponent(q)}`,
+        { headers }
+      )
+      const data = await res.json()
+      if (requestId !== bookRequestRef.current) return
+      if (!res.ok || data.error) {
+        setBookError(data.error || 'Boekverfilmingen laden mislukt')
+        setBookLoading(false)
+        return
+      }
+      setBookResults((current) => (page === 1 ? data.results : [...current, ...data.results]))
+      setBookPage(data.page)
+      setBookTotalPages(data.totalPages)
+    } catch (err) {
+      if (requestId !== bookRequestRef.current) return
+      setBookError(err instanceof Error ? err.message : 'Boekverfilmingen laden mislukt')
+    }
+    setBookLoading(false)
+  }
+
+  function handleBookSearch() {
+    const trimmed = bookQuery.trim()
+    setBookActiveQuery(trimmed)
+    setBookResults([])
+    loadBooks(bookType, bookMineOnly, 1, trimmed)
+  }
+
+  function openBookSegment() {
+    setSegment('boeken')
+    if (bookResults.length === 0) loadBooks(bookType, bookMineOnly, 1)
+  }
+
+  function changeBookType(type: 'movie' | 'tv') {
+    setBookType(type)
+    setBookResults([])
+    loadBooks(type, bookMineOnly, 1)
+  }
+
+  function toggleBookMine() {
+    const next = !bookMineOnly
+    setBookMineOnly(next)
+    setBookResults([])
+    loadBooks(bookType, next, 1)
+  }
 
   function ratingKey(movie: { id: number; media_type: 'movie' | 'tv' }) {
     return `${movie.media_type}-${movie.id}`
@@ -231,7 +304,7 @@ export default function Onboarding() {
           {SEGMENTS.map((s) => (
             <button
               key={s.id}
-              onClick={() => setSegment(s.id)}
+              onClick={() => (s.id === 'boeken' ? openBookSegment() : setSegment(s.id))}
               className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
                 segment === s.id ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
               }`}
@@ -244,7 +317,7 @@ export default function Onboarding() {
         {segment === 'acteurs' && <PeopleFavorites kind="actor" />}
         {segment === 'regisseurs' && <PeopleFavorites kind="director" />}
 
-        {segment === 'titels' && (
+        {(segment === 'titels' || segment === 'boeken') && (
           <>
         {ratingError && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
@@ -252,6 +325,7 @@ export default function Onboarding() {
           </p>
         )}
 
+        {segment === 'titels' && (
         <div className="flex gap-2 mb-6">
           <div className="relative flex-1">
             <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
@@ -268,15 +342,71 @@ export default function Onboarding() {
             Zoeken
           </button>
         </div>
+        )}
 
-        {results.length > 0 && (
+        {segment === 'boeken' && (
+          <div className="mb-6">
+            <p className="text-[#93A3B5] text-sm mb-4 leading-relaxed">
+              Films en series die op een boek gebaseerd zijn, de populairste eerst. Gebaseerd op TMDB-trefwoorden,
+              dus een enkele verfilming kan ontbreken.
+            </p>
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+                <input
+                  type="text"
+                  value={bookQuery}
+                  onChange={(e) => setBookQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleBookSearch()}
+                  placeholder="Zoek een boekverfilming..."
+                  className={`${input} pl-10`}
+                />
+              </div>
+              <button onClick={handleBookSearch} disabled={bookLoading} className={btnPrimary}>
+                Zoeken
+              </button>
+            </div>
+            {bookActiveQuery && (
+              <p className="text-xs text-[#5E6D80] mb-3">
+                Resultaten voor &quot;{bookActiveQuery}&quot; — alleen titels die op een boek gebaseerd zijn. Laat de
+                zoekbalk leeg en zoek opnieuw voor de volledige lijst.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => changeBookType('movie')} className={chip(bookType === 'movie', 'accent', 'sm')}>
+                Films
+              </button>
+              <button onClick={() => changeBookType('tv')} className={chip(bookType === 'tv', 'accent', 'sm')}>
+                Series
+              </button>
+              <button onClick={toggleBookMine} className={chip(bookMineOnly, 'teal', 'sm')}>
+                Alleen op mijn diensten
+              </button>
+            </div>
+            {bookError && <p className="text-sm text-[#C97064] mt-3">{bookError}</p>}
+            {bookLoading && bookResults.length === 0 && <p className="text-[#93A3B5] text-sm mt-4">Laden...</p>}
+            {!bookLoading && !bookError && bookResults.length === 0 && (
+              <p className="text-[#93A3B5] text-sm mt-4">
+                {bookActiveQuery
+                  ? 'Geen boekverfilming gevonden met deze titel. Probeer een andere schrijfwijze, of wissel tussen Films en Series.'
+                  : 'Niets gevonden. Zet "Alleen op mijn diensten" eens uit.'}
+              </p>
+            )}
+          </div>
+        )}
+
+        {(segment === 'titels' ? results : bookResults).length > 0 && (
           <div className="flex flex-col gap-2 mb-10">
-            {results.map((movie) => {
+            {(segment === 'titels' ? results : bookResults).map((movie) => {
               const added = favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)
               const currentRating = ratings.get(ratingKey(movie))
               return (
                 <div key={`${movie.media_type}-${movie.id}`} className={`${card} p-3`}>
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setInfoItem(movie)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation"
+                    >
                     {movie.poster_path ? (
                       <div className="relative w-11 aspect-[2/3] rounded-lg flex-shrink-0 overflow-hidden">
                         <Image
@@ -296,6 +426,7 @@ export default function Onboarding() {
                         {movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}
                       </span>
                     </span>
+                    </button>
                     <button
                       onClick={() => addFavorite(movie)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
@@ -323,6 +454,14 @@ export default function Onboarding() {
           </div>
         )}
 
+        {segment === 'boeken' && bookPage < bookTotalPages && bookResults.length > 0 && (
+          <button onClick={() => loadBooks(bookType, bookMineOnly, bookPage + 1)} disabled={bookLoading} className={`${btnSecondary} w-full mb-6`}>
+            {bookLoading ? 'Laden...' : 'Meer laden'}
+          </button>
+        )}
+
+        {segment === 'titels' && (
+          <>
         <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
 
         {favorites.length === 0 && (
@@ -335,7 +474,9 @@ export default function Onboarding() {
             <div className="flex flex-col gap-1.5">
               {movieFavorites.map((movie) => (
                 <div key={`movie-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                  <span className="flex-1 text-sm truncate">{movie.title}</span>
+                  <button onClick={() => setInfoItem(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
+                    {movie.title}
+                  </button>
                   <button
                     onClick={() => removeFavorite(movie)}
                     className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
@@ -355,7 +496,9 @@ export default function Onboarding() {
             <div className="flex flex-col gap-1.5">
               {tvFavorites.map((movie) => (
                 <div key={`tv-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                  <span className="flex-1 text-sm truncate">{movie.title}</span>
+                  <button onClick={() => setInfoItem(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
+                    {movie.title}
+                  </button>
                   <button
                     onClick={() => removeFavorite(movie)}
                     className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
@@ -384,10 +527,13 @@ export default function Onboarding() {
               <div className="flex flex-col gap-1.5">
                 {items.map((movie) => (
                   <div key={ratingKey(movie)} className={`${card} flex items-center gap-3 flex-wrap px-4 py-2.5`}>
-                    <span className="flex-1 text-sm min-w-[140px] truncate">
+                    <button
+                      onClick={() => setInfoItem({ id: movie.id, title: movie.title, media_type: movie.media_type })}
+                      className="flex-1 text-sm min-w-[140px] truncate text-left touch-manipulation"
+                    >
                       {movie.title}{' '}
                       <span className="text-xs text-[#5E6D80]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
-                    </span>
+                    </button>
                     <div className="flex gap-1.5 flex-wrap items-center">
                       {RATING_BUTTONS.map(({ rating, label, tone }) => (
                         <button
@@ -417,7 +563,36 @@ export default function Onboarding() {
         })}
           </>
         )}
+          </>
+        )}
       </main>
+
+      {infoItem && (
+        <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
+          <button
+            onClick={() => addFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })}
+            className={`${btnPrimary} w-full mb-3`}
+          >
+            {favorites.some((f) => f.id === infoItem.id && f.media_type === infoItem.media_type) ? (
+              <CheckIcon className="w-4 h-4" />
+            ) : (
+              <PlusIcon className="w-4 h-4" />
+            )}
+            Favoriet
+          </button>
+          <div className="flex gap-1.5 flex-wrap">
+            {RATING_BUTTONS.map(({ rating, label, tone }) => (
+              <button
+                key={rating}
+                onClick={() => rateMovie(infoItem, rating)}
+                className={chip(ratings.get(ratingKey(infoItem)) === rating, tone, 'sm')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </TitleInfoSheet>
+      )}
 
       <BottomNav />
     </>

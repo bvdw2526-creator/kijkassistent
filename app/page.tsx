@@ -104,6 +104,7 @@ export default function Home() {
   const [togetherError, setTogetherError] = useState<string | null>(null)
   const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -222,6 +223,19 @@ export default function Home() {
       console.error('Samen-aanbevelingen ophalen mislukt:', err)
       setTogetherError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van Samen-aanbevelingen')
     }
+  }
+
+  // Los van de aanbevelingen zelf: het label verschijnt pas als het (gecachete) antwoord er
+  // is, en een mislukte aanvraag laat de popup gewoon zonder label staan.
+  function checkBookAdaptation(movie: Movie) {
+    const key = `${movie.media_type}-${movie.id}`
+    if (bookTitles.has(key)) return
+    fetch(`/api/is-book-adaptation?type=${movie.media_type}&id=${movie.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.isBookAdaptation) setBookTitles((current) => new Set(current).add(key))
+      })
+      .catch(() => {})
   }
 
   function handleModeChange(nextMode: RecommendationMode) {
@@ -486,6 +500,7 @@ export default function Home() {
                   selectedAtRef.current = Date.now()
                   setActionError(null)
                   setSelected(movie)
+                  checkBookAdaptation(movie)
                 }}
               />
             ))}
@@ -531,6 +546,11 @@ export default function Home() {
                   <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
                     {selected.matchPercent}% match
                   </span>
+                  {bookTitles.has(`${selected.media_type}-${selected.id}`) && (
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                      Gebaseerd op een boek
+                    </span>
+                  )}
                   {selected.vote_average > 0 && (
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
                       ★ {selected.vote_average.toFixed(1)} TMDB
