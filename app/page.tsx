@@ -7,8 +7,8 @@ import { supabase, getCurrentUser } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
-import { btnPrimary, btnGhost } from './components/ui'
-import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, LogoutIcon } from './components/Icons'
+import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
 
 type Movie = {
   id: number
@@ -272,6 +272,27 @@ export default function Home() {
     if (error) {
       console.error('Op watchlist zetten mislukt:', error)
       setActionError(`Kon niet op de watchlist zetten: ${error.message}`)
+      return
+    }
+    removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
+    setSelected(null)
+  }
+
+  // Zelfde als favoriet maken bij Zoeken: een favoriet is iets wat je al hebt gezien en
+  // echt geweldig vond. Verdwijnt daarna uit de aanbevelingen, net als bij een beoordeling.
+  async function handleFavorite(movie: Movie) {
+    if (!user) return
+    if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
+    setActionError(null)
+    const { error } = await supabase.from('favorite_movies').insert({
+      user_id: user.id,
+      tmdb_id: movie.id,
+      title: movie.title,
+      media_type: movie.media_type,
+    })
+    if (error) {
+      console.error('Favoriet toevoegen mislukt:', error)
+      setActionError(`Kon niet als favoriet opslaan: ${error.message}`)
       return
     }
     removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -580,10 +601,19 @@ export default function Home() {
                 </p>
               )}
 
-              <button onClick={() => handleAddToWatchlist(selected)} className={`${btnPrimary} w-full mb-3`}>
-                <PlusIcon className="w-4 h-4" />
-                Op watchlist
-              </button>
+              <div className={`grid gap-2 mb-3 ${mode === 'samen' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
+                  <PlusIcon className="w-4 h-4" />
+                  Op watchlist
+                </button>
+                {/* Favoriet is persoonlijk; in Samen beoordeel je als koppel, dus daar niet. */}
+                {mode !== 'samen' && (
+                  <button onClick={() => handleFavorite(selected)} className={btnSecondary}>
+                    <StarIcon className="w-4 h-4" />
+                    Favoriet
+                  </button>
+                )}
+              </div>
 
               {mode === 'samen' && (
                 <p className="text-xs text-[#5E6D80] mb-2 text-center">
