@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import LegalLinks from '../components/LegalLinks'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
@@ -84,6 +86,10 @@ export default function Settings() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [onboardingComplete, setOnboardingComplete] = useState(true)
 
+  const router = useRouter()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const [connections, setConnections] = useState<PartnerConnection[]>([])
   const [partnerEmail, setPartnerEmail] = useState('')
   const [inviteLoading, setInviteLoading] = useState(false)
@@ -138,6 +144,22 @@ export default function Settings() {
       return
     }
     setSaved(true)
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+    setErrorMessage(null)
+    const { error } = await supabase.rpc('delete_my_account')
+    if (error) {
+      console.error('Account verwijderen mislukt:', error)
+      setErrorMessage(`Kon je account niet verwijderen: ${error.message}`)
+      setDeleting(false)
+      setConfirmDelete(false)
+      return
+    }
+    localStorage.clear()
+    await supabase.auth.signOut()
+    router.push('/')
   }
 
   async function loadConnections() {
@@ -359,6 +381,39 @@ export default function Settings() {
           {saved ? <CheckIcon className="w-4 h-4" /> : null}
           {saved ? 'Opgeslagen' : 'Opslaan'}
         </button>
+
+        <div className="mt-12 pt-6 border-t border-[#2A3644]">
+          <SectionTitle
+            title="Account verwijderen"
+            hint="Wist je account en al je gegevens (favorieten, beoordelingen, watchlist en koppelingen). Dit kan niet ongedaan worden gemaakt."
+          />
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="text-sm font-medium text-[#C97064] border border-[#C97064]/40 rounded-full px-4 py-2.5 hover:bg-[#C97064]/10 transition-colors touch-manipulation"
+            >
+              Account verwijderen
+            </button>
+          ) : (
+            <div className="rounded-xl border border-[#C97064]/40 bg-[#C97064]/5 p-4">
+              <p className="text-sm mb-3">Weet je het zeker? Alles wordt direct en definitief gewist.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="text-sm font-semibold bg-[#C97064] text-[#171F2B] rounded-full px-4 py-2.5 disabled:opacity-50 touch-manipulation"
+                >
+                  {deleting ? 'Verwijderen...' : 'Ja, verwijder alles'}
+                </button>
+                <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-sm text-[#93A3B5] px-4 py-2.5">
+                  Annuleren
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <LegalLinks className="mt-10" />
       </main>
 
       <BottomNav />

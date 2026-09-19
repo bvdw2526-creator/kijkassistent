@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { btnPrimary, input } from '../components/ui'
+import LegalLinks from '../components/LegalLinks'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -80,6 +81,8 @@ export default function Login() {
           Account aanmaken
         </Link>
       </p>
+
+      <LegalLinks className="mt-10" />
     </main>
   )
 }

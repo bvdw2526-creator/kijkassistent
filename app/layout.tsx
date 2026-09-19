@@ -8,6 +8,8 @@ const body = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600
 export const metadata: Metadata = {
   title: 'Kijkassistent',
   description: 'Persoonlijke films- en series-aanbevelingen',
+  icons: { apple: '/icons/apple-touch-icon.png' },
+  appleWebApp: { capable: true, title: 'Kijkassistent', statusBarStyle: 'black-translucent' },
 }
 
 export const viewport: Viewport = {

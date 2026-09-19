@@ -7,6 +7,7 @@ import { supabase, getCurrentUser } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
+import LegalLinks from './components/LegalLinks'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
 
@@ -394,6 +395,7 @@ export default function Home() {
         <a href="/login" className={btnPrimary}>
           Log in of registreer
         </a>
+        <LegalLinks className="mt-12" />
       </main>
     )
   }

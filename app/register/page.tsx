@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { btnPrimary, input } from '../components/ui'
 import { CheckIcon } from '../components/Icons'
+import LegalLinks from '../components/LegalLinks'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -142,6 +143,11 @@ export default function Register() {
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
           {loading ? 'Bezig...' : 'Account aanmaken'}
         </button>
+        <p className="text-xs text-[#5E6D80] leading-relaxed">
+          Door een account aan te maken ga je akkoord met de{' '}
+          <Link href="/voorwaarden" className="underline underline-offset-2 hover:text-[#93A3B5]">voorwaarden</Link> en de{' '}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-[#93A3B5]">privacyverklaring</Link>.
+        </p>
       </form>
 
       <p className="text-sm text-[#93A3B5] mt-6">
@@ -150,6 +156,8 @@ export default function Register() {
           Inloggen
         </Link>
       </p>
+
+      <LegalLinks className="mt-10" />
     </main>
   )
 }
