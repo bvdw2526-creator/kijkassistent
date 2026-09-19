@@ -14,6 +14,7 @@ type ProfileStats = {
   ratingCounts: { love: number; ok: number; dislike: number }
   topGenres: { name: string; count: number }[]
   topActors: { name: string; count: number }[]
+  streaming: { lovedTotal: number; services: { id: string; label: string; owned: boolean; count: number }[] }
 }
 
 function StatSkeleton() {
@@ -63,7 +64,7 @@ export default function Profiel() {
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
-        <h1 className="font-display text-2xl mb-1">Jouw kijkprofiel</h1>
+        <h1 className="font-display text-2xl mb-1">Stats</h1>
         <p className="text-[#93A3B5] mb-6">Wat je favorieten en beoordelingen over je smaak zeggen.</p>
 
         {error && (
@@ -136,6 +137,36 @@ export default function Profiel() {
                       <span className="text-xs text-[#93A3B5] w-4 text-right flex-shrink-0">{genre.count}</span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Streamingdienst met de meeste titels die je echt leuk vindt */}
+            {stats.streaming.lovedTotal > 0 && stats.streaming.services.some((s) => s.count > 0) && (
+              <div className={`${card} p-5`}>
+                <p className="text-sm font-medium mb-1">Waar staat jouw smaak?</p>
+                <p className="text-xs text-[#5E6D80] mb-4">
+                  {stats.streaming.services[0].label} heeft de meeste van je {stats.streaming.lovedTotal} favorieten en
+                  &quot;zeker leuk&quot;-titels. Alleen abonnementsaanbod van nu.
+                </p>
+                <div className="flex flex-col gap-2.5">
+                  {stats.streaming.services.map((service) => {
+                    const max = stats.streaming.services[0].count
+                    return (
+                      <div key={service.id} className="flex items-center gap-3">
+                        <span className="text-sm w-24 flex-shrink-0 truncate">{service.label}</span>
+                        <div className="flex-1 h-1.5 rounded-full bg-[#212C3B] overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${service.owned ? 'bg-[#E8A33D]' : 'bg-[#5E6D80]'}`}
+                            style={{ width: `${max > 0 ? (service.count / max) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-[#93A3B5] w-16 text-right flex-shrink-0">
+                          {service.count}×{service.owned ? ' · jij' : ''}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

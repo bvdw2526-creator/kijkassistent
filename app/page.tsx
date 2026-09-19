@@ -531,6 +531,11 @@ export default function Home() {
                   <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
                     {selected.matchPercent}% match
                   </span>
+                  {selected.vote_average > 0 && (
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
+                      ★ {selected.vote_average.toFixed(1)} TMDB
+                    </span>
+                  )}
                   {selected.watchOn && (
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
                       {selected.watchOn}

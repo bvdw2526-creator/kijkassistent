@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCachedDetails, getCreditsBulk, type MediaType } from '@/lib/recommendationEngine'
+import { getCachedDetails, getCreditsBulk, getWatchProvidersBulk, SOURCE_IDS, type MediaType } from '@/lib/recommendationEngine'
+
+const SERVICE_LABELS: Record<string, string> = {
+  netflix: 'Netflix',
+  videoland: 'Videoland',
+  disney_plus: 'Disney+',
+  amazon_prime: 'Prime Video',
+  hbo_max: 'HBO Max',
+}
 
 // Zelfde reden als bij /api/recommendations-together: bij een koude cache moeten hier
 // mogelijk tientallen TMDB-detail- en credits-opzoekingen gebeuren.
@@ -43,6 +51,7 @@ export async function GET(request: NextRequest) {
         ratingCounts: { love: 0, ok: 0, dislike: 0 },
         topGenres: [],
         topActors: [],
+        streaming: { lovedTotal: 0, services: [] },
       })
     }
 
@@ -99,6 +108,40 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
 
+    // "Echt leuk" = favorieten + "zeker leuk"-beoordelingen (niet "was oké"). Alleen
+    // abonnements-aanbod (type 'sub') telt: huren/kopen zegt niets over welk abonnement
+    // je het best kunt houden.
+    const lovedMap = new Map<string, WatchedTitle>()
+    for (const f of favorites || []) lovedMap.set(`${f.media_type}-${f.tmdb_id}`, f as WatchedTitle)
+    for (const r of ratings || []) {
+      if (r.rating === 'love') lovedMap.set(`${r.media_type}-${r.tmdb_id}`, r as WatchedTitle)
+    }
+    const loved = Array.from(lovedMap.values())
+
+    const providersByKey = await getWatchProvidersBulk(
+      supabase,
+      loved.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
+    )
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('streaming_services')
+      .eq('id', user.id)
+      .single()
+    const ownedServices = new Set<string>(profile?.streaming_services || [])
+
+    const streamingServices = Object.entries(SOURCE_IDS)
+      .map(([id, providerId]) => ({
+        id,
+        label: SERVICE_LABELS[id] ?? id,
+        owned: ownedServices.has(id),
+        count: loved.filter((t) =>
+          (providersByKey.get(`${t.media_type}-${t.tmdb_id}`) || []).some(
+            (s) => s.type === 'sub' && s.provider_id === providerId
+          )
+        ).length,
+      }))
+      .sort((a, b) => b.count - a.count)
+
     return NextResponse.json({
       totalWatched: watched.length,
       movieCount,
@@ -106,6 +149,7 @@ export async function GET(request: NextRequest) {
       ratingCounts,
       topGenres,
       topActors,
+      streaming: { lovedTotal: loved.length, services: streamingServices },
     })
   } catch (err) {
     console.error('Kijkprofiel berekenen mislukt:', err)

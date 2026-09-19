@@ -8,7 +8,7 @@ const TABS = [
   { href: '/', label: 'Voor jou', icon: HomeIcon },
   { href: '/onboarding', label: 'Zoeken', icon: SearchIcon },
   { href: '/watchlist', label: 'Watchlist', icon: BookmarkIcon },
-  { href: '/profiel', label: 'Profiel', icon: ChartIcon },
+  { href: '/profiel', label: 'Stats', icon: ChartIcon },
   { href: '/settings', label: 'Instellingen', icon: SettingsIcon },
 ]
 

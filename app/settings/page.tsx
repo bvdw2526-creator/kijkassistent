@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
-import { SearchIcon, PlusIcon, CheckIcon, TrashIcon, UsersIcon } from '../components/Icons'
+import { CheckIcon, TrashIcon, UsersIcon } from '../components/Icons'
 
 const AVAILABLE_SERVICES = [
   { id: 'netflix', label: 'Netflix' },
@@ -60,8 +59,6 @@ const TV_GENRES = [
   { id: 37, label: 'Western' },
 ]
 
-type FavoritePerson = { person_id: number; name: string; profile_path: string | null }
-type PersonResult = { id: number; name: string; profile_path: string | null }
 type PartnerConnection = {
   id: string
   other_email: string
@@ -87,24 +84,12 @@ export default function Settings() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [onboardingComplete, setOnboardingComplete] = useState(true)
 
-  const [favoritePeople, setFavoritePeople] = useState<FavoritePerson[]>([])
-  const [personQuery, setPersonQuery] = useState('')
-  const [personResults, setPersonResults] = useState<PersonResult[]>([])
-  const [personSearchLoading, setPersonSearchLoading] = useState(false)
-
-  const [favoriteDirectors, setFavoriteDirectors] = useState<FavoritePerson[]>([])
-  const [directorQuery, setDirectorQuery] = useState('')
-  const [directorResults, setDirectorResults] = useState<PersonResult[]>([])
-  const [directorSearchLoading, setDirectorSearchLoading] = useState(false)
-
   const [connections, setConnections] = useState<PartnerConnection[]>([])
   const [partnerEmail, setPartnerEmail] = useState('')
   const [inviteLoading, setInviteLoading] = useState(false)
 
   useEffect(() => {
     loadProfile()
-    loadFavoritePeople()
-    loadFavoriteDirectors()
     loadConnections()
   }, [])
 
@@ -120,17 +105,6 @@ export default function Settings() {
     setExcludedGenres(data?.excluded_genres || [])
     setOnboardingComplete(!!data?.onboarding_completed_at)
     setLoading(false)
-  }
-
-  async function loadFavoritePeople() {
-    const user = await getCurrentUser()
-    if (!user) return
-    const { data } = await supabase
-      .from('favorite_people')
-      .select('person_id, name, profile_path')
-      .eq('user_id', user.id)
-      .order('added_at', { ascending: false })
-    if (data) setFavoritePeople(data)
   }
 
   function toggleService(id: string) {
@@ -164,111 +138,6 @@ export default function Settings() {
       return
     }
     setSaved(true)
-  }
-
-  async function handlePersonSearch() {
-    if (!personQuery) return
-    setPersonSearchLoading(true)
-    const res = await fetch(`/api/search-people?query=${encodeURIComponent(personQuery)}`)
-    const data = await res.json()
-    setPersonResults(data.results || [])
-    setPersonSearchLoading(false)
-  }
-
-  async function addFavoritePerson(person: PersonResult) {
-    if (favoritePeople.find((p) => p.person_id === person.id)) return
-    const user = await getCurrentUser()
-    if (!user) return
-    setErrorMessage(null)
-    const { error } = await supabase.from('favorite_people').insert({
-      user_id: user.id,
-      person_id: person.id,
-      name: person.name,
-      profile_path: person.profile_path,
-    })
-    if (error) {
-      console.error('Favoriete acteur toevoegen mislukt:', error)
-      setErrorMessage(
-        `Kon "${person.name}" niet toevoegen: ${error.message}. Is de migratie "favorite_people" al uitgevoerd in Supabase?`
-      )
-      return
-    }
-    setFavoritePeople([{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...favoritePeople])
-  }
-
-  async function removeFavoritePerson(personId: number) {
-    const user = await getCurrentUser()
-    if (!user) return
-    setErrorMessage(null)
-    const { error } = await supabase
-      .from('favorite_people')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('person_id', personId)
-    if (error) {
-      console.error('Favoriete acteur verwijderen mislukt:', error)
-      setErrorMessage(`Kon niet verwijderen: ${error.message}`)
-      return
-    }
-    setFavoritePeople(favoritePeople.filter((p) => p.person_id !== personId))
-  }
-
-  async function loadFavoriteDirectors() {
-    const user = await getCurrentUser()
-    if (!user) return
-    const { data } = await supabase
-      .from('favorite_directors')
-      .select('person_id, name, profile_path')
-      .eq('user_id', user.id)
-      .order('added_at', { ascending: false })
-    if (data) setFavoriteDirectors(data)
-  }
-
-  async function handleDirectorSearch() {
-    if (!directorQuery) return
-    setDirectorSearchLoading(true)
-    const res = await fetch(`/api/search-people?query=${encodeURIComponent(directorQuery)}&type=director`)
-    const data = await res.json()
-    setDirectorResults(data.results || [])
-    setDirectorSearchLoading(false)
-  }
-
-  async function addFavoriteDirector(person: PersonResult) {
-    if (favoriteDirectors.find((p) => p.person_id === person.id)) return
-    const user = await getCurrentUser()
-    if (!user) return
-    setErrorMessage(null)
-    const { error } = await supabase.from('favorite_directors').insert({
-      user_id: user.id,
-      person_id: person.id,
-      name: person.name,
-      profile_path: person.profile_path,
-    })
-    if (error) {
-      console.error('Favoriete regisseur toevoegen mislukt:', error)
-      setErrorMessage(
-        `Kon "${person.name}" niet toevoegen: ${error.message}. Is de migratie "favorite_directors" al uitgevoerd in Supabase?`
-      )
-      return
-    }
-    setFavoriteDirectors([{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...favoriteDirectors])
-  }
-
-  async function removeFavoriteDirector(personId: number) {
-    const user = await getCurrentUser()
-    if (!user) return
-    setErrorMessage(null)
-    const { error } = await supabase
-      .from('favorite_directors')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('person_id', personId)
-    if (error) {
-      console.error('Favoriete regisseur verwijderen mislukt:', error)
-      setErrorMessage(`Kon niet verwijderen: ${error.message}`)
-      return
-    }
-    setFavoriteDirectors(favoriteDirectors.filter((p) => p.person_id !== personId))
   }
 
   async function loadConnections() {
@@ -356,6 +225,16 @@ export default function Settings() {
         )}
 
         <Link
+          href="/onboarding"
+          className="flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mb-3 hover:border-[#3d4c60] transition-colors"
+        >
+          <span>
+            <span className="block text-sm font-medium">Favorieten beheren</span>
+            <span className="block text-xs text-[#93A3B5] mt-0.5">Films, series, acteurs en regisseurs vind je bij Zoeken</span>
+          </span>
+        </Link>
+
+        <Link
           href="/profiel"
           className="flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mb-6 hover:border-[#3d4c60] transition-colors"
         >
@@ -414,180 +293,6 @@ export default function Settings() {
             </button>
           ))}
         </div>
-
-        <SectionTitle
-          title="Favoriete acteurs & actrices"
-          hint="Tellen zwaar mee: films en series met een favoriet erin komen hoger in je aanbevelingen."
-        />
-
-        <div className="flex gap-2 mb-4">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
-            <input
-              type="text"
-              value={personQuery}
-              onChange={(e) => setPersonQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handlePersonSearch()}
-              placeholder="Zoek een acteur of actrice..."
-              className={`${input} pl-10`}
-            />
-          </div>
-          <button onClick={handlePersonSearch} disabled={personSearchLoading} className={btnPrimary}>
-            Zoeken
-          </button>
-        </div>
-
-        {personResults.length > 0 && (
-          <div className="flex flex-col gap-1.5 mb-6">
-            {personResults.map((person) => {
-              const added = favoritePeople.some((p) => p.person_id === person.id)
-              return (
-                <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                  {person.profile_path ? (
-                    <Image
-                      src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
-                      alt={person.name}
-                      width={36}
-                      height={36}
-                      className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
-                  )}
-                  <span className="flex-1 text-sm truncate">{person.name}</span>
-                  <button
-                    onClick={() => addFavoritePerson(person)}
-                    className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                      added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
-                    }`}
-                  >
-                    {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                    {added ? 'Toegevoegd' : 'Toevoegen'}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <h3 className="text-sm text-[#93A3B5] mb-2">Jouw favorieten ({favoritePeople.length})</h3>
-        {favoritePeople.length === 0 && (
-          <p className="text-[#93A3B5] text-sm mb-8">Nog geen favoriete acteurs of actrices toegevoegd.</p>
-        )}
-        {favoritePeople.length > 0 && (
-          <div className="flex flex-col gap-1.5 mb-8">
-            {favoritePeople.map((person) => (
-              <div key={person.person_id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                {person.profile_path ? (
-                  <Image
-                    src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
-                    alt={person.name}
-                    width={36}
-                    height={36}
-                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
-                )}
-                <span className="flex-1 text-sm truncate">{person.name}</span>
-                <button
-                  onClick={() => removeFavoritePerson(person.person_id)}
-                  className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
-                  aria-label="Verwijderen"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <SectionTitle
-          title="Favoriete regisseurs"
-          hint="Tellen net zo zwaar mee als favoriete acteurs: films en series van een favoriete regisseur komen hoger in je aanbevelingen."
-        />
-
-        <div className="flex gap-2 mb-4">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
-            <input
-              type="text"
-              value={directorQuery}
-              onChange={(e) => setDirectorQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleDirectorSearch()}
-              placeholder="Zoek een regisseur..."
-              className={`${input} pl-10`}
-            />
-          </div>
-          <button onClick={handleDirectorSearch} disabled={directorSearchLoading} className={btnPrimary}>
-            Zoeken
-          </button>
-        </div>
-
-        {directorResults.length > 0 && (
-          <div className="flex flex-col gap-1.5 mb-6">
-            {directorResults.map((person) => {
-              const added = favoriteDirectors.some((p) => p.person_id === person.id)
-              return (
-                <div key={person.id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                  {person.profile_path ? (
-                    <Image
-                      src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
-                      alt={person.name}
-                      width={36}
-                      height={36}
-                      className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
-                  )}
-                  <span className="flex-1 text-sm truncate">{person.name}</span>
-                  <button
-                    onClick={() => addFavoriteDirector(person)}
-                    className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                      added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
-                    }`}
-                  >
-                    {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                    {added ? 'Toegevoegd' : 'Toevoegen'}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <h3 className="text-sm text-[#93A3B5] mb-2">Jouw favorieten ({favoriteDirectors.length})</h3>
-        {favoriteDirectors.length === 0 && (
-          <p className="text-[#93A3B5] text-sm mb-8">Nog geen favoriete regisseurs toegevoegd.</p>
-        )}
-        {favoriteDirectors.length > 0 && (
-          <div className="flex flex-col gap-1.5 mb-8">
-            {favoriteDirectors.map((person) => (
-              <div key={person.person_id} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                {person.profile_path ? (
-                  <Image
-                    src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
-                    alt={person.name}
-                    width={36}
-                    height={36}
-                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
-                )}
-                <span className="flex-1 text-sm truncate">{person.name}</span>
-                <button
-                  onClick={() => removeFavoriteDirector(person.person_id)}
-                  className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
-                  aria-label="Verwijderen"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
         <SectionTitle
           title="Partner koppelen"

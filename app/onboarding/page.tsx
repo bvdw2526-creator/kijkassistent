@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
+import PeopleFavorites from '../components/PeopleFavorites'
 import { btnPrimary, input, chip, card } from '../components/ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from '../components/Icons'
 
@@ -24,7 +25,14 @@ const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' |
   { rating: 'dislike', label: 'Niet voor mij', tone: 'coral' },
 ]
 
+const SEGMENTS = [
+  { id: 'titels', label: 'Titels' },
+  { id: 'acteurs', label: 'Acteurs' },
+  { id: 'regisseurs', label: 'Regisseurs' },
+] as const
+
 export default function Onboarding() {
+  const [segment, setSegment] = useState<(typeof SEGMENTS)[number]['id']>('titels')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
   const [favorites, setFavorites] = useState<Movie[]>([])
@@ -214,11 +222,30 @@ export default function Onboarding() {
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
-        <h1 className="font-display text-2xl mb-1">Films en series zoeken</h1>
-        <p className="text-[#93A3B5] mb-6 leading-relaxed">
+        <h1 className="font-display text-2xl mb-1">Zoeken en favorieten</h1>
+        <p className="text-[#93A3B5] mb-5 leading-relaxed">
           Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
         </p>
 
+        <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-6">
+          {SEGMENTS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSegment(s.id)}
+              className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                segment === s.id ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {segment === 'acteurs' && <PeopleFavorites kind="actor" />}
+        {segment === 'regisseurs' && <PeopleFavorites kind="director" />}
+
+        {segment === 'titels' && (
+          <>
         {ratingError && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
             {ratingError}
@@ -276,7 +303,7 @@ export default function Onboarding() {
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                      {added ? 'Toegevoegd' : 'Toevoegen'}
+                      Favoriet
                     </button>
                   </div>
                   <div className="flex gap-1.5 flex-wrap mt-3 pl-[56px]">
@@ -388,6 +415,8 @@ export default function Onboarding() {
             </div>
           )
         })}
+          </>
+        )}
       </main>
 
       <BottomNav />
