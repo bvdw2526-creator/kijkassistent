@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
-import { SOURCE_IDS } from '@/lib/recommendationEngine'
+import { SOURCE_IDS, monetizationTypesFor } from '@/lib/recommendationEngine'
 
 // TMDB-trefwoord "based on novel or book". Door de community getagd, dus niet volledig:
 // bekende verfilmingen zitten er vrijwel altijd in, obscure titels soms niet.
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       .filter((id): id is number => typeof id === 'number')
     // Geen diensten ingesteld: dan valt er niets te filteren, toon gewoon alles.
     if (providerIds.length > 0) {
-      providerFilter = `&watch_region=NL&with_watch_monetization_types=flatrate&with_watch_providers=${providerIds.join('|')}`
+      providerFilter = `&watch_region=NL&with_watch_monetization_types=${monetizationTypesFor(providerIds)}&with_watch_providers=${providerIds.join('|')}`
     }
   }
 

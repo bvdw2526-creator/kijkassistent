@@ -23,6 +23,8 @@ const AVAILABLE_SERVICES = [
   { id: 'disney_plus', label: 'Disney+' },
   { id: 'amazon_prime', label: 'Prime Video' },
   { id: 'hbo_max', label: 'HBO Max' },
+  { id: 'npo_start', label: 'NPO Start' },
+  { id: 'pathe_thuis', label: 'Pathé Thuis (huren)' },
 ]
 
 const MIN_FAVORITES = 5

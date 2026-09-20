@@ -6,6 +6,8 @@ const CACHE_SECONDS = 60 * 60 * 24
 
 type ProviderEntry = { provider_name: string }
 
+const uniqueNames = (entries: ProviderEntry[]) => Array.from(new Set(entries.map((p) => p.provider_name)))
+
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
@@ -35,7 +37,11 @@ export async function GET(request: NextRequest) {
       year: date.slice(0, 4),
       posterPath: data.poster_path || null,
       isBookAdaptation: keywords.some((k) => k.id === BOOK_KEYWORD_ID),
-      streaming: ((nl?.flatrate || []) as ProviderEntry[]).map((p) => p.provider_name),
+      streaming: uniqueNames([...(nl?.flatrate || []), ...(nl?.free || []), ...(nl?.ads || [])] as ProviderEntry[]),
+      // Huren of kopen: Pathé Thuis eerst, want die kennen we als eigen optie in de app.
+      rentBuy: uniqueNames([...(nl?.rent || []), ...(nl?.buy || [])] as ProviderEntry[]).sort(
+        (a, b) => Number(b === 'Pathé Thuis') - Number(a === 'Pathé Thuis')
+      ),
     })
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Onbekende fout' }, { status: 500 })

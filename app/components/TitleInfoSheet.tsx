@@ -21,6 +21,7 @@ type Info = {
   posterPath: string | null
   isBookAdaptation: boolean
   streaming: string[]
+  rentBuy: string[]
 }
 
 // Infopopup voor een titel buiten de aanbevelingen (zoekresultaten, favorieten,
@@ -115,15 +116,22 @@ export default function TitleInfoSheet({
             <p className="text-sm text-[#93A3B5] mb-2">{info.genres.join(' · ')}</p>
           )}
           {info && (
-            <p className="text-sm text-[#93A3B5] mb-5">
-              {info.streaming.length > 0 ? (
-                <>
-                  Te zien op: <span className="text-[#E8A33D]">{info.streaming.join(', ')}</span>
-                </>
-              ) : (
-                'Niet bij een streamingabonnement te zien in Nederland.'
+            <div className="text-sm text-[#93A3B5] mb-5 flex flex-col gap-1">
+              <p>
+                {info.streaming.length > 0 ? (
+                  <>
+                    Te zien op: <span className="text-[#E8A33D]">{info.streaming.join(', ')}</span>
+                  </>
+                ) : (
+                  'Niet bij een streamingabonnement te zien in Nederland.'
+                )}
+              </p>
+              {info.rentBuy.length > 0 && (
+                <p>
+                  Ook te huur of koop: <span className="text-[#F2EFE9]/85">{info.rentBuy.slice(0, 4).join(', ')}</span>
+                </p>
               )}
-            </p>
+            </div>
           )}
 
           {children}

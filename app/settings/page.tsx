@@ -15,6 +15,8 @@ const AVAILABLE_SERVICES = [
   { id: 'disney_plus', label: 'Disney+' },
   { id: 'amazon_prime', label: 'Prime Video' },
   { id: 'hbo_max', label: 'HBO Max' },
+  { id: 'npo_start', label: 'NPO Start' },
+  { id: 'pathe_thuis', label: 'Pathé Thuis (huren)' },
 ]
 
 // TMDB's vaste genre-lijsten (nl-NL). Film- en serie-ids overlappen nooit in
@@ -307,7 +309,7 @@ export default function Settings() {
           </p>
         )}
 
-        <SectionTitle title="Streamingdiensten" hint="Selecteer waar je een abonnement op hebt." />
+        <SectionTitle title="Streamingdiensten" hint="Selecteer waar je een abonnement op hebt. Pathé Thuis is huren per titel: aanvinken betekent dat titels die je daar kunt huren ook worden getoond." />
         <div className="grid grid-cols-2 gap-2 mb-8">
           {AVAILABLE_SERVICES.map((service) => {
             const active = selected.includes(service.id)
@@ -350,6 +352,11 @@ export default function Settings() {
             </button>
           ))}
         </div>
+
+        <button onClick={handleSave} className={`${btnPrimary} w-full mb-10`}>
+          {saved ? <CheckIcon className="w-4 h-4" /> : null}
+          {saved ? 'Opgeslagen' : 'Opslaan'}
+        </button>
 
         <SectionTitle
           title="Partner koppelen"
@@ -435,11 +442,6 @@ export default function Settings() {
             ))}
           </div>
         )}
-
-        <button onClick={handleSave} className={`${btnPrimary} w-full`}>
-          {saved ? <CheckIcon className="w-4 h-4" /> : null}
-          {saved ? 'Opgeslagen' : 'Opslaan'}
-        </button>
 
         <div className="mt-12 pt-6 border-t border-[#2A3644]">
           <SectionTitle

@@ -99,6 +99,19 @@ export const SOURCE_IDS: Record<string, number> = {
   disney_plus: 337,
   amazon_prime: 119,
   hbo_max: 1899,
+  npo_start: 360,
+  pathe_thuis: 71,
+}
+
+// Aanbieders waar je per titel voor betaalt (huren/kopen) in plaats van een abonnement: bij het
+// zoeken via TMDB moeten daar ook "rent" en "buy" meetellen, niet alleen "flatrate".
+export const RENT_ONLY_SOURCE_IDS = new Set<number>([71])
+
+// TMDB's "with_watch_monetization_types" voor een set aanbieders: abonnement en gratis (NPO Start
+// staat bij TMDB deels onder "ads"), plus huren/kopen zodra er een huuraanbieder tussen zit.
+export function monetizationTypesFor(providerIds: number[]): string {
+  const rentOnly = providerIds.some((id) => RENT_ONLY_SOURCE_IDS.has(id))
+  return rentOnly ? 'flatrate|free|ads|rent|buy' : 'flatrate|free|ads'
 }
 
 const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 24
@@ -211,7 +224,10 @@ async function fetchWatchProvidersLive(mediaType: MediaType, tmdbId: number): Pr
 
     const link: string = nl.link || ''
     const sources: WatchProviderSource[] = []
-    for (const p of nl.flatrate || []) sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'sub', price: null, web_url: link })
+    // "free" en "ads" (o.a. NPO Start) behandelen we net als een abonnement: zonder extra kosten te kijken.
+    for (const p of [...(nl.flatrate || []), ...(nl.free || []), ...(nl.ads || [])]) {
+      sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'sub', price: null, web_url: link })
+    }
     for (const p of nl.rent || []) sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'rent', price: null, web_url: link })
     for (const p of nl.buy || []) sources.push({ provider_id: p.provider_id, name: p.provider_name, type: 'buy', price: null, web_url: link })
     return sources
@@ -789,7 +805,7 @@ export async function discoverByGenres(
   const excludeKey = excludeGenreIds.length > 0 ? `|x:${[...excludeGenreIds].sort((a, b) => a - b).join('-')}` : ''
   const providerQuery =
     (providerIds.length > 0
-      ? `&watch_region=NL&with_watch_monetization_types=flatrate&with_watch_providers=${providerIds.join('|')}`
+      ? `&watch_region=NL&with_watch_monetization_types=${monetizationTypesFor(providerIds)}&with_watch_providers=${providerIds.join('|')}`
       : '') + (excludeGenreIds.length > 0 ? `&without_genres=${excludeGenreIds.join(',')}` : '')
   // "or2" bumpt de cache-sleutel zodat oude, te smalle resultaten (van vóór de
   // EN/OF-fix hieronder) niet per ongeluk nog een paar uur worden hergebruikt.

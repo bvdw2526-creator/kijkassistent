@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
-import { getCachedDetails, getCreditsBulk, getWatchProvidersBulk, SOURCE_IDS, type MediaType } from '@/lib/recommendationEngine'
+import {
+  getCachedDetails,
+  getCreditsBulk,
+  getWatchProvidersBulk,
+  SOURCE_IDS,
+  RENT_ONLY_SOURCE_IDS,
+  type MediaType,
+} from '@/lib/recommendationEngine'
 
 const SERVICE_LABELS: Record<string, string> = {
   netflix: 'Netflix',
@@ -8,6 +15,7 @@ const SERVICE_LABELS: Record<string, string> = {
   disney_plus: 'Disney+',
   amazon_prime: 'Prime Video',
   hbo_max: 'HBO Max',
+  npo_start: 'NPO Start',
 }
 
 // Zelfde reden als bij /api/recommendations-together: bij een koude cache moeten hier
@@ -121,7 +129,10 @@ export async function GET(request: NextRequest) {
       .single()
     const ownedServices = new Set<string>(profile?.streaming_services || [])
 
+    // Huuraanbieders (Pathé Thuis) tellen we niet mee: die zeggen niets over welk abonnement je
+    // het best kunt houden.
     const streamingServices = Object.entries(SOURCE_IDS)
+      .filter(([, providerId]) => !RENT_ONLY_SOURCE_IDS.has(providerId))
       .map(([id, providerId]) => ({
         id,
         label: SERVICE_LABELS[id] ?? id,
