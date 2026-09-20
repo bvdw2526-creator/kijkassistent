@@ -773,17 +773,27 @@ function pickLongTail<T extends { basedOn: string[] }>(
 export async function discoverByGenres(
   supabase: SupabaseClient,
   mediaType: MediaType,
-  genres: GenreAffinity[]
+  genres: GenreAffinity[],
+  // Optioneel: alleen titels die (met abonnement) op deze aanbieders staan, direct door TMDB
+  // gefilterd. Zonder dit gaat na het zoeken vaak ~75% af bij het controleren van de
+  // streamingdiensten, waardoor er te weinig overblijft.
+  options?: { providerIds?: number[]; pages?: number[] }
 ): Promise<{ results: TmdbItem[]; label: string }> {
   if (genres.length === 0) return { results: [], label: '' }
   const topGenres = genres.slice(0, DISCOVER_GENRE_LIMIT)
+  const providerIds = options?.providerIds ?? []
+  const providerKey = providerIds.length > 0 ? `|p:${[...providerIds].sort((a, b) => a - b).join('-')}` : ''
+  const providerQuery =
+    providerIds.length > 0
+      ? `&watch_region=NL&with_watch_monetization_types=flatrate&with_watch_providers=${providerIds.join('|')}`
+      : ''
   // "or2" bumpt de cache-sleutel zodat oude, te smalle resultaten (van vóór de
   // EN/OF-fix hieronder) niet per ongeluk nog een paar uur worden hergebruikt.
-  const genreKey = `or2:${topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')}`
+  const genreKey = `or2:${topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')}${providerKey}`
   const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
 
   const pages = await Promise.all(
-    DISCOVER_PAGES.map((page) =>
+    (options?.pages ?? DISCOVER_PAGES).map((page) =>
       getCachedDiscoverPage(supabase, mediaType, genreKey, page, async () => {
         try {
           // Pipe (|) = "OF": een titel met minstens één van je topgenres. Met een komma
@@ -791,7 +801,7 @@ export async function discoverByGenres(
           // met 5 genres is die doorsnede vrijwel altijd leeg.
           const ids = topGenres.map((g) => g.id).join('|')
           const res = await fetch(
-            `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=${page}`,
+            `https://api.themoviedb.org/3/discover/${endpoint}?with_genres=${ids}&sort_by=popularity.desc&vote_count.gte=100&language=nl-NL&page=${page}${providerQuery}`,
             { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
           )
           if (!res.ok) return null

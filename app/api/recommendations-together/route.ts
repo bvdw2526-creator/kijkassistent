@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v3-topup',
+      'v4-topup-providers',
       buildProfileSignature(inputsA),
       buildProfileSignature(inputsB),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -295,11 +295,20 @@ export async function GET(request: NextRequest) {
 
     // Bredere zoektocht op de gecombineerde genre-affiniteit van jullie beiden — met minder
     // zekerheid dan een echte doorsnede-match.
+    // TMDB filtert hier zelf op de streamingdiensten van jullie beiden: achteraf filteren liet
+    // van een brede zoektocht meestal maar een kwart over. Drie pagina's i.p.v. twee, omdat
+    // er daarna nog titels afvallen die jullie al kennen of in uitgesloten genres vallen.
+    const discoverProviderIds = Array.from(
+      new Set([...inputsA.streamingServices, ...inputsB.streamingServices].map((s) => SOURCE_IDS[s]).filter(Boolean))
+    )
     const fetchFallbackItems = async (types: MediaType[], skipKeys: Set<string>): Promise<RankedCandidate[]> => {
       const perType = await Promise.all(
         types.map(async (type) =>
           buildFallbackItems(
-            await discoverByGenres(supabase, type, type === 'movie' ? mergedMovieGenres : mergedTvGenres),
+            await discoverByGenres(supabase, type, type === 'movie' ? mergedMovieGenres : mergedTvGenres, {
+              providerIds: discoverProviderIds,
+              pages: [1, 2, 3],
+            }),
             skipKeys
           )
         )
