@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import LegalLinks from '../components/LegalLinks'
+import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, input, chip, card } from '../components/ui'
@@ -334,7 +335,7 @@ export default function Settings() {
 
         <SectionTitle
           title="Genres uitsluiten"
-          hint="Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt."
+          hint="Vink hier alleen aan wat je niet wilt zien. Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt."
         />
         <h3 className="text-sm text-[#93A3B5] mb-2">Films</h3>
         <div className="flex flex-wrap gap-2 mb-4">
@@ -352,6 +353,8 @@ export default function Settings() {
             </button>
           ))}
         </div>
+
+        <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
 
         <button onClick={handleSave} className={`${btnPrimary} w-full mb-10`}>
           {saved ? <CheckIcon className="w-4 h-4" /> : null}

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabase, authFetch } from '@/lib/supabase'
 import PersonInfoSheet from '../components/PersonInfoSheet'
+import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import { btnPrimary, btnGhost, input, card, chip } from '../components/ui'
 import {
   SearchIcon,
@@ -466,7 +467,8 @@ export default function Wizard() {
       {step === 3 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Sluit genres uit</h1>
-          <p className="text-[#93A3B5] mb-6">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
+          <p className="text-[#93A3B5] mb-2">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
+          <p className="text-xs text-[#5E6D80] mb-6">Aangevinkt betekent: wordt nooit aanbevolen. Vink dus niet aan wat je wél leuk vindt.</p>
 
           <h3 className="text-sm text-[#93A3B5] mb-2">Films</h3>
           <div className="flex flex-wrap gap-2 mb-5">
@@ -484,6 +486,8 @@ export default function Wizard() {
               </button>
             ))}
           </div>
+
+          <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
 
           <div className="mt-auto pt-4 flex flex-col gap-2">
             <button onClick={goToStep4} className={btnPrimary}>Volgende</button>
