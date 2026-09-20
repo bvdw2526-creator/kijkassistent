@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v4-topup-providers',
+      'v5-topup-genres',
       buildProfileSignature(inputsA),
       buildProfileSignature(inputsB),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -269,8 +269,14 @@ export async function GET(request: NextRequest) {
     // gefilterde lijst komen), maar de bredere zoektocht start helemaal opnieuw op genre.
     const combinedExcludedGenreIds = new Set([...inputsA.excludedGenreIds, ...inputsB.excludedGenreIds])
 
-    const mergedMovieGenres = mergeGenreAffinities(tasteA.movieGenres, tasteB.movieGenres)
-    const mergedTvGenres = mergeGenreAffinities(tasteA.tvGenres, tasteB.tvGenres)
+    // Genres die een van jullie uitsluit tellen niet mee als "gedeelde smaak": anders nemen ze
+    // een plek in de top vijf in waar de zoektocht op zoekt, en valt die titels daarna weer af.
+    const mergedMovieGenres = mergeGenreAffinities(tasteA.movieGenres, tasteB.movieGenres).filter(
+      (g) => !combinedExcludedGenreIds.has(g.id)
+    )
+    const mergedTvGenres = mergeGenreAffinities(tasteA.tvGenres, tasteB.tvGenres).filter(
+      (g) => !combinedExcludedGenreIds.has(g.id)
+    )
 
     const buildFallbackItems = (discover: { results: TmdbItem[]; label: string }, skipKeys: Set<string>): RankedCandidate[] => {
       const filtered = discover.results
@@ -308,6 +314,7 @@ export async function GET(request: NextRequest) {
             await discoverByGenres(supabase, type, type === 'movie' ? mergedMovieGenres : mergedTvGenres, {
               providerIds: discoverProviderIds,
               pages: [1, 2, 3],
+              excludeGenreIds: Array.from(combinedExcludedGenreIds),
             }),
             skipKeys
           )

@@ -777,19 +777,23 @@ export async function discoverByGenres(
   // Optioneel: alleen titels die (met abonnement) op deze aanbieders staan, direct door TMDB
   // gefilterd. Zonder dit gaat na het zoeken vaak ~75% af bij het controleren van de
   // streamingdiensten, waardoor er te weinig overblijft.
-  options?: { providerIds?: number[]; pages?: number[] }
+  // excludeGenreIds: TMDB laat titels met een van deze genres zelf weg, zodat de pagina's
+  // doorlopen tot echt bruikbare titels in plaats van achteraf af te vallen.
+  options?: { providerIds?: number[]; pages?: number[]; excludeGenreIds?: number[] }
 ): Promise<{ results: TmdbItem[]; label: string }> {
   if (genres.length === 0) return { results: [], label: '' }
   const topGenres = genres.slice(0, DISCOVER_GENRE_LIMIT)
   const providerIds = options?.providerIds ?? []
   const providerKey = providerIds.length > 0 ? `|p:${[...providerIds].sort((a, b) => a - b).join('-')}` : ''
+  const excludeGenreIds = options?.excludeGenreIds ?? []
+  const excludeKey = excludeGenreIds.length > 0 ? `|x:${[...excludeGenreIds].sort((a, b) => a - b).join('-')}` : ''
   const providerQuery =
-    providerIds.length > 0
+    (providerIds.length > 0
       ? `&watch_region=NL&with_watch_monetization_types=flatrate&with_watch_providers=${providerIds.join('|')}`
-      : ''
+      : '') + (excludeGenreIds.length > 0 ? `&without_genres=${excludeGenreIds.join(',')}` : '')
   // "or2" bumpt de cache-sleutel zodat oude, te smalle resultaten (van vóór de
   // EN/OF-fix hieronder) niet per ongeluk nog een paar uur worden hergebruikt.
-  const genreKey = `or2:${topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')}${providerKey}`
+  const genreKey = `or2:${topGenres.map((g) => g.id).sort((a, b) => a - b).join(',')}${providerKey}${excludeKey}`
   const endpoint = mediaType === 'tv' ? 'tv' : 'movie'
 
   const pages = await Promise.all(
