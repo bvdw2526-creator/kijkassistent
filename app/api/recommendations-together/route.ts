@@ -9,6 +9,8 @@ import {
   discoverByGenres,
   resolveWatchInfo,
   getCachedDetails,
+  getEmbeddingsForItems,
+  cosineSimilarity,
   type RankedCandidate,
   type RecommendationItem,
   type GenreAffinity,
@@ -45,6 +47,73 @@ const SAMEN_MAX_PER_TYPE = 15
 // route bij élke aanvraag het volledige smaakprofiel van beide partners opnieuw uit —
 // dat is de belangrijkste oorzaak van een trage/timeoutende Samen-tab.
 const COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 6
+
+// Hoe zwaar de verhaal-overeenkomst (Voyage) meeweegt in het uiteindelijke matchpercentage.
+// Bij "intersection" staat al een sterke score (beiden hadden de titel al in hun eigen
+// lijst) en is dit een bijsturing; bij "fallback" is de oude ordening alleen TMDB's gemiddelde
+// cijfer, dus daar mag de overeenkomst met jullie smaak veel zwaarder wegen.
+const JOINT_FIT_WEIGHT_INTERSECTION = 0.3
+const JOINT_FIT_WEIGHT_FALLBACK = 0.75
+// Minimaal aantal titels per type (films/series) waar Samen naartoe aanvult met de bredere
+// zoektocht als de doorsnede te klein is.
+const MIN_ITEMS_PER_TYPE = 8
+// Verhaal-overeenkomsten liggen bij deze embeddings dicht bij elkaar (op echte data: mediaan
+// ~0,55, top ~0,72), dus de drempel van de gewone engine (0,5) zou bijna alles labelen. Dit
+// is ongeveer de bovenste 10% van de kandidaten.
+const STORY_MATCH_THRESHOLD = 0.62
+const STORY_MATCH_LABEL = 'verhaal dat bij jullie allebei past'
+
+// Meet per titel hoe goed het verhaal past bij elk van beide partners (cosinus-overeenkomst met
+// ieders smaakvector) en neemt de LAAGSTE van de twee: alleen een titel die bij allebei past
+// scoort hoog. Bewust niet de twee vectoren middelen: bij twee verschillende smaken landt het
+// gemiddelde in het midden, bij titels die geen van beiden echt aanspreken.
+async function applyJointFit(
+  supabase: SupabaseClient,
+  items: RankedCandidate[],
+  vectorA: number[],
+  vectorB: number[],
+  fallbackKeys: Set<string>
+): Promise<RankedCandidate[]> {
+  if (items.length === 0 || vectorA.length === 0 || vectorB.length === 0) return items
+
+  const embeddings = await getEmbeddingsForItems(
+    supabase,
+    items
+      .filter((i) => i.overview)
+      .map((i) => ({ media_type: i.media_type, tmdb_id: i.id, text: `${i.title}. ${i.overview}` }))
+  )
+
+  const fits = items.map((item) => {
+    const vec = embeddings.get(`${item.media_type}-${item.id}`)
+    if (!vec || vec.length === 0) return null
+    return { a: cosineSimilarity(vectorA, vec), b: cosineSimilarity(vectorB, vec) }
+  })
+  const jointValues = fits.map((f) => (f ? Math.min(f.a, f.b) : null))
+  // Schaal binnen deze lijst: het laagste tiende deel (uitschieters) telt als 0%, de beste als
+  // 100%. Zonder schaling liggen alle scores op 75-100% en maakt de weging geen verschil.
+  const sorted = jointValues.filter((v): v is number => v !== null).sort((x, y) => x - y)
+  if (sorted.length < 2) return items
+  const low = sorted[Math.floor(sorted.length * 0.1)]
+  const high = sorted[sorted.length - 1]
+  if (high - low < 0.01) return items
+
+  return items
+    .map((item, i) => {
+      const fit = fits[i]
+      const joint = jointValues[i]
+      if (!fit || joint === null) return item
+      const weight = fallbackKeys.has(`${item.media_type}-${item.id}`) ? JOINT_FIT_WEIGHT_FALLBACK : JOINT_FIT_WEIGHT_INTERSECTION
+      const jointPercent = Math.round(Math.min(1, Math.max(0, (joint - low) / (high - low))) * 100)
+      const matchPercent = Math.round((1 - weight) * item.matchPercent + weight * jointPercent)
+      const bothMatch = fit.a > STORY_MATCH_THRESHOLD && fit.b > STORY_MATCH_THRESHOLD
+      return {
+        ...item,
+        matchPercent,
+        basedOn: bothMatch && !item.basedOn.includes(STORY_MATCH_LABEL) ? [...item.basedOn, STORY_MATCH_LABEL].slice(0, 4) : item.basedOn,
+      }
+    })
+    .sort((x, y) => y.matchPercent - x.matchPercent)
+}
 
 function keyByTitle(items: RankedCandidate[]): Map<string, RankedCandidate> {
   return new Map(items.map((item) => [`${item.media_type}-${item.id}`, item]))
@@ -123,6 +192,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
+      'v3-topup',
       buildProfileSignature(inputsA),
       buildProfileSignature(inputsB),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -181,6 +251,66 @@ export async function GET(request: NextRequest) {
 
     const intersectionKeys = Array.from(mapA.keys()).filter((key) => mapB.has(key) && !coupleRatedKeys.has(key))
 
+    // Uitsluitingen voor de bredere zoektocht (fallback en aanvulling): alles wat een van
+    // jullie al kent, op de watchlist heeft staan of samen al beoordeeld heeft.
+    const excludeIds = new Set([
+      ...inputsA.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
+      ...inputsA.ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
+      ...inputsA.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
+      ...inputsB.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
+      ...inputsB.ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
+      ...inputsB.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
+      ...coupleRatedKeys,
+    ])
+
+    // Unie van beide uitsluitlijsten: als één van jullie beiden een genre uitsluit,
+    // mag dat genre ook niet via de ander alsnog in de gedeelde Samen-lijst sluipen —
+    // bij de doorsnede kan dat toch al niet (elke titel moest al door ieders eigen, al
+    // gefilterde lijst komen), maar de bredere zoektocht start helemaal opnieuw op genre.
+    const combinedExcludedGenreIds = new Set([...inputsA.excludedGenreIds, ...inputsB.excludedGenreIds])
+
+    const mergedMovieGenres = mergeGenreAffinities(tasteA.movieGenres, tasteB.movieGenres)
+    const mergedTvGenres = mergeGenreAffinities(tasteA.tvGenres, tasteB.tvGenres)
+
+    const buildFallbackItems = (discover: { results: TmdbItem[]; label: string }, skipKeys: Set<string>): RankedCandidate[] => {
+      const filtered = discover.results
+        .filter((item) => !excludeIds.has(`${item.media_type}-${item.id}`) && !skipKeys.has(`${item.media_type}-${item.id}`))
+        .filter((item) => !item.genre_ids.some((g) => combinedExcludedGenreIds.has(g)))
+        .slice(0, FALLBACK_LIMIT_PER_TYPE)
+      const maxVote = Math.max(1, ...filtered.map((item) => item.vote_average))
+      return filtered.map((item) => ({
+        ...item,
+        score: item.vote_average,
+        matchPercent: Math.round((item.vote_average / maxVote) * 100),
+        basedOn: discover.label ? [`jullie gedeelde ${discover.label.replace('jouw voorkeur voor ', 'voorkeur voor ')}`] : [],
+        coreScore: 0,
+        okScore: 0,
+        discoverScore: 0,
+        collectionScore: 0,
+        embeddingBonus: 0,
+        actorScore: 0,
+        directorScore: 0,
+      }))
+    }
+
+    // Bredere zoektocht op de gecombineerde genre-affiniteit van jullie beiden — met minder
+    // zekerheid dan een echte doorsnede-match.
+    const fetchFallbackItems = async (types: MediaType[], skipKeys: Set<string>): Promise<RankedCandidate[]> => {
+      const perType = await Promise.all(
+        types.map(async (type) =>
+          buildFallbackItems(
+            await discoverByGenres(supabase, type, type === 'movie' ? mergedMovieGenres : mergedTvGenres),
+            skipKeys
+          )
+        )
+      )
+      return perType.flat()
+    }
+
+    const titleKey = (i: { media_type: string; id: number }) => `${i.media_type}-${i.id}`
+    // Titels die uit de bredere zoektocht komen (fallback of aanvulling), niet uit de doorsnede.
+    const fallbackKeys = new Set<string>()
+
     let items: RankedCandidate[]
     let tier: 'intersection' | 'fallback' | 'empty'
 
@@ -200,62 +330,27 @@ export async function GET(request: NextRequest) {
           }
         })
         .sort((x, y) => y.matchPercent - x.matchPercent)
-    } else {
-      // Geen enkele titel komt bij allebei voor: val terug op een bredere zoektocht op de
-      // gecombineerde genre-affiniteit van jullie beiden, zodat er toch iets te zien is —
-      // wel met minder zekerheid dan een echte doorsnede-match.
-      const excludeIds = new Set([
-        ...inputsA.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
-        ...inputsA.ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
-        ...inputsA.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
-        ...inputsB.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
-        ...inputsB.ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
-        ...inputsB.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
-        ...coupleRatedKeys,
-      ])
 
-      // Unie van beide uitsluitlijsten: als één van jullie beiden een genre uitsluit,
-      // mag dat genre ook niet via de ander alsnog in de gedeelde Samen-lijst sluipen —
-      // bij de doorsnede (tier "intersection") kan dat toch al niet (elke titel moest
-      // al door ieders eigen, al gefilterde lijst komen), maar deze fallback-zoektocht
-      // start helemaal opnieuw op genre en had die filtering nog niet.
-      const combinedExcludedGenreIds = new Set([...inputsA.excludedGenreIds, ...inputsB.excludedGenreIds])
-
-      const mergedMovieGenres = mergeGenreAffinities(tasteA.movieGenres, tasteB.movieGenres)
-      const mergedTvGenres = mergeGenreAffinities(tasteA.tvGenres, tasteB.tvGenres)
-
-      const [movieDiscover, tvDiscover] = await Promise.all([
-        discoverByGenres(supabase, 'movie', mergedMovieGenres),
-        discoverByGenres(supabase, 'tv', mergedTvGenres),
-      ])
-
-      const buildFallbackItems = (discover: { results: TmdbItem[]; label: string }): RankedCandidate[] => {
-        const filtered = discover.results
-          .filter((item) => !excludeIds.has(`${item.media_type}-${item.id}`))
-          .filter((item) => !item.genre_ids.some((g) => combinedExcludedGenreIds.has(g)))
-          .slice(0, FALLBACK_LIMIT_PER_TYPE)
-        const maxVote = Math.max(1, ...filtered.map((item) => item.vote_average))
-        return filtered.map((item) => ({
-          ...item,
-          score: item.vote_average,
-          matchPercent: Math.round((item.vote_average / maxVote) * 100),
-          basedOn: discover.label ? [`jullie gedeelde ${discover.label.replace('jouw voorkeur voor ', 'voorkeur voor ')}`] : [],
-          coreScore: 0,
-          okScore: 0,
-          discoverScore: 0,
-          collectionScore: 0,
-          embeddingBonus: 0,
-          actorScore: 0,
-          directorScore: 0,
-        }))
+      // Is de doorsnede voor een type (films/series) klein — bv. omdat een van jullie veel
+      // genres uitsluit of al veel heeft beoordeeld — vul dan aan uit de bredere zoektocht.
+      const shortTypes = (['movie', 'tv'] as const).filter(
+        (type) => items.filter((i) => i.media_type === type).length < MIN_ITEMS_PER_TYPE
+      )
+      if (shortTypes.length > 0) {
+        const extra = await fetchFallbackItems(shortTypes, new Set(items.map(titleKey)))
+        extra.forEach((e) => fallbackKeys.add(titleKey(e)))
+        items = [...items, ...extra]
       }
-
+    } else {
+      // Geen enkele titel komt bij allebei voor: val terug op de bredere zoektocht, zodat er
+      // toch iets te zien is.
       tier = mergedMovieGenres.length === 0 && mergedTvGenres.length === 0 ? 'empty' : 'fallback'
-      items = [
-        ...buildFallbackItems(movieDiscover),
-        ...buildFallbackItems(tvDiscover),
-      ]
+      items = await fetchFallbackItems(['movie', 'tv'], new Set())
+      items.forEach((e) => fallbackKeys.add(titleKey(e)))
     }
+
+    // Verhaal-overeenkomst met beide smaakprofielen (Voyage-embeddings), zie applyJointFit.
+    items = await applyJointFit(supabase, items, tasteA.userVector, tasteB.userVector, fallbackKeys)
 
     // Bijsturing op basis van wat het koppel al samen goed beoordeelde: titels die qua
     // genre aansluiten bij eerdere "zeker leuk"/"was oké"-beoordelingen samen krijgen
@@ -275,14 +370,30 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.matchPercent - a.matchPercent)
     }
 
+    // Aanvullende titels mogen nooit boven een echte doorsnede-match uitkomen: de weergave
+    // sorteert op matchpercentage, en de doorsnede is de zekerste groep.
+    if (tier === 'intersection' && fallbackKeys.size > 0) {
+      const coreFloor = Math.min(...items.filter((i) => !fallbackKeys.has(titleKey(i))).map((i) => i.matchPercent))
+      items = items.map((i) =>
+        fallbackKeys.has(titleKey(i)) ? { ...i, matchPercent: Math.max(1, Math.min(i.matchPercent, coreFloor - 1)) } : i
+      )
+    }
+
     // Beperk tot de beste SAMEN_MAX_PER_TYPE per type — anders kan vooral tier
     // "intersection" (die niet, zoals de gewone modi, al door een round-robin/long-tail-
     // limiet gaat) onbeperkt groeien. Per type i.p.v. één gecombineerde cap, zodat een
     // sterke overlap in films niet ten koste gaat van het aantal series (of andersom).
-    items = [
-      ...items.filter((i) => i.media_type === 'movie').sort((a, b) => b.matchPercent - a.matchPercent).slice(0, SAMEN_MAX_PER_TYPE),
-      ...items.filter((i) => i.media_type === 'tv').sort((a, b) => b.matchPercent - a.matchPercent).slice(0, SAMEN_MAX_PER_TYPE),
-    ]
+    // De doorsnede krijgt de cap; de aanvulling houden we ruim vast, want de streamingfilter
+    // hieronder kan er nog veel van weghalen (daarna ingekort tot wat nodig is).
+    const capForType = (type: MediaType): RankedCandidate[] => {
+      const ofType = items.filter((i) => i.media_type === type).sort((a, b) => b.matchPercent - a.matchPercent)
+      if (tier !== 'intersection') return ofType.slice(0, SAMEN_MAX_PER_TYPE)
+      return [
+        ...ofType.filter((i) => !fallbackKeys.has(titleKey(i))).slice(0, SAMEN_MAX_PER_TYPE),
+        ...ofType.filter((i) => fallbackKeys.has(titleKey(i))).slice(0, FALLBACK_LIMIT_PER_TYPE),
+      ]
+    }
+    items = [...capForType('movie'), ...capForType('tv')]
 
     const combinedSourceIds = new Set(
       [...inputsA.streamingServices, ...inputsB.streamingServices]
@@ -304,6 +415,17 @@ export async function GET(request: NextRequest) {
         .filter((m): m is RecommendationItem => m !== null)
     }
 
+    // Na de streamingfilter houden we per type zoveel aanvulling over als nodig is om op
+    // MIN_ITEMS_PER_TYPE uit te komen; de echte doorsnede blijft altijd volledig staan.
+    if (tier === 'intersection' && fallbackKeys.size > 0) {
+      resultItems = (['movie', 'tv'] as const).flatMap((type) => {
+        const ofType = resultItems.filter((i) => i.media_type === type)
+        const core = ofType.filter((i) => !fallbackKeys.has(titleKey(i)))
+        const extra = ofType.filter((i) => fallbackKeys.has(titleKey(i))).slice(0, Math.max(0, MIN_ITEMS_PER_TYPE - core.length))
+        return [...core, ...extra]
+      })
+    }
+
     await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems)
 
     // Tijdelijke debug-info: helpt te achterhalen of een leeg resultaat komt door een
@@ -319,6 +441,7 @@ export async function GET(request: NextRequest) {
         candidatesA: tasteA.allCandidates.length,
         candidatesB: tasteB.allCandidates.length,
         intersectionSize: intersectionKeys.length,
+        toppedUp: tier === 'intersection' && fallbackKeys.size > 0,
         itemsBeforeStreamingFilter: items.length,
         itemsAfterStreamingFilter: resultItems.length,
         combinedStreamingServices: [...inputsA.streamingServices, ...inputsB.streamingServices],

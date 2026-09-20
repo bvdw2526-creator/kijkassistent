@@ -656,7 +656,7 @@ async function embedTexts(texts: string[]): Promise<number[][]> {
   return chunkResults.flat()
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
+export function cosineSimilarity(a: number[], b: number[]): number {
   if (!a.length || !b.length || a.length !== b.length) return 0
   let dot = 0, normA = 0, normB = 0
   for (let i = 0; i < a.length; i++) {
@@ -668,7 +668,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB))
 }
 
-async function getEmbeddingsForItems(
+export async function getEmbeddingsForItems(
   supabase: SupabaseClient,
   items: { media_type: MediaType; tmdb_id: number; text: string }[]
 ): Promise<Map<string, number[]>> {
@@ -893,6 +893,10 @@ export interface TasteProfile {
   allCandidates: RankedCandidate[]
   movieGenres: GenreAffinity[]
   tvGenres: GenreAffinity[]
+  // Gewogen gemiddelde van de verhaal-embeddings van iemands favorieten en beoordelingen
+  // (leeg als er geen embeddings zijn). De "samen"-route meet hiermee hoe goed een titel
+  // bij elk van beide partners past.
+  userVector: number[]
 }
 
 // De volledige scoring-pijplijn voor één gebruiker: van ruwe favorieten/ratings tot de
@@ -908,7 +912,7 @@ export async function computeTasteProfile(
   // beoordelen zonder favorieten toe te voegen ook meetelt. Nu pas leeg als er echt
   // helemaal niets is om op te bouwen.
   if (inputs.favorites.length === 0 && inputs.ratings.length === 0) {
-    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [] }
+    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [], userVector: [] }
   }
 
   const { favorites, ratings, watchlist, excludedGenreIds, favoritePeopleList, favoriteDirectorsList } = inputs
@@ -1266,5 +1270,6 @@ export async function computeTasteProfile(
     allCandidates,
     movieGenres,
     tvGenres,
+    userVector,
   }
 }
