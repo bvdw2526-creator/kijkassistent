@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v5-topup-genres',
+      'v6-topup-after-filter',
       buildProfileSignature(inputsA),
       buildProfileSignature(inputsB),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -346,6 +346,17 @@ export async function GET(request: NextRequest) {
           }
         })
         .sort((x, y) => y.matchPercent - x.matchPercent)
+
+      // Eerst de titels weghalen die niet op jullie streamingdiensten staan, dán pas tellen
+      // hoeveel er over zijn. Eerder telde dit de ruwe doorsnede (die veel titels bevat die op
+      // geen van jullie diensten staan), dacht de route dat er genoeg was, en viel het aantal
+      // pas daarna terug naar 2 — zonder dat er nog werd aangevuld.
+      if (discoverProviderIds.length > 0) {
+        const watchInfo = await resolveWatchInfo(supabase, items, new Set(discoverProviderIds))
+        items = items.filter((i) => watchInfo.get(titleKey(i)))
+      }
+      // Blijft er niets over, dan is dit feitelijk een fallback zonder echte doorsnede-matches.
+      if (items.length === 0) tier = 'fallback'
 
       // Is de doorsnede voor een type (films/series) klein — bv. omdat een van jullie veel
       // genres uitsluit of al veel heeft beoordeeld — vul dan aan uit de bredere zoektocht.
