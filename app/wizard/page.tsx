@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import { supabase, authFetch } from '@/lib/supabase'
 import PersonInfoSheet from '../components/PersonInfoSheet'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
-import { btnPrimary, btnGhost, input, card, chip } from '../components/ui'
+import ExcludeChip from '../components/ExcludeChip'
+import { btnPrimary, btnGhost, input, card } from '../components/ui'
 import {
+  CloseIcon,
   SearchIcon,
   PlusIcon,
   CheckIcon,
@@ -467,25 +469,37 @@ export default function Wizard() {
       {step === 3 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Sluit genres uit</h1>
-          <p className="text-[#93A3B5] mb-2">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
-          <p className="text-xs text-[#5E6D80] mb-6">Aangevinkt betekent: wordt nooit aanbevolen. Vink dus niet aan wat je wél leuk vindt.</p>
+          <p className="text-[#93A3B5] mb-4">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
+
+          <div className="flex items-start gap-3 rounded-xl border border-[#C97064]/40 bg-[#C97064]/5 p-4 mb-6">
+            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C97064]/15 text-[#C97064]">
+              <CloseIcon className="w-4 h-4" />
+            </span>
+            <p className="text-sm leading-relaxed">
+              <span className="font-medium text-[#C97064]">Dit is een lijst van wat je níet wilt zien.</span> Een genre dat je
+              aantikt, verdwijnt helemaal uit je aanbevelingen, ook als een van je favorieten erin valt. Vind je alles goed?
+              Tik dan niets aan en ga verder.
+            </p>
+          </div>
 
           <h3 className="text-sm text-[#93A3B5] mb-2">Films</h3>
           <div className="flex flex-wrap gap-2 mb-5">
             {MOVIE_GENRES.map((genre) => (
-              <button key={genre.id} onClick={() => toggleGenre(genre.id)} className={chip(excludedGenres.includes(genre.id), 'coral')}>
-                {genre.label}
-              </button>
+              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
           <h3 className="text-sm text-[#93A3B5] mb-2">Series</h3>
-          <div className="flex flex-wrap gap-2 mb-6">
+          <div className="flex flex-wrap gap-2 mb-4">
             {TV_GENRES.map((genre) => (
-              <button key={genre.id} onClick={() => toggleGenre(genre.id)} className={chip(excludedGenres.includes(genre.id), 'coral')}>
-                {genre.label}
-              </button>
+              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
+
+          <p className="text-sm text-[#93A3B5] mb-6">
+            {excludedGenres.length === 0
+              ? 'Nog niets uitgesloten. Dat is prima.'
+              : `${excludedGenres.length} ${excludedGenres.length === 1 ? 'genre' : 'genres'} uitgesloten: dat komt niet meer in je aanbevelingen.`}
+          </p>
 
           <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
 

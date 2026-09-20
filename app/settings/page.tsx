@@ -5,9 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import LegalLinks from '../components/LegalLinks'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
+import ExcludeChip from '../components/ExcludeChip'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
-import { btnPrimary, input, chip, card } from '../components/ui'
+import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, TrashIcon, UsersIcon } from '../components/Icons'
 
 const AVAILABLE_SERVICES = [
@@ -340,17 +341,13 @@ export default function Settings() {
         <h3 className="text-sm text-[#93A3B5] mb-2">Films</h3>
         <div className="flex flex-wrap gap-2 mb-4">
           {MOVIE_GENRES.map((genre) => (
-            <button key={genre.id} onClick={() => toggleGenre(genre.id)} className={chip(excludedGenres.includes(genre.id), 'coral')}>
-              {genre.label}
-            </button>
+            <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
           ))}
         </div>
         <h3 className="text-sm text-[#93A3B5] mb-2">Series</h3>
         <div className="flex flex-wrap gap-2 mb-8">
           {TV_GENRES.map((genre) => (
-            <button key={genre.id} onClick={() => toggleGenre(genre.id)} className={chip(excludedGenres.includes(genre.id), 'coral')}>
-              {genre.label}
-            </button>
+            <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
           ))}
         </div>
 
