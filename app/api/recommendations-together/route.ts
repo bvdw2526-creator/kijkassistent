@@ -115,6 +115,105 @@ async function applyJointFit(
     .sort((x, y) => y.matchPercent - x.matchPercent)
 }
 
+interface TasteMatch {
+  // 0-100, gemiddelde van de genre-overlap en de verhaal-overeenkomst.
+  score: number
+  genrePercent: number
+  // null als een van beiden nog geen verhaal-vingerafdruk heeft.
+  storyPercent: number | null
+  sharedGenres: string[]
+  youMoreGenres: string[]
+  partnerMoreGenres: string[]
+  sharedTopTitles: number
+}
+
+// Op echte data van ons testpubliek: genre-overlap loopt van 3% tot 80% (mediaan 29%) en de
+// cosinus-overeenkomst tussen twee smaakvectoren van 0,52 tot 0,89 (mediaan 0,74). Zonder
+// herschalen zou de verhaalscore altijd "hoog" lijken en de genrescore altijd "laag".
+const GENRE_OVERLAP_FULL = 0.7
+const STORY_COSINE_FLOOR = 0.5
+const STORY_COSINE_CEILING = 0.9
+
+// Vergelijkt twee smaakprofielen: hoeveel van hun genresmaak overlapt (het gedeelte van elk
+// profiel dat ook bij de ander zit) en hoe dicht hun verhaal-vingerafdrukken bij elkaar liggen.
+function computeTasteMatch(
+  tasteA: { movieGenres: GenreAffinity[]; tvGenres: GenreAffinity[]; userVector: number[] },
+  tasteB: { movieGenres: GenreAffinity[]; tvGenres: GenreAffinity[]; userVector: number[] },
+  inputsA: { favorites: { media_type: string; tmdb_id: number }[]; ratings: { media_type: string; tmdb_id: number; rating: string }[] },
+  inputsB: { favorites: { media_type: string; tmdb_id: number }[]; ratings: { media_type: string; tmdb_id: number; rating: string }[] }
+): TasteMatch | null {
+  const toDistribution = (taste: typeof tasteA) => {
+    const raw = new Map<string, { name: string; weight: number }>()
+    for (const [type, list] of [['movie', taste.movieGenres], ['tv', taste.tvGenres]] as const) {
+      for (const g of list) raw.set(`${type}:${g.id}`, { name: g.name, weight: g.count })
+    }
+    const total = Array.from(raw.values()).reduce((sum, v) => sum + v.weight, 0)
+    return { raw, total }
+  }
+  const a = toDistribution(tasteA)
+  const b = toDistribution(tasteB)
+  if (a.total === 0 || b.total === 0) return null
+
+  let overlap = 0
+  const rows: { name: string; pa: number; pb: number }[] = []
+  for (const key of new Set([...a.raw.keys(), ...b.raw.keys()])) {
+    const pa = (a.raw.get(key)?.weight ?? 0) / a.total
+    const pb = (b.raw.get(key)?.weight ?? 0) / b.total
+    overlap += Math.min(pa, pb)
+    rows.push({ name: (a.raw.get(key) ?? b.raw.get(key))!.name, pa, pb })
+  }
+  const genreScaled = Math.min(1, overlap / GENRE_OVERLAP_FULL)
+
+  let storyScaled: number | null = null
+  if (tasteA.userVector.length > 0 && tasteB.userVector.length > 0) {
+    const cos = cosineSimilarity(tasteA.userVector, tasteB.userVector)
+    storyScaled = Math.min(1, Math.max(0, (cos - STORY_COSINE_FLOOR) / (STORY_COSINE_CEILING - STORY_COSINE_FLOOR)))
+  }
+
+  // Film- en seriegenres met dezelfde naam (bv. "Drama") samenvoegen voor de weergave.
+  const byName = new Map<string, { pa: number; pb: number }>()
+  for (const r of rows) {
+    const cur = byName.get(r.name) ?? { pa: 0, pb: 0 }
+    byName.set(r.name, { pa: cur.pa + r.pa, pb: cur.pb + r.pb })
+  }
+  const named = Array.from(byName.entries()).map(([name, v]) => ({ name, ...v }))
+  const sharedGenres = named
+    .filter((n) => Math.min(n.pa, n.pb) > 0.02)
+    .sort((x, y) => Math.min(y.pa, y.pb) - Math.min(x.pa, x.pb))
+    .slice(0, 3)
+    .map((n) => n.name)
+  const youMoreGenres = named
+    .filter((n) => n.pa - n.pb > 0.05)
+    .sort((x, y) => y.pa - y.pb - (x.pa - x.pb))
+    .slice(0, 2)
+    .map((n) => n.name)
+  const partnerMoreGenres = named
+    .filter((n) => n.pb - n.pa > 0.05)
+    .sort((x, y) => y.pb - y.pa - (x.pb - x.pa))
+    .slice(0, 2)
+    .map((n) => n.name)
+
+  const topKeys = (inputs: typeof inputsA) =>
+    new Set([
+      ...inputs.favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
+      ...inputs.ratings.filter((r) => r.rating === 'love').map((r) => `${r.media_type}-${r.tmdb_id}`),
+    ])
+  const topA = topKeys(inputsA)
+  const sharedTopTitles = Array.from(topKeys(inputsB)).filter((k) => topA.has(k)).length
+
+  const parts = storyScaled === null ? [genreScaled] : [genreScaled, storyScaled]
+  const score = Math.round((parts.reduce((s, v) => s + v, 0) / parts.length) * 100)
+  return {
+    score,
+    genrePercent: Math.round(genreScaled * 100),
+    storyPercent: storyScaled === null ? null : Math.round(storyScaled * 100),
+    sharedGenres,
+    youMoreGenres,
+    partnerMoreGenres,
+    sharedTopTitles,
+  }
+}
+
 function keyByTitle(items: RankedCandidate[]): Map<string, RankedCandidate> {
   return new Map(items.map((item) => [`${item.media_type}-${item.id}`, item]))
 }
@@ -134,10 +233,11 @@ async function cacheCoupleRecommendationsResult(
   connectionId: string,
   signature: string,
   tier: 'intersection' | 'fallback' | 'empty',
-  items: RecommendationItem[]
+  items: RecommendationItem[],
+  match: TasteMatch | null
 ): Promise<void> {
   await supabase.from('couple_recommendations_cache').upsert(
-    { connection_id: connectionId, signature, tier, items, fetched_at: new Date().toISOString() },
+    { connection_id: connectionId, signature, tier, items, match, fetched_at: new Date().toISOString() },
     { onConflict: 'connection_id' }
   )
 }
@@ -192,7 +292,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v6-topup-after-filter',
+      'v7-match',
       buildProfileSignature(inputsA),
       buildProfileSignature(inputsB),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -200,7 +300,7 @@ export async function GET(request: NextRequest) {
 
     const { data: cachedResult } = await supabase
       .from('couple_recommendations_cache')
-      .select('signature, tier, items, fetched_at')
+      .select('signature, tier, items, match, fetched_at')
       .eq('connection_id', connection.id)
       .single()
 
@@ -212,6 +312,7 @@ export async function GET(request: NextRequest) {
           connectionId: connection.id,
           tier: cachedResult.tier,
           items: cachedResult.items,
+          match: cachedResult.match ?? null,
           debug: { cached: true, coupleRatingsCount: coupleRatings.length },
         })
       }
@@ -453,7 +554,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems)
+    const match = computeTasteMatch(tasteA, tasteB, inputsA, inputsB)
+
+    await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems, match)
 
     // Tijdelijke debug-info: helpt te achterhalen of een leeg resultaat komt door een
     // lege doorsnede/fallback, of door het wegfilteren op streamingdiensten daarna.
@@ -462,6 +565,7 @@ export async function GET(request: NextRequest) {
       connectionId: connection.id,
       tier,
       items: resultItems,
+      match,
       debug: {
         favoritesA: inputsA.favorites.length,
         favoritesB: inputsB.favorites.length,

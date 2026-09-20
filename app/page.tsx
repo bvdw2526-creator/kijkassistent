@@ -68,6 +68,39 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
   }
 }
 
+type TasteMatch = {
+  score: number
+  genrePercent: number
+  storyPercent: number | null
+  sharedGenres: string[]
+  youMoreGenres: string[]
+  partnerMoreGenres: string[]
+  sharedTopTitles: number
+}
+
+function matchLabel(score: number): string {
+  if (score >= 75) return 'Bijna dezelfde smaak'
+  if (score >= 55) return 'Jullie passen goed bij elkaar'
+  if (score >= 35) return 'Jullie smaken overlappen deels'
+  return 'Jullie hebben elk een eigen smaak'
+}
+
+function joinNames(names: string[]): string {
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} en ${names[names.length - 1]}`
+}
+
+function MatchBar({ label, percent }: { label: string; percent: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-[#93A3B5] w-16 flex-shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-[#212C3B] overflow-hidden">
+        <div className="h-full rounded-full bg-[#E8A33D]" style={{ width: `${percent}%` }} />
+      </div>
+      <span className="text-xs text-[#93A3B5] w-9 text-right flex-shrink-0">{percent}%</span>
+    </div>
+  )
+}
+
 // Aantal beste Samen-titels waaruit de "tip van vanavond" wordt gekozen.
 const TIP_POOL_SIZE = 5
 const NON_TITLE_LABELS = new Set(['vergelijkbare verhaallijn', 'verhaal dat bij jullie allebei past', 'wat jullie samen al waardeerden'])
@@ -124,6 +157,7 @@ export default function Home() {
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [tipSkips, setTipSkips] = useState(0)
+  const [togetherMatch, setTogetherMatch] = useState<TasteMatch | null>(null)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -244,6 +278,7 @@ export default function Home() {
       setTogetherConnected(!!data.connected)
       setTogetherConnectionId(data.connectionId || null)
       setTogetherTier(data.tier || null)
+      setTogetherMatch(data.match ?? null)
       setByMode((current) => ({ ...current, samen: data.items || [] }))
     } catch (err) {
       if (requestId !== togetherRequestIdRef.current) return
@@ -587,6 +622,39 @@ export default function Home() {
                 <button onClick={() => setTipSkips((n) => n + 1)} className={btnGhost}>
                   Andere tip
                 </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {mode === 'samen' && togetherConnected && togetherMatch && (
+          <div className="rounded-2xl border border-[#2A3644] bg-[#1A2330] p-4 mb-5">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-medium">Jullie smaakmatch</p>
+              <p className="font-display text-3xl text-[#E8A33D] leading-none">{togetherMatch.score}%</p>
+            </div>
+            <p className="text-sm text-[#93A3B5] mt-1">{matchLabel(togetherMatch.score)}</p>
+            <div className="flex flex-col gap-2 mt-4">
+              <MatchBar label="Genres" percent={togetherMatch.genrePercent} />
+              {togetherMatch.storyPercent !== null && <MatchBar label="Verhalen" percent={togetherMatch.storyPercent} />}
+            </div>
+            <div className="mt-4 flex flex-col gap-1.5 text-sm text-[#F2EFE9]/85 leading-relaxed">
+              {togetherMatch.sharedGenres.length > 0 && (
+                <p>Jullie delen je liefde voor {joinNames(togetherMatch.sharedGenres).toLowerCase()}.</p>
+              )}
+              {(togetherMatch.youMoreGenres.length > 0 || togetherMatch.partnerMoreGenres.length > 0) && (
+                <p className="text-[#93A3B5]">
+                  {togetherMatch.youMoreGenres.length > 0 && `Jij houdt meer van ${joinNames(togetherMatch.youMoreGenres).toLowerCase()}`}
+                  {togetherMatch.youMoreGenres.length > 0 && togetherMatch.partnerMoreGenres.length > 0 && ', '}
+                  {togetherMatch.partnerMoreGenres.length > 0 &&
+                    `${togetherMatch.youMoreGenres.length > 0 ? 'je partner' : 'Je partner'} meer van ${joinNames(togetherMatch.partnerMoreGenres).toLowerCase()}`}
+                  .
+                </p>
+              )}
+              {togetherMatch.sharedTopTitles > 0 && (
+                <p className="text-[#93A3B5]">
+                  {togetherMatch.sharedTopTitles} {togetherMatch.sharedTopTitles === 1 ? 'titel staat' : 'titels staan'} bij jullie allebei bovenaan.
+                </p>
               )}
             </div>
           </div>
