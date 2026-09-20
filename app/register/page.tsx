@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { takePendingInvitePath } from '@/lib/invite'
 import { btnPrimary, input } from '../components/ui'
 import { CheckIcon } from '../components/Icons'
 import LegalLinks from '../components/LegalLinks'
@@ -61,7 +62,7 @@ export default function Register() {
     if (data.session) {
       // "Confirm email" staat uit (of niet vereist voor dit account) — er is meteen een
       // sessie, dus net als bij inloggen direct door naar de app.
-      router.push('/')
+      router.push(takePendingInvitePath() ?? '/')
       return
     }
 

@@ -93,6 +93,9 @@ export default function Settings() {
   const [connections, setConnections] = useState<PartnerConnection[]>([])
   const [partnerEmail, setPartnerEmail] = useState('')
   const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteLink, setInviteLink] = useState('')
+  const [inviteLinkLoading, setInviteLinkLoading] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   useEffect(() => {
     loadProfile()
@@ -169,6 +172,38 @@ export default function Settings() {
       return
     }
     if (data) setConnections(data)
+  }
+
+  async function createInviteLink() {
+    setErrorMessage(null)
+    setInviteLinkLoading(true)
+    setLinkCopied(false)
+    const { data, error } = await supabase.rpc('create_partner_invite')
+    setInviteLinkLoading(false)
+    if (error || !data) {
+      console.error('Uitnodigingslink maken mislukt:', error)
+      setErrorMessage(`Kon de link niet maken: ${error?.message ?? 'onbekende fout'}`)
+      return
+    }
+    setInviteLink(`${window.location.origin}/uitnodiging/${data}`)
+  }
+
+  async function shareInviteLink() {
+    const text = 'Kijk samen met mij! Koppel je aan mij in Kijkassistent:'
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Kijkassistent', text, url: inviteLink })
+        return
+      } catch {
+        // Delen geannuleerd of niet beschikbaar: dan valt het terug op kopiëren.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+      setLinkCopied(true)
+    } catch {
+      setErrorMessage('Kopiëren lukt niet. Selecteer de link en kopieer hem zelf.')
+    }
   }
 
   async function sendInvite() {
@@ -321,6 +356,30 @@ export default function Settings() {
           hint="Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf accepteren voordat jullie smaak wordt gecombineerd."
         />
 
+        <div className="mb-5">
+          {!inviteLink ? (
+            <button onClick={createInviteLink} disabled={inviteLinkLoading} className={`${btnPrimary} w-full`}>
+              <UsersIcon className="w-4 h-4" />
+              {inviteLinkLoading ? 'Bezig...' : 'Uitnodigingslink maken'}
+            </button>
+          ) : (
+            <div className={`${card} p-4`}>
+              <p className="text-xs text-[#93A3B5] mb-2">Deel deze link met je partner. Hij werkt één keer en is 7 dagen geldig.</p>
+              <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} className={`${input} text-xs mb-3`} />
+              <div className="flex gap-2">
+                <button onClick={shareInviteLink} className={`${btnPrimary} flex-1`}>
+                  {linkCopied ? <CheckIcon className="w-4 h-4" /> : null}
+                  {linkCopied ? 'Gekopieerd' : 'Delen'}
+                </button>
+                <button onClick={createInviteLink} disabled={inviteLinkLoading} className="text-sm text-[#93A3B5] px-3">
+                  Nieuwe link
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-[#5E6D80] mb-2">Of nodig iemand uit die al een account heeft, via het e-mailadres:</p>
         <div className="flex gap-2 mb-4">
           <input
             type="email"

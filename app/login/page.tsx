@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { takePendingInvitePath } from '@/lib/invite'
 import { btnPrimary, input } from '../components/ui'
 import LegalLinks from '../components/LegalLinks'
 
@@ -29,7 +30,7 @@ export default function Login() {
       )
       return
     }
-    router.push('/')
+    router.push(takePendingInvitePath() ?? '/')
   }
 
   return (
