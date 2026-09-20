@@ -68,6 +68,22 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
   }
 }
 
+// Aantal beste Samen-titels waaruit de "tip van vanavond" wordt gekozen.
+const TIP_POOL_SIZE = 5
+const NON_TITLE_LABELS = new Set(['vergelijkbare verhaallijn', 'verhaal dat bij jullie allebei past', 'wat jullie samen al waardeerden'])
+
+// Vertaalt de "basedOn"-lijst van een Samen-titel (titels die jullie leuk vonden, plus een paar
+// vaste labels) naar één leesbare zin waarom dit de tip is.
+function explainTip(basedOn: string[] = []): string {
+  const likedTitles = basedOn.filter((b) => !NON_TITLE_LABELS.has(b) && !b.startsWith('jullie gedeelde '))
+  const shared = basedOn.find((b) => b.startsWith('jullie gedeelde '))
+  const parts: string[] = []
+  if (likedTitles.length > 0) parts.push(`Omdat jullie hielden van ${likedTitles.slice(0, 2).join(' en ')}.`)
+  else if (shared) parts.push(`Op basis van ${shared}.`)
+  if (basedOn.includes('verhaal dat bij jullie allebei past')) parts.push('Het verhaal past bij jullie allebei.')
+  return parts.join(' ') || 'Past goed bij jullie allebei.'
+}
+
 function PosterSkeletonGrid() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -107,6 +123,7 @@ export default function Home() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [tipSkips, setTipSkips] = useState(0)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const selectedAtRef = useRef(0)
@@ -416,6 +433,16 @@ export default function Home() {
   const visible = tab === 'movie' ? movieResults : tvResults
   const showSkeleton = loading && movies.length === 0
 
+  // "Tip van vanavond": de beste Samen-titels, en per dag een andere daaruit. De dag en het
+  // koppel bepalen het startpunt, dus jullie zien allebei dezelfde tip; "Andere tip" schuift door.
+  const tipPool = byMode.samen
+    .filter((m) => m.media_type === tab)
+    .sort((a, b) => b.matchPercent - a.matchPercent)
+    .slice(0, TIP_POOL_SIZE)
+  const localDay = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000)
+  const connectionSeed = (togetherConnectionId ?? '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
+  const tipItem = tipPool.length > 0 ? tipPool[(localDay + connectionSeed + tipSkips) % tipPool.length] : null
+
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
@@ -513,6 +540,56 @@ export default function Home() {
             Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
             zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
           </p>
+        )}
+
+        {mode === 'samen' && togetherConnected && tipItem && (
+          <div className="rounded-2xl border border-[#E8A33D]/40 bg-[#E8A33D]/5 p-4 mb-5">
+            <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-3">
+              {tab === 'movie' ? 'Filmtip' : 'Serietip'} van vanavond
+            </p>
+            <button
+              onClick={() => {
+                selectedAtRef.current = Date.now()
+                setActionError(null)
+                setSelected(tipItem)
+                checkBookAdaptation(tipItem)
+              }}
+              className="flex gap-4 w-full text-left touch-manipulation"
+            >
+              {tipItem.poster_path ? (
+                <div className="relative w-24 aspect-[2/3] rounded-xl flex-shrink-0 overflow-hidden shadow-lg">
+                  <Image
+                    src={`https://image.tmdb.org/t/p/w342${tipItem.poster_path}`}
+                    alt={tipItem.title}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+              )}
+              <span className="min-w-0">
+                <span className="block font-display text-xl leading-tight">{tipItem.title}</span>
+                <span className="block text-sm text-[#93A3B5] mt-1">
+                  {tipItem.media_type === 'tv' ? 'Serie' : 'Film'}
+                  {tipItem.watchOn ? ` · ${tipItem.watchOn}` : ''}
+                </span>
+                <span className="block text-sm text-[#F2EFE9]/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn)}</span>
+              </span>
+            </button>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => handleAddToWatchlist(tipItem)} className={`${btnPrimary} flex-1`}>
+                <PlusIcon className="w-4 h-4" />
+                Dit gaan we kijken
+              </button>
+              {tipPool.length > 1 && (
+                <button onClick={() => setTipSkips((n) => n + 1)} className={btnGhost}>
+                  Andere tip
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
         {showSkeleton && <PosterSkeletonGrid />}
