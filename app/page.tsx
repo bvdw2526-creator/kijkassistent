@@ -9,6 +9,7 @@ import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
 import LegalLinks from './components/LegalLinks'
 import PartnerPicks from './components/PartnerPicks'
+import DateNight from './components/DateNight'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
 
@@ -540,6 +541,8 @@ export default function Home() {
             <LogoutIcon className="w-4 h-4" />
           </button>
         </header>
+
+        {user && <DateNight showIdle={mode === 'samen'} />}
 
         {/* Mode-slicer */}
         <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
