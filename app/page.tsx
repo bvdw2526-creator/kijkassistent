@@ -104,6 +104,10 @@ function MatchBar({ label, percent }: { label: string; percent: number }) {
   )
 }
 
+// Hoe vaak en hoe snel we vragen of de op de achtergrond samengestelde Samen-lijst klaar is.
+const TOGETHER_POLL_MS = 8000
+const TOGETHER_MAX_POLLS = 12
+
 // Aantal beste Samen-titels waaruit de "tip van vanavond" wordt gekozen.
 const TIP_POOL_SIZE = 5
 
@@ -172,10 +176,12 @@ export default function Home() {
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [tipSkips, setTipSkips] = useState(0)
+  const [togetherComputing, setTogetherComputing] = useState(false)
   const [tipMood, setTipMood] = useState<TipMood>('alles')
   const [togetherMatch, setTogetherMatch] = useState<TasteMatch | null>(null)
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
+  const togetherPollsRef = useRef(0)
   const selectedAtRef = useRef(0)
   // Mobiele browsers wachten na een tik nog ~300ms af of het een dubbele tik (zoom)
   // wordt. Tikt iemand snel twee keer op dezelfde plek, dan opent de eerste tik deze
@@ -221,6 +227,8 @@ export default function Home() {
         setLoading(false)
       }
     })
+    // De laadfuncties horen bewust niet in de dependencies: ze draaien één keer bij het openen van de pagina.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
   async function loadRecommendations() {
@@ -261,7 +269,16 @@ export default function Home() {
   // Los van loadRecommendations: "Samen" draait op een eigen endpoint (combineert twee
   // smaakprofielen) en heeft dus geen eigen resultaat-cache — een ontbrekende/verouderde
   // koppeling mag nooit de gewone drie tabbladen blokkeren of vertragen.
-  async function loadTogetherRecommendations() {
+  // Terwijl de lijst op de achtergrond wordt samengesteld (eerste keer) of vernieuwd (na een
+  // wijziging) vragen we rustig opnieuw, tot hij klaar is of we het genoeg geprobeerd hebben.
+  function scheduleTogetherRefresh() {
+    if (togetherPollsRef.current >= TOGETHER_MAX_POLLS) return
+    togetherPollsRef.current += 1
+    setTimeout(() => loadTogetherRecommendations(true), TOGETHER_POLL_MS)
+  }
+
+  async function loadTogetherRecommendations(isPoll = false) {
+    if (!isPoll) togetherPollsRef.current = 0
     const requestId = ++togetherRequestIdRef.current
     console.log('loadTogetherRecommendations: gestart')
     const { data: { session } } = await supabase.auth.getSession()
@@ -289,8 +306,18 @@ export default function Home() {
       // Nuttig om even in de devtools-console te bekijken als "Samen" leeg blijft:
       // laat zien of het aan een lege doorsnede/fallback ligt, of aan het wegfilteren
       // op streamingdiensten daarna.
-      console.log('loadTogetherRecommendations: klaar', { connected: data.connected, tier: data.tier, items: (data.items || []).length, debug: data.debug })
+      console.log('loadTogetherRecommendations: klaar', { connected: data.connected, tier: data.tier, items: (data.items || []).length, computing: data.computing, stale: data.stale })
       setTogetherError(null)
+      if (data.computing) {
+        // Eerste lijst is onderweg: nog niets om te tonen.
+        setTogetherComputing(true)
+        setTogetherConnected(true)
+        setTogetherConnectionId(data.connectionId || null)
+        scheduleTogetherRefresh()
+        return
+      }
+      setTogetherComputing(false)
+      if (data.stale) scheduleTogetherRefresh()
       setTogetherConnected(!!data.connected)
       setTogetherConnectionId(data.connectionId || null)
       setTogetherTier(data.tier || null)
@@ -601,6 +628,13 @@ export default function Home() {
         {refreshError && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">
             {refreshError}
+          </p>
+        )}
+
+        {mode === 'samen' && togetherComputing && byMode.samen.length === 0 && (
+          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-6 mb-5 text-center leading-relaxed">
+            Jullie Samen-lijst wordt op de achtergrond samengesteld. Dat duurt de eerste keer even, meestal een minuutje.
+            Je hoeft niets te doen: hij verschijnt vanzelf.
           </p>
         )}
 

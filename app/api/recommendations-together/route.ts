@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
@@ -116,6 +116,8 @@ async function applyJointFit(
 }
 
 interface TasteMatch {
+  // Van wie het oogpunt is (wie de lijst berekende): bepaalt wie "jij" is in de tekst.
+  ownerId?: string
   // 0-100, gemiddelde van de genre-overlap en de verhaal-overeenkomst.
   score: number
   genrePercent: number
@@ -228,6 +230,48 @@ function mergeGenreAffinities(a: GenreAffinity[], b: GenreAffinity[]): GenreAffi
   return Array.from(map.values()).sort((x, y) => y.count - x.count)
 }
 
+// Hoe lang een lopende berekening als "bezig" telt. Daarna mag een nieuwe aanvraag het overnemen
+// (bv. omdat de vorige is afgebroken).
+const COMPUTE_LOCK_SECONDS = 120
+// Zoveel doorsnede-titels (de beste eerst) controleren we op beschikbaarheid bij jullie diensten.
+const AVAILABILITY_CHECK_LIMIT = 80
+
+// De smaakmatch is berekend vanuit het oogpunt van degene die de lijst maakte ("jij" en "je
+// partner"). Leest de ander de gedeelde lijst, dan draaien we die twee om.
+function viewerMatch(match: unknown, viewerId: string): TasteMatch | null {
+  if (!match || typeof match !== 'object') return null
+  const m = match as TasteMatch
+  if (!m.ownerId || m.ownerId === viewerId) return m
+  return { ...m, youMoreGenres: m.partnerMoreGenres, partnerMoreGenres: m.youMoreGenres }
+}
+
+// Zet het slot voor een berekening. Geeft true als jij de berekening mag doen, false als
+// iemand anders er net mee bezig is.
+async function claimCompute(supabase: SupabaseClient, connectionId: string): Promise<boolean> {
+  const now = new Date().toISOString()
+  const { error } = await supabase
+    .from('couple_recommendations_cache')
+    .insert({ connection_id: connectionId, signature: '', tier: 'empty', items: [], computing_since: now })
+  if (!error) return true
+  if (error.code !== '23505') {
+    // Slot zetten mislukt om een andere reden: liever toch rekenen dan de lijst nooit vullen.
+    console.error('Slot voor Samen-berekening zetten mislukt:', error)
+    return true
+  }
+  const cutoff = new Date(Date.now() - COMPUTE_LOCK_SECONDS * 1000).toISOString()
+  const { data } = await supabase
+    .from('couple_recommendations_cache')
+    .update({ computing_since: now })
+    .eq('connection_id', connectionId)
+    .or(`computing_since.is.null,computing_since.lt.${cutoff}`)
+    .select('connection_id')
+  return (data?.length ?? 0) > 0
+}
+
+async function releaseClaim(supabase: SupabaseClient, connectionId: string): Promise<void> {
+  await supabase.from('couple_recommendations_cache').update({ computing_since: null }).eq('connection_id', connectionId)
+}
+
 async function cacheCoupleRecommendationsResult(
   supabase: SupabaseClient,
   connectionId: string,
@@ -237,7 +281,7 @@ async function cacheCoupleRecommendationsResult(
   match: TasteMatch | null
 ): Promise<void> {
   await supabase.from('couple_recommendations_cache').upsert(
-    { connection_id: connectionId, signature, tier, items, match, fetched_at: new Date().toISOString() },
+    { connection_id: connectionId, signature, tier, items, match, fetched_at: new Date().toISOString(), computing_since: null },
     { onConflict: 'connection_id' }
   )
 }
@@ -298,33 +342,16 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v7-match',
-      buildProfileSignature(inputsA),
-      buildProfileSignature(inputsB),
+      'v8-shared',
+      // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
+      ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
       'cwl:' + [...coupleWatchlistKeys].sort().join(','),
     ].join('||')
 
-    const { data: cachedResult } = await supabase
-      .from('couple_recommendations_cache')
-      .select('signature, tier, items, match, fetched_at')
-      .eq('connection_id', connection.id)
-      .single()
-
-    if (cachedResult && cachedResult.signature === signature) {
-      const ageHours = (Date.now() - new Date(cachedResult.fetched_at).getTime()) / (1000 * 60 * 60)
-      if (ageHours < COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS) {
-        return NextResponse.json({
-          connected: true,
-          connectionId: connection.id,
-          tier: cachedResult.tier,
-          items: cachedResult.items,
-          match: cachedResult.match ?? null,
-          debug: { cached: true, coupleRatingsCount: coupleRatings.length },
-        })
-      }
-    }
-
+    // De zware berekening; loopt op de achtergrond (zie hieronder) en slaat het resultaat op.
+    const compute = async () => {
+    const computeStartedAt = Date.now()
     const [tasteA, tasteB] = await Promise.all([
       computeTasteProfile(supabase, inputsA),
       computeTasteProfile(supabase, inputsB),
@@ -463,8 +490,9 @@ export async function GET(request: NextRequest) {
       // geen van jullie diensten staan), dacht de route dat er genoeg was, en viel het aantal
       // pas daarna terug naar 2 — zonder dat er nog werd aangevuld.
       if (discoverProviderIds.length > 0) {
-        const watchInfo = await resolveWatchInfo(supabase, items, new Set(discoverProviderIds))
-        items = items.filter((i) => watchInfo.get(titleKey(i)))
+        const checkable = items.slice(0, AVAILABILITY_CHECK_LIMIT)
+        const watchInfo = await resolveWatchInfo(supabase, checkable, new Set(discoverProviderIds))
+        items = checkable.filter((i) => watchInfo.get(titleKey(i)))
       }
       // Blijft er niets over, dan is dit feitelijk een fallback zonder echte doorsnede-matches.
       if (items.length === 0) tier = 'fallback'
@@ -564,31 +592,79 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const match = computeTasteMatch(tasteA, tasteB, inputsA, inputsB)
+    const rawMatch = computeTasteMatch(tasteA, tasteB, inputsA, inputsB)
+    const match = rawMatch ? { ...rawMatch, ownerId: user.id } : null
 
     await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems, match)
 
-    // Tijdelijke debug-info: helpt te achterhalen of een leeg resultaat komt door een
-    // lege doorsnede/fallback, of door het wegfilteren op streamingdiensten daarna.
-    return NextResponse.json({
-      connected: true,
-      connectionId: connection.id,
+    // Handig in de Vercel-logs om te zien hoe lang de berekening duurt en wat erin zat.
+    console.log('Samen berekend', {
+      seconden: Math.round((Date.now() - computeStartedAt) / 100) / 10,
       tier,
-      items: resultItems,
-      match,
-      debug: {
-        favoritesA: inputsA.favorites.length,
-        favoritesB: inputsB.favorites.length,
-        candidatesA: tasteA.allCandidates.length,
-        candidatesB: tasteB.allCandidates.length,
-        intersectionSize: intersectionKeys.length,
-        toppedUp: tier === 'intersection' && fallbackKeys.size > 0,
-        itemsBeforeStreamingFilter: items.length,
-        itemsAfterStreamingFilter: resultItems.length,
-        combinedStreamingServices: [...inputsA.streamingServices, ...inputsB.streamingServices],
-        coupleRatingsCount: coupleRatings.length,
-      },
+      films: resultItems.filter((i) => i.media_type === 'movie').length,
+      series: resultItems.filter((i) => i.media_type === 'tv').length,
+      doorsnede: intersectionKeys.length,
+      aangevuld: tier === 'intersection' && fallbackKeys.size > 0,
     })
+    return { tier, items: resultItems, match }
+    }
+
+    const { data: cachedResult } = await supabase
+      .from('couple_recommendations_cache')
+      .select('signature, tier, items, match, fetched_at, computing_since')
+      .eq('connection_id', connection.id)
+      .single()
+
+    // Een placeholder-rij (signature '') is alleen het slot van een lopende eerste berekening.
+    const hasCache = !!cachedResult && cachedResult.signature !== '' && Array.isArray(cachedResult.items)
+
+    if (cachedResult && hasCache && cachedResult.signature === signature) {
+      const ageHours = (Date.now() - new Date(cachedResult.fetched_at).getTime()) / (1000 * 60 * 60)
+      if (ageHours < COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS) {
+        return NextResponse.json({
+          connected: true,
+          connectionId: connection.id,
+          tier: cachedResult.tier,
+          items: cachedResult.items,
+          match: viewerMatch(cachedResult.match, user.id),
+        })
+      }
+    }
+
+    // Geen verse lijst: de nieuwe wordt op de achtergrond samengesteld, zodat niemand hoeft te
+    // wachten. Ondertussen tonen we de laatst bekende lijst (als die er is), en anders laten we
+    // de app weten dat de eerste lijst onderweg is. Het slot voorkomt dat jullie allebei
+    // tegelijk dezelfde zware berekening starten.
+    const claimed = await claimCompute(supabase, connection.id)
+    if (claimed) {
+      after(async () => {
+        try {
+          await compute()
+        } catch (err) {
+          console.error('Samen op de achtergrond berekenen mislukt:', err)
+          await releaseClaim(supabase, connection.id)
+        }
+      })
+    }
+
+    if (cachedResult && hasCache) {
+      // De oude lijst kan titels bevatten die jullie intussen hebben beoordeeld of opgeslagen.
+      const knownKeys = new Set(
+        [...inputsA.favorites, ...inputsA.ratings, ...inputsA.watchlist, ...inputsB.favorites, ...inputsB.ratings, ...inputsB.watchlist]
+          .map((t) => `${t.media_type}-${t.tmdb_id}`)
+          .concat(coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}`), coupleWatchlistKeys)
+      )
+      return NextResponse.json({
+        connected: true,
+        connectionId: connection.id,
+        tier: cachedResult.tier,
+        items: (cachedResult.items as RecommendationItem[]).filter((i) => !knownKeys.has(`${i.media_type}-${i.id}`)),
+        match: viewerMatch(cachedResult.match, user.id),
+        stale: true,
+      })
+    }
+
+    return NextResponse.json({ connected: true, connectionId: connection.id, tier: 'none', items: [], computing: true })
   } catch (err) {
     console.error('Samen-aanbevelingen berekenen mislukt:', err)
     return NextResponse.json(

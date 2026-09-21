@@ -5,7 +5,7 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 // of een lus in de client, geen rem op gewoon gebruik. Alle getallen op één plek.
 export const LIMITS = {
   recommendations: { max: 20, windowSeconds: 3600 },
-  recommendationsTogether: { max: 20, windowSeconds: 3600 },
+  recommendationsTogether: { max: 60, windowSeconds: 3600 },
   profileStats: { max: 30, windowSeconds: 3600 },
   search: { max: 60, windowSeconds: 60 },
   titleInfo: { max: 90, windowSeconds: 60 },
