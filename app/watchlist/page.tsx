@@ -20,6 +20,53 @@ type WatchlistItem = {
   sourceMode: RecommendationMode | null
   // Alleen bij de gezamenlijke lijst: wie de titel toevoegde.
   addedByYou?: boolean
+  // Alleen bij de gezamenlijke lijst: geplande kijkavond (ISO-tijd).
+  plannedAt?: string | null
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+// Lokale tijd zonder tijdzone: een agenda-afspraak "om 20:00" hoort op die tijd te staan, waar je ook bent.
+const icsLocal = (d: Date) =>
+  `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`
+
+function formatPlanned(iso: string): string {
+  const d = new Date(iso)
+  const day = d.toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })
+  const time = d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+  return `${day} om ${time}`
+}
+
+function nextFridayValue(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7))
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function downloadIcs(item: WatchlistItem) {
+  if (!item.plannedAt) return
+  const start = new Date(item.plannedAt)
+  const end = new Date(start.getTime() + (item.media_type === 'tv' ? 60 : 120) * 60000)
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Kijkassistent//NL',
+    'BEGIN:VEVENT',
+    `UID:${item.media_type}-${item.id}-${icsLocal(start)}@kijkassistent`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART:${icsLocal(start)}`,
+    `DTEND:${icsLocal(end)}`,
+    `SUMMARY:Kijkavond: ${item.title.replace(/[,;\\]/g, ' ')}`,
+    item.watchOn ? `DESCRIPTION:Te zien op ${item.watchOn}` : 'DESCRIPTION:Samen kijken',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `kijkavond-${item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.ics`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 // Zelfde labels als op de aanbevelingenpagina (app/page.tsx) — hier alleen als platte
@@ -40,6 +87,10 @@ export default function Watchlist() {
   const [scope, setScope] = useState<'mine' | 'shared'>('mine')
   const [sharedItems, setSharedItems] = useState<WatchlistItem[]>([])
   const [connectionId, setConnectionId] = useState<string | null>(null)
+  const [planningKey, setPlanningKey] = useState<string | null>(null)
+  const [planDate, setPlanDate] = useState('')
+  const [planTime, setPlanTime] = useState('20:00')
+  const [shareNote, setShareNote] = useState<string | null>(null)
 
   async function loadWatchlist() {
     const user = await getCurrentUser()
@@ -57,7 +108,7 @@ export default function Watchlist() {
       setConnectionId(connId)
       const { data: shared } = await supabase
         .from('couple_watchlist')
-        .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, added_by')
+        .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, added_by, planned_at')
         .eq('connection_id', connId)
         .order('added_at', { ascending: false })
       setSharedItems(
@@ -70,6 +121,7 @@ export default function Watchlist() {
           watchUrl: w.watch_url,
           sourceMode: null,
           addedByYou: w.added_by === user.id,
+          plannedAt: w.planned_at,
         }))
       )
     }
@@ -204,7 +256,61 @@ export default function Watchlist() {
     setSharedItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
-  const shown = scope === 'mine' ? items : sharedItems
+  function startPlanning(item: WatchlistItem) {
+    setPlanningKey(`${item.media_type}-${item.id}`)
+    // 'sv-SE' geeft jjjj-mm-dd in lokale tijd (de ISO-tijd staat in UTC en kan een dag afwijken).
+    setPlanDate(item.plannedAt ? new Date(item.plannedAt).toLocaleDateString('sv-SE') : nextFridayValue())
+    setPlanTime(item.plannedAt ? new Date(item.plannedAt).toTimeString().slice(0, 5) : '20:00')
+  }
+
+  async function savePlan(item: WatchlistItem, plannedAt: string | null) {
+    if (!connectionId) return
+    setError(null)
+    const { error: updateError } = await supabase
+      .from('couple_watchlist')
+      .update({ planned_at: plannedAt })
+      .eq('connection_id', connectionId)
+      .eq('tmdb_id', item.id)
+      .eq('media_type', item.media_type)
+    if (updateError) {
+      console.error('Kijkavond opslaan mislukt:', updateError)
+      setError(`Kon de kijkavond niet opslaan: ${updateError.message}`)
+      return
+    }
+    setSharedItems((current) =>
+      current.map((i) => (i.id === item.id && i.media_type === item.media_type ? { ...i, plannedAt } : i))
+    )
+    setPlanningKey(null)
+  }
+
+  async function sharePlan(item: WatchlistItem) {
+    if (!item.plannedAt) return
+    const text = `Kijkavond! ${item.title}${item.watchOn ? ` op ${item.watchOn}` : ''}, ${formatPlanned(item.plannedAt)}.`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Kijkavond', text })
+        return
+      } catch {
+        // Delen geannuleerd: dan vallen we terug op kopiëren.
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      setShareNote('Bericht gekopieerd')
+      setTimeout(() => setShareNote(null), 2500)
+    } catch {
+      setError('Kopiëren lukt niet.')
+    }
+  }
+
+  // Geplande kijkavonden bovenaan (dichtstbijzijnde eerst), de rest daaronder.
+  const sortedShared = [...sharedItems].sort((a, b) => {
+    if (a.plannedAt && b.plannedAt) return a.plannedAt.localeCompare(b.plannedAt)
+    if (a.plannedAt) return -1
+    if (b.plannedAt) return 1
+    return 0
+  })
+  const shown = scope === 'mine' ? items : sortedShared
   const movieItems = shown.filter((i) => i.media_type === 'movie')
   const tvItems = shown.filter((i) => i.media_type === 'tv')
   const visible = tab === 'movie' ? movieItems : tvItems
@@ -230,6 +336,8 @@ export default function Watchlist() {
             ))}
           </div>
         )}
+
+        {shareNote && <p className="text-sm text-[#52A9A0] mb-4">{shareNote}</p>}
 
         {error && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
@@ -327,6 +435,54 @@ export default function Watchlist() {
                   </p>
                 </div>
               </div>
+              {scope === 'shared' && (
+                <div className="mt-3 pl-[76px]">
+                  {planningKey === `${item.media_type}-${item.id}` ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={planDate}
+                          onChange={(e) => setPlanDate(e.target.value)}
+                          className="flex-1 min-w-0 rounded-lg border border-[#2A3644] bg-[#10151C] px-2.5 py-1.5 text-sm outline-none focus:border-[#E8A33D]"
+                        />
+                        <input
+                          type="time"
+                          value={planTime}
+                          onChange={(e) => setPlanTime(e.target.value)}
+                          className="w-24 rounded-lg border border-[#2A3644] bg-[#10151C] px-2.5 py-1.5 text-sm outline-none focus:border-[#E8A33D]"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          disabled={!planDate || !planTime}
+                          onClick={() => savePlan(item, new Date(`${planDate}T${planTime}`).toISOString())}
+                          className={`${chip(true, 'accent', 'sm')} disabled:opacity-50`}
+                        >
+                          Opslaan
+                        </button>
+                        <button onClick={() => setPlanningKey(null)} className={chip(false, 'accent', 'sm')}>
+                          Annuleren
+                        </button>
+                      </div>
+                    </div>
+                  ) : item.plannedAt ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-[#E8A33D]">{formatPlanned(item.plannedAt)}</p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <button onClick={() => sharePlan(item)} className={chip(false, 'accent', 'sm')}>Deel</button>
+                        <button onClick={() => downloadIcs(item)} className={chip(false, 'teal', 'sm')}>Agenda</button>
+                        <button onClick={() => startPlanning(item)} className={chip(false, 'accent', 'sm')}>Wijzig</button>
+                        <button onClick={() => savePlan(item, null)} className={chip(false, 'coral', 'sm')}>Wis</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => startPlanning(item)} className={chip(false, 'accent', 'sm')}>
+                      Plan kijkavond
+                    </button>
+                  )}
+                </div>
+              )}
               {scope === 'mine' && (
               <div className="flex gap-1.5 flex-wrap mt-3 pl-[76px]">
                 <button

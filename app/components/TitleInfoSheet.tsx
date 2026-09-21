@@ -13,7 +13,7 @@ export type TitleInfoItem = {
   poster_path?: string | null
 }
 
-type Info = {
+export type TitleInfo = {
   overview: string
   voteAverage: number
   genres: string[]
@@ -34,9 +34,10 @@ export default function TitleInfoSheet({
 }: {
   item: TitleInfoItem
   onClose: () => void
-  children?: React.ReactNode
+  // Een functie krijgt de opgehaalde info (bv. poster en waar te kijken) zodra die er is.
+  children?: React.ReactNode | ((info: TitleInfo | null) => React.ReactNode)
 }) {
-  const [info, setInfo] = useState<Info | null>(null)
+  const [info, setInfo] = useState<TitleInfo | null>(null)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
@@ -134,7 +135,7 @@ export default function TitleInfoSheet({
             </div>
           )}
 
-          {children}
+          {typeof children === 'function' ? children(info) : children}
 
           <button onClick={onClose} className={`${btnGhost} w-full mt-3`}>
             <CloseIcon className="w-4 h-4" />
