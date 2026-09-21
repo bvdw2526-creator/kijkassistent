@@ -91,6 +91,7 @@ export default function Settings() {
   const [onboardingComplete, setOnboardingComplete] = useState(true)
 
   const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -104,6 +105,7 @@ export default function Settings() {
   useEffect(() => {
     loadProfile()
     loadConnections()
+    supabase.rpc('is_app_admin').then(({ data }) => setIsAdmin(data === true))
   }, [])
 
   async function loadProfile() {
@@ -473,6 +475,18 @@ export default function Settings() {
             </div>
           )}
         </div>
+
+        {isAdmin && (
+          <Link
+            href="/beheer"
+            className="flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mt-8 hover:border-[#3d4c60] transition-colors"
+          >
+            <span>
+              <span className="block text-sm font-medium">Gebruiksoverzicht</span>
+              <span className="block text-xs text-[#93A3B5] mt-0.5">Wie de app gebruikt, per dag en per gebruiker (alleen voor jou)</span>
+            </span>
+          </Link>
+        )}
 
         <LegalLinks className="mt-10" />
       </main>
