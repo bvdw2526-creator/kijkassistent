@@ -18,6 +18,8 @@ type WatchlistItem = {
   watchOn: string | null
   watchUrl: string | null
   sourceMode: RecommendationMode | null
+  // Alleen bij de gezamenlijke lijst: wie de titel toevoegde.
+  addedByYou?: boolean
 }
 
 // Zelfde labels als op de aanbevelingenpagina (app/page.tsx) — hier alleen als platte
@@ -35,10 +37,42 @@ export default function Watchlist() {
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [error, setError] = useState<string | null>(null)
   const [infoItem, setInfoItem] = useState<WatchlistItem | null>(null)
+  const [scope, setScope] = useState<'mine' | 'shared'>('mine')
+  const [sharedItems, setSharedItems] = useState<WatchlistItem[]>([])
+  const [connectionId, setConnectionId] = useState<string | null>(null)
 
   async function loadWatchlist() {
     const user = await getCurrentUser()
     if (!user) return
+
+    // Gezamenlijke lijst ("Onze lijst"): alleen als er een gekoppelde partner is.
+    const { data: connections } = await supabase
+      .from('partner_connections')
+      .select('id')
+      .eq('status', 'accepted')
+      .or(`requester_id.eq.${user.id},partner_id.eq.${user.id}`)
+      .limit(1)
+    const connId = connections?.[0]?.id ?? null
+    if (connId) {
+      setConnectionId(connId)
+      const { data: shared } = await supabase
+        .from('couple_watchlist')
+        .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, added_by')
+        .eq('connection_id', connId)
+        .order('added_at', { ascending: false })
+      setSharedItems(
+        (shared || []).map((w) => ({
+          id: w.tmdb_id,
+          title: w.title,
+          poster_path: w.poster_path,
+          media_type: w.media_type as 'movie' | 'tv',
+          watchOn: w.watch_on,
+          watchUrl: w.watch_url,
+          sourceMode: null,
+          addedByYou: w.added_by === user.id,
+        }))
+      )
+    }
 
     const { data } = await supabase
       .from('watchlist')
@@ -147,15 +181,55 @@ export default function Watchlist() {
     setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
-  const movieItems = items.filter((i) => i.media_type === 'movie')
-  const tvItems = items.filter((i) => i.media_type === 'tv')
+  // Van de gezamenlijke lijst mag ieder van jullie een titel weghalen (bv. als je hem gekeken hebt).
+  async function handleRemoveShared(item: WatchlistItem) {
+    if (!connectionId) return
+    setError(null)
+    const { data: deletedRow, error: deleteError } = await supabase
+      .from('couple_watchlist')
+      .delete()
+      .eq('connection_id', connectionId)
+      .eq('tmdb_id', item.id)
+      .eq('media_type', item.media_type)
+      .select()
+    if (deleteError) {
+      console.error('Verwijderen van gezamenlijke watchlist mislukt:', deleteError)
+      setError(`Kon het item niet van jullie lijst verwijderen: ${deleteError.message}`)
+      return
+    }
+    if (!deletedRow || deletedRow.length === 0) {
+      setError('Het item leek verwijderd, maar er is geen rij verwijderd.')
+      return
+    }
+    setSharedItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
+  }
+
+  const shown = scope === 'mine' ? items : sharedItems
+  const movieItems = shown.filter((i) => i.media_type === 'movie')
+  const tvItems = shown.filter((i) => i.media_type === 'tv')
   const visible = tab === 'movie' ? movieItems : tvItems
 
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Watchlist</h1>
-        <p className="text-[#93A3B5] mb-6">Wat je nog wilt zien.</p>
+        <p className="text-[#93A3B5] mb-6">{scope === 'shared' ? 'Wat jullie samen nog willen zien.' : 'Wat je nog wilt zien.'}</p>
+
+        {connectionId && (
+          <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-4">
+            {(['mine', 'shared'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setScope(s)}
+                className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                  scope === s ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+                }`}
+              >
+                {s === 'mine' ? `Mijn lijst (${items.length})` : `Onze lijst (${sharedItems.length})`}
+              </button>
+            ))}
+          </div>
+        )}
 
         {error && (
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
@@ -192,7 +266,9 @@ export default function Watchlist() {
 
         {!loading && visible.length === 0 && (
           <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center">
-            Nog niets op je watchlist. Voeg iets toe vanuit je aanbevelingen.
+            {scope === 'shared'
+              ? 'Nog niets op jullie lijst. Tik in Samen op "Op onze lijst" bij een titel die jullie allebei willen zien.'
+              : 'Nog niets op je watchlist. Voeg iets toe vanuit je aanbevelingen.'}
           </p>
         )}
 
@@ -221,7 +297,7 @@ export default function Watchlist() {
                       {item.title}
                     </button>
                     <button
-                      onClick={() => handleRemove(item)}
+                      onClick={() => (scope === 'shared' ? handleRemoveShared(item) : handleRemove(item))}
                       className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1 -mt-1 -mr-1 flex-shrink-0"
                       aria-label="Verwijderen"
                     >
@@ -229,10 +305,11 @@ export default function Watchlist() {
                     </button>
                   </div>
                   <p className="text-sm text-[#93A3B5] mt-1">
-                    {item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
+                    {scope === 'shared' && <span>Toegevoegd door {item.addedByYou ? 'jou' : 'je partner'}</span>}
+                    {scope === 'mine' && item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
                     {item.watchOn && (
                       <>
-                        {item.sourceMode && ' · '}
+                        {(scope === 'shared' || item.sourceMode) && ' · '}
                         {item.watchUrl ? (
                           <a
                             href={item.watchUrl}
@@ -250,6 +327,7 @@ export default function Watchlist() {
                   </p>
                 </div>
               </div>
+              {scope === 'mine' && (
               <div className="flex gap-1.5 flex-wrap mt-3 pl-[76px]">
                 <button
                   onClick={() => handleRate(item, 'love')}
@@ -270,6 +348,7 @@ export default function Watchlist() {
                   <DislikeIcon className="w-3 h-3" /> Niet voor mij
                 </button>
               </div>
+              )}
             </div>
           ))}
         </div>
@@ -277,6 +356,7 @@ export default function Watchlist() {
 
       {infoItem && (
         <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
+          {scope === 'mine' && (
           <div className="flex gap-1.5 flex-wrap mb-1">
             {(['love', 'ok', 'dislike'] as const).map((rating) => (
               <button
@@ -291,6 +371,7 @@ export default function Watchlist() {
               </button>
             ))}
           </div>
+          )}
         </TitleInfoSheet>
       )}
 

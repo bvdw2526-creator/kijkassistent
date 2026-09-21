@@ -276,16 +276,22 @@ export async function GET(request: NextRequest) {
 
     // Zelfde RLS-client, maar dankzij de "accepted partner"-leesbeleid (zie de
     // partner_connections-migratie) mag deze ook de smaakgegevens van de partner ophalen.
-    const [inputsA, inputsB, coupleRatingsResult] = await Promise.all([
+    const [inputsA, inputsB, coupleRatingsResult, coupleWatchlistResult] = await Promise.all([
       fetchProfileInputs(supabase, user.id),
       fetchProfileInputs(supabase, partnerId),
       supabase
         .from('couple_ratings')
         .select('tmdb_id, media_type, rating')
         .eq('connection_id', connection.id),
+      supabase
+        .from('couple_watchlist')
+        .select('tmdb_id, media_type')
+        .eq('connection_id', connection.id),
     ])
 
     const coupleRatings = coupleRatingsResult.data || []
+    // Wat al op jullie gezamenlijke watchlist staat, hoeft niet nog eens aanbevolen te worden.
+    const coupleWatchlistKeys = (coupleWatchlistResult.data || []).map((w) => `${w.media_type}-${w.tmdb_id}`)
 
     // "signature" vangt de staat van beide profielen + de koppel-beoordelingen. Wijzigt
     // daar niets aan sinds de vorige berekening, dan kan de complete, dure pijplijn
@@ -296,6 +302,7 @@ export async function GET(request: NextRequest) {
       buildProfileSignature(inputsA),
       buildProfileSignature(inputsB),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
+      'cwl:' + [...coupleWatchlistKeys].sort().join(','),
     ].join('||')
 
     const { data: cachedResult } = await supabase
@@ -325,7 +332,10 @@ export async function GET(request: NextRequest) {
 
     // Eenmaal samen beoordeeld (positief of negatief) komt een titel niet nog eens
     // terug in Samen — net als bij persoonlijke ratings.
-    const coupleRatedKeys = new Set(coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}`))
+    const coupleRatedKeys = new Set([
+      ...coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}`),
+      ...coupleWatchlistKeys,
+    ])
 
     // Genresmaak van het koppel: wat jullie samen als "zeker leuk"/"was oké" hebben
     // beoordeeld, telt mee als extra signaal voor toekomstige Samen-aanbevelingen —

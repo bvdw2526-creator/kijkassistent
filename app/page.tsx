@@ -321,6 +321,34 @@ export default function Home() {
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
     setActionError(null)
+
+    // In Samen gaat "op de watchlist" naar de gezamenlijke lijst ("Onze lijst"), niet naar je eigen.
+    if (mode === 'samen') {
+      if (!togetherConnectionId) {
+        setActionError('Geen actieve koppeling gevonden — herlaad de pagina en probeer opnieuw.')
+        return
+      }
+      const { error: sharedError } = await supabase.from('couple_watchlist').insert({
+        connection_id: togetherConnectionId,
+        tmdb_id: movie.id,
+        media_type: movie.media_type,
+        title: movie.title,
+        poster_path: movie.poster_path,
+        watch_on: movie.watchOn ?? null,
+        watch_url: movie.watchUrl ?? null,
+        added_by: user.id,
+      })
+      // 23505 = staat er al op (bv. door je partner): dan is het doel al bereikt.
+      if (sharedError && sharedError.code !== '23505') {
+        console.error('Op gezamenlijke watchlist zetten mislukt:', sharedError)
+        setActionError(`Kon niet op jullie lijst zetten: ${sharedError.message}`)
+        return
+      }
+      removeFromSamen((m) => m.id === movie.id && m.media_type === movie.media_type)
+      setSelected(null)
+      return
+    }
+
     const { error } = await supabase.from('watchlist').insert({
       user_id: user.id,
       tmdb_id: movie.id,
@@ -766,7 +794,7 @@ export default function Home() {
               <div className={`grid gap-2 mb-3 ${mode === 'samen' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
                   <PlusIcon className="w-4 h-4" />
-                  Op watchlist
+                  {mode === 'samen' ? 'Op onze lijst' : 'Op watchlist'}
                 </button>
                 {/* Favoriet is persoonlijk; in Samen beoordeel je als koppel, dus daar niet. */}
                 {mode !== 'samen' && (
