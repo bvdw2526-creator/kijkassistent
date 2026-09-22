@@ -232,9 +232,16 @@ function mergeGenreAffinities(a: GenreAffinity[], b: GenreAffinity[]): GenreAffi
 
 // Hoe lang een lopende berekening als "bezig" telt. Daarna mag een nieuwe aanvraag het overnemen
 // (bv. omdat de vorige is afgebroken).
-const COMPUTE_LOCK_SECONDS = 120
+// Iets langer dan maxDuration (60s): een echte crash op Vercel kan de "computing"-vlag niet meer
+// zelf opruimen, dus moet dit vanzelf weer loslaten zodra de vorige poging onmogelijk nog bezig
+// kan zijn.
+const COMPUTE_LOCK_SECONDS = 70
 // Zoveel doorsnede-titels (de beste eerst) controleren we op beschikbaarheid bij jullie diensten.
-const AVAILABILITY_CHECK_LIMIT = 80
+const AVAILABILITY_CHECK_LIMIT = 50
+// Zachte tijdslimiet: ruim onder maxDuration (60s), zodat er nog tijd overblijft om het resultaat
+// op te slaan voordat Vercel de functie hard afbreekt. Duurt de berekening langer, dan slaan we
+// de resterende, duurste stappen (aanvulling, tweede beschikbaarheidscheck) over.
+const SOFT_DEADLINE_MS = 42_000
 
 // De smaakmatch is berekend vanuit het oogpunt van degene die de lijst maakte ("jij" en "je
 // partner"). Leest de ander de gedeelde lijst, dan draaien we die twee om.
@@ -451,7 +458,7 @@ export async function GET(request: NextRequest) {
           buildFallbackItems(
             await discoverByGenres(supabase, type, type === 'movie' ? mergedMovieGenres : mergedTvGenres, {
               providerIds: discoverProviderIds,
-              pages: [1, 2, 3],
+              pages: [1, 2],
               excludeGenreIds: Array.from(combinedExcludedGenreIds),
             }),
             skipKeys
@@ -499,9 +506,14 @@ export async function GET(request: NextRequest) {
 
       // Is de doorsnede voor een type (films/series) klein — bv. omdat een van jullie veel
       // genres uitsluit of al veel heeft beoordeeld — vul dan aan uit de bredere zoektocht.
-      const shortTypes = (['movie', 'tv'] as const).filter(
-        (type) => items.filter((i) => i.media_type === type).length < MIN_ITEMS_PER_TYPE
-      )
+      // Niet meer als de zachte deadline al voorbij is: dan liever een kortere lijst dan geen
+      // enkele (die dan nooit wordt opgeslagen omdat de functie hard wordt afgebroken).
+      const shortTypes =
+        Date.now() - computeStartedAt > SOFT_DEADLINE_MS
+          ? []
+          : (['movie', 'tv'] as const).filter(
+              (type) => items.filter((i) => i.media_type === type).length < MIN_ITEMS_PER_TYPE
+            )
       if (shortTypes.length > 0) {
         const extra = await fetchFallbackItems(shortTypes, new Set(items.map(titleKey)))
         extra.forEach((e) => fallbackKeys.add(titleKey(e)))
@@ -568,7 +580,10 @@ export async function GET(request: NextRequest) {
     )
 
     let resultItems: RecommendationItem[]
-    if (combinedSourceIds.size === 0 || items.length === 0) {
+    if (combinedSourceIds.size === 0 || items.length === 0 || Date.now() - computeStartedAt > SOFT_DEADLINE_MS) {
+      // Over de deadline heen: geen tijd meer voor nog een beschikbaarheidscheck. De titels
+      // blijven gewoon zonder "waar te zien"-label, in plaats van de hele berekening te
+      // verliezen omdat Vercel de functie halverwege afbreekt.
       resultItems = items
     } else {
       const watchInfoMap = await resolveWatchInfo(supabase, items, combinedSourceIds)
