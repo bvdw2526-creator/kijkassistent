@@ -234,12 +234,31 @@ export default function Home() {
   async function loadRecommendations() {
     const requestId = ++requestIdRef.current
     setLoading(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const res = await fetch('/api/recommendations', {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-    const data = await res.json()
+    // Zonder try/catch bleef de knop bij een mislukte aanvraag (bv. de verbinding die
+    // wordt afgebroken omdat de server te lang bezig was) voor altijd op "Vernieuwen..."
+    // staan: de fout gooide loadRecommendations af zonder ooit setLoading(false) te
+    // bereiken, en de oude (mogelijk verouderde, al-beoordeelde) lijst bleef zo permanent
+    // zichtbaar in plaats van dat er een foutmelding kwam.
+    let data: { focused?: Movie[]; balanced?: Movie[]; explore?: Movie[]; error?: string }
+    let res: Response
+    let userId: string
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setLoading(false)
+        return
+      }
+      userId = session.user.id
+      res = await fetch('/api/recommendations', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      data = await res.json()
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return
+      setLoading(false)
+      setRefreshError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van aanbevelingen')
+      return
+    }
     // Als er intussen een nieuwere aanvraag is gestart (bv. door snel na elkaar
     // te scoren), negeer dit oudere antwoord zodat het niet de verse staat overschrijft.
     if (requestId !== requestIdRef.current) return
@@ -261,7 +280,7 @@ export default function Home() {
     // lege lijst — behoud wat loadTogetherRecommendations daar eventueel al in zette.
     setByMode((current) => {
       const merged = { ...current, ...fresh }
-      saveCachedRecommendations(session.user.id, merged)
+      saveCachedRecommendations(userId, merged)
       return merged
     })
   }
