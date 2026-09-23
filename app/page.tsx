@@ -10,6 +10,7 @@ import MovieCard from './components/MovieCard'
 import LegalLinks from './components/LegalLinks'
 import PartnerPicks from './components/PartnerPicks'
 import DateNight from './components/DateNight'
+import UpcomingList from './components/UpcomingList'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
 
@@ -29,13 +30,17 @@ type Movie = {
 }
 
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
+// "binnenkort" is geen aanbevelingsmodus met een eigen berekende lijst (zoals de andere
+// vier) — het is puur een andere weergave in dezelfde modus-balk, direct na Samen.
+type ViewMode = RecommendationMode | 'binnenkort'
 type TogetherTier = 'intersection' | 'fallback' | 'empty' | 'none'
 
-const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> = {
+const MODE_LABELS: Record<ViewMode, { label: string; hint: string }> = {
   focused: { label: 'Puur mijn smaak', hint: 'Alleen wat ik echt leuk vind' },
   balanced: { label: 'Mijn smaak, breder', hint: 'Leuk + oké vind ik' },
   explore: { label: 'Verras me', hint: 'Doe maar wat aanbevelingen' },
   samen: { label: 'Samen', hint: 'Wat we allebei leuk zouden vinden' },
+  binnenkort: { label: 'Binnenkort', hint: 'Nieuwe films en series' },
 }
 
 const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [], samen: [] }
@@ -167,7 +172,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
-  const [mode, setMode] = useState<RecommendationMode>('balanced')
+  const [mode, setMode] = useState<ViewMode>('balanced')
   const [togetherConnected, setTogetherConnected] = useState<boolean | null>(null)
   const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
   const [togetherError, setTogetherError] = useState<string | null>(null)
@@ -362,7 +367,7 @@ export default function Home() {
       .catch(() => {})
   }
 
-  function handleModeChange(nextMode: RecommendationMode) {
+  function handleModeChange(nextMode: ViewMode) {
     setMode(nextMode)
   }
 
@@ -523,7 +528,8 @@ export default function Home() {
     setUser(null)
   }
 
-  const movies = byMode[mode]
+  // "binnenkort" heeft geen eigen aanbevelingslijst in byMode — zie ViewMode hierboven.
+  const movies = mode === 'binnenkort' ? [] : byMode[mode]
 
   if (loading && movies.length === 0 && !user) {
     return (
@@ -592,7 +598,7 @@ export default function Home() {
 
         {/* Mode-slicer */}
         <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
-          {(Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => {
+          {(Object.keys(MODE_LABELS) as ViewMode[]).map((m) => {
             const active = mode === m
             return (
               <button
@@ -613,6 +619,10 @@ export default function Home() {
           })}
         </div>
 
+        {mode === 'binnenkort' && <UpcomingList />}
+
+        {mode !== 'binnenkort' && (
+        <>
         <div className="flex items-center justify-between mb-5">
           <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644]">
             <button
@@ -823,6 +833,8 @@ export default function Home() {
               />
             ))}
           </div>
+        )}
+        </>
         )}
       </main>
 

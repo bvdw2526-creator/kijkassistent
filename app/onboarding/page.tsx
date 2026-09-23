@@ -29,7 +29,6 @@ const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' |
 const SEGMENTS = [
   { id: 'titels', label: 'Titels' },
   { id: 'boeken', label: 'Boeken' },
-  { id: 'binnenkort', label: 'Binnenkort' },
   { id: 'acteurs', label: 'Acteurs' },
   { id: 'regisseurs', label: 'Regisseurs' },
 ] as const
@@ -43,9 +42,6 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
   const [ratingError, setRatingError] = useState<string | null>(null)
   const [infoItem, setInfoItem] = useState<TitleInfoItem | null>(null)
-  // Bepaalt welke acties de infopopup toont: voor "binnenkort" heb je de film nog niet
-  // gezien, dus daar past "op watchlist" en geen beoordeling of "favoriet".
-  const [infoItemKind, setInfoItemKind] = useState<'gezien' | 'binnenkort'>('gezien')
 
   const [bookResults, setBookResults] = useState<Movie[]>([])
   const [bookType, setBookType] = useState<'movie' | 'tv'>('movie')
@@ -111,83 +107,6 @@ export default function Onboarding() {
     loadBooks(bookType, next, 1)
   }
 
-  const [upcomingResults, setUpcomingResults] = useState<Movie[]>([])
-  const [upcomingType, setUpcomingType] = useState<'movie' | 'tv'>('movie')
-  const [upcomingPage, setUpcomingPage] = useState(1)
-  const [upcomingTotalPages, setUpcomingTotalPages] = useState(1)
-  const [upcomingLoading, setUpcomingLoading] = useState(false)
-  const [upcomingError, setUpcomingError] = useState<string | null>(null)
-  const [watchlistKeys, setWatchlistKeys] = useState<Set<string>>(new Set())
-  const upcomingRequestRef = useRef(0)
-
-  async function loadWatchlistKeys() {
-    const user = await getCurrentUser()
-    if (!user) return
-    const { data } = await supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', user.id)
-    if (data) setWatchlistKeys(new Set(data.map((w) => `${w.media_type}-${w.tmdb_id}`)))
-  }
-
-  async function loadUpcoming(page: number, type = upcomingType) {
-    const requestId = ++upcomingRequestRef.current
-    setUpcomingLoading(true)
-    setUpcomingError(null)
-    try {
-      const res = await authFetch(`/api/upcoming?type=${type}&page=${page}`)
-      const data = await res.json()
-      if (requestId !== upcomingRequestRef.current) return
-      if (!res.ok || data.error) {
-        setUpcomingError(data.error || 'Aankomende films laden mislukt')
-        setUpcomingLoading(false)
-        return
-      }
-      setUpcomingResults((current) => (page === 1 ? data.results : [...current, ...data.results]))
-      setUpcomingPage(data.page)
-      setUpcomingTotalPages(data.totalPages)
-    } catch (err) {
-      if (requestId !== upcomingRequestRef.current) return
-      setUpcomingError(err instanceof Error ? err.message : 'Aankomende films laden mislukt')
-    }
-    setUpcomingLoading(false)
-  }
-
-  function openUpcomingSegment() {
-    setSegment('binnenkort')
-    if (upcomingResults.length === 0) loadUpcoming(1)
-  }
-
-  function changeUpcomingType(type: 'movie' | 'tv') {
-    setUpcomingType(type)
-    setUpcomingResults([])
-    loadUpcoming(1, type)
-  }
-
-  async function addToWatchlist(movie: { id: number; title: string; media_type: 'movie' | 'tv'; poster_path?: string | null }) {
-    const key = `${movie.media_type}-${movie.id}`
-    if (watchlistKeys.has(key)) return
-    const user = await getCurrentUser()
-    if (!user) return
-    const { error } = await supabase.from('watchlist').insert({
-      user_id: user.id,
-      tmdb_id: movie.id,
-      title: movie.title,
-      poster_path: movie.poster_path ?? null,
-      media_type: movie.media_type,
-    })
-    if (!error) setWatchlistKeys((current) => new Set(current).add(key))
-  }
-
-  function formatReleaseDate(date?: string): string {
-    if (!date) return ''
-    return new Date(date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })
-  }
-
-  // Voor alles behalve "binnenkort": je hebt de titel al gezien (of beoordeeld), dus de
-  // popup toont daar gewoon weer favoriet + beoordelen.
-  function openInfo(movie: TitleInfoItem) {
-    setInfoItemKind('gezien')
-    setInfoItem(movie)
-  }
-
   function ratingKey(movie: { id: number; media_type: 'movie' | 'tv' }) {
     return `${movie.media_type}-${movie.id}`
   }
@@ -243,7 +162,6 @@ export default function Onboarding() {
   useEffect(() => {
     loadFavorites()
     loadRatings()
-    loadWatchlistKeys()
   }, [])
 
   async function handleSearch() {
@@ -382,11 +300,7 @@ export default function Onboarding() {
           {SEGMENTS.map((s) => (
             <button
               key={s.id}
-              onClick={() => {
-                if (s.id === 'boeken') openBookSegment()
-                else if (s.id === 'binnenkort') openUpcomingSegment()
-                else setSegment(s.id)
-              }}
+              onClick={() => (s.id === 'boeken' ? openBookSegment() : setSegment(s.id))}
               className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
                 segment === s.id ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
               }`}
@@ -398,92 +312,6 @@ export default function Onboarding() {
 
         {segment === 'acteurs' && <PeopleFavorites kind="actor" />}
         {segment === 'regisseurs' && <PeopleFavorites kind="director" />}
-
-        {segment === 'binnenkort' && (
-          <div>
-            <p className="text-[#93A3B5] text-sm mb-4 leading-relaxed">
-              {upcomingType === 'movie'
-                ? 'Films die de komende maanden in Nederland uitkomen, de populairste eerst.'
-                : 'Nieuwe series die de komende maanden voor het eerst uitzenden, de populairste eerst. Een nieuw seizoen van een serie die je al kent, staat hier niet bij.'}
-            </p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              <button onClick={() => changeUpcomingType('movie')} className={chip(upcomingType === 'movie', 'accent', 'sm')}>
-                Films
-              </button>
-              <button onClick={() => changeUpcomingType('tv')} className={chip(upcomingType === 'tv', 'accent', 'sm')}>
-                Series
-              </button>
-            </div>
-            {upcomingError && (
-              <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-4">
-                {upcomingError}
-              </p>
-            )}
-            {upcomingLoading && upcomingResults.length === 0 && <p className="text-[#93A3B5] text-sm">Laden...</p>}
-            {!upcomingLoading && !upcomingError && upcomingResults.length === 0 && (
-              <p className="text-[#93A3B5] text-sm">Niets gevonden.</p>
-            )}
-            {upcomingResults.length > 0 && (
-              <div className="flex flex-col gap-2 mb-4">
-                {upcomingResults.map((movie) => {
-                  const key = `${movie.media_type}-${movie.id}`
-                  const added = watchlistKeys.has(key)
-                  return (
-                    <div key={key} className={`${card} p-3`}>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => {
-                            setInfoItemKind('binnenkort')
-                            setInfoItem(movie)
-                          }}
-                          className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation"
-                        >
-                          {movie.poster_path ? (
-                            <div className="relative w-11 aspect-[2/3] rounded-lg flex-shrink-0 overflow-hidden">
-                              <Image
-                                src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
-                                alt={movie.title}
-                                fill
-                                sizes="44px"
-                                className="object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-11 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
-                          )}
-                          <span className="flex-1 text-sm min-w-0">
-                            <span className="block font-medium truncate">{movie.title}</span>
-                            <span className="text-xs text-[#93A3B5]">
-                              {formatReleaseDate(movie.release_date)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}
-                            </span>
-                          </span>
-                        </button>
-                        <button
-                          onClick={() => addToWatchlist(movie)}
-                          className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                            added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
-                          }`}
-                        >
-                          {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                          Watchlist
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            {upcomingPage < upcomingTotalPages && upcomingResults.length > 0 && (
-              <button
-                onClick={() => loadUpcoming(upcomingPage + 1)}
-                disabled={upcomingLoading}
-                className={`${btnSecondary} w-full mb-6`}
-              >
-                {upcomingLoading ? 'Laden...' : 'Meer laden'}
-              </button>
-            )}
-          </div>
-        )}
 
         {(segment === 'titels' || segment === 'boeken') && (
           <>
@@ -572,7 +400,7 @@ export default function Onboarding() {
                 <div key={`${movie.media_type}-${movie.id}`} className={`${card} p-3`}>
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => openInfo(movie)}
+                      onClick={() => setInfoItem(movie)}
                       className="flex items-center gap-3 flex-1 min-w-0 text-left touch-manipulation"
                     >
                     {movie.poster_path ? (
@@ -642,7 +470,7 @@ export default function Onboarding() {
             <div className="flex flex-col gap-1.5">
               {movieFavorites.map((movie) => (
                 <div key={`movie-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                  <button onClick={() => openInfo(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
+                  <button onClick={() => setInfoItem(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
                     {movie.title}
                   </button>
                   <button
@@ -664,7 +492,7 @@ export default function Onboarding() {
             <div className="flex flex-col gap-1.5">
               {tvFavorites.map((movie) => (
                 <div key={`tv-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
-                  <button onClick={() => openInfo(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
+                  <button onClick={() => setInfoItem(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
                     {movie.title}
                   </button>
                   <button
@@ -696,7 +524,7 @@ export default function Onboarding() {
                 {items.map((movie) => (
                   <div key={ratingKey(movie)} className={`${card} flex items-center gap-3 flex-wrap px-4 py-2.5`}>
                     <button
-                      onClick={() => openInfo({ id: movie.id, title: movie.title, media_type: movie.media_type })}
+                      onClick={() => setInfoItem({ id: movie.id, title: movie.title, media_type: movie.media_type })}
                       className="flex-1 text-sm min-w-[140px] truncate text-left touch-manipulation"
                     >
                       {movie.title}{' '}
@@ -735,25 +563,7 @@ export default function Onboarding() {
         )}
       </main>
 
-      {infoItem && infoItemKind === 'binnenkort' && (
-        <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
-          {(details) => (
-            <button
-              onClick={() => addToWatchlist({ ...infoItem, poster_path: details?.posterPath ?? infoItem.poster_path ?? null })}
-              className={`${btnPrimary} w-full mb-3`}
-            >
-              {watchlistKeys.has(`${infoItem.media_type}-${infoItem.id}`) ? (
-                <CheckIcon className="w-4 h-4" />
-              ) : (
-                <PlusIcon className="w-4 h-4" />
-              )}
-              Op watchlist
-            </button>
-          )}
-        </TitleInfoSheet>
-      )}
-
-      {infoItem && infoItemKind === 'gezien' && (
+      {infoItem && (
         <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
           <button
             onClick={() => addFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })}
