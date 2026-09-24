@@ -80,7 +80,8 @@ export default function Privacy() {
         <p>
           Je mag vragen om inzage in, correctie van of verwijdering van je gegevens, en bezwaar maken tegen het
           gebruik ervan. Je account en alle gegevens verwijderen kan zelf bij{' '}
-          <Link href="/settings" className="text-[#E8A33D]">Instellingen</Link> onder &quot;Account verwijderen&quot;. Voor
+          <Link href="/settings" className="text-[#E8A33D]">Instellingen</Link> onder &quot;Account verwijderen&quot; (zie ook{' '}
+          <Link href="/account-verwijderen" className="text-[#E8A33D]">hoe je je account verwijdert</Link>). Voor
           andere verzoeken mail je naar <a href={`mailto:${CONTACT}`} className="text-[#E8A33D]">{CONTACT}</a>; we
           reageren binnen 30 dagen. Ben je niet tevreden, dan kun je een klacht indienen bij de Autoriteit
           Persoonsgegevens.

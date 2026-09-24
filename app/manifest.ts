@@ -2,10 +2,12 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: '/',
     name: 'Kijkassistent',
     short_name: 'Kijkassistent',
     description: 'Persoonlijke films- en series-aanbevelingen',
     lang: 'nl',
+    categories: ['entertainment'],
     start_url: '/',
     scope: '/',
     display: 'standalone',

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10151C">
+  <title>Geen verbinding — Kijkassistent</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: #10151C; color: #F2EFE9;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; box-sizing: border-box;
+    }
+    main { max-width: 340px; }
+    svg { width: 88px; height: 88px; margin-bottom: 20px; }
+    h1 { font-size: 24px; margin: 0 0 10px; }
+    p { color: #93A3B5; line-height: 1.6; margin: 0 0 26px; }
+    button {
+      background: #E8A33D; color: #171F2B; border: 0; border-radius: 999px;
+      font-weight: 600; font-size: 16px; padding: 13px 26px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <rect width="120" height="120" rx="27" fill="#171F2B"/>
+      <path d="M38 32 L64 47 L64 73 L38 88 Z" fill="#E8A33D" stroke="#E8A33D" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M64 47 L90 60 L64 73 Z" fill="#F2EFE9" stroke="#F2EFE9" stroke-width="7" stroke-linejoin="round"/>
+    </svg>
+    <h1>Geen verbinding</h1>
+    <p>Kijkassistent heeft internet nodig om je aanbevelingen op te halen. Controleer je verbinding en probeer het opnieuw.</p>
+    <button onclick="location.reload()">Opnieuw proberen</button>
+  </main>
+</body>
+</html>

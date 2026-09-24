@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Fraunces, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
+import RegisterServiceWorker from './components/RegisterServiceWorker'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-display' })
 const body = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-body' })
@@ -22,7 +23,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="nl" className={`${fraunces.variable} ${body.variable}`}>
-      <body className="bg-glow text-[#F2EFE9] min-h-screen antialiased">{children}</body>
+      <body className="bg-glow text-[#F2EFE9] min-h-screen antialiased">
+        {children}
+        <RegisterServiceWorker />
+      </body>
     </html>
   )
 }

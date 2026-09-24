@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <radialGradient id="glow" cx="22%" cy="30%" r="70%">
+      <stop offset="0" stop-color="#E8A33D" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#E8A33D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="500" fill="#10151C"/>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+  <svg x="70" y="110" width="280" height="280" viewBox="0 0 120 120">
+    <rect width="120" height="120" rx="27" fill="#171F2B"/>
+    <path d="M38 32 L64 47 L64 73 L38 88 Z" fill="#E8A33D" stroke="#E8A33D" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M64 47 L90 60 L64 73 Z" fill="#F2EFE9" stroke="#F2EFE9" stroke-width="7" stroke-linejoin="round"/>
+  </svg>
+  <text x="400" y="235" fill="#F2EFE9" font-family="Georgia, 'Times New Roman', serif" font-size="82" font-weight="bold">Kijkassistent</text>
+  <text x="404" y="292" fill="#93A3B5" font-family="Arial, Helvetica, sans-serif" font-size="30">Weten wat je vanavond gaat kijken.</text>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="21" fill="#E8A33D">
+    <rect x="404" y="330" rx="21" width="150" height="42" fill="none" stroke="#E8A33D" stroke-opacity="0.6"/>
+    <text x="479" y="358" text-anchor="middle">Films &amp; series</text>
+    <rect x="570" y="330" rx="21" width="150" height="42" fill="none" stroke="#E8A33D" stroke-opacity="0.6"/>
+    <text x="645" y="358" text-anchor="middle">Alleen of samen</text>
+    <rect x="736" y="330" rx="21" width="200" height="42" fill="none" stroke="#E8A33D" stroke-opacity="0.6"/>
+    <text x="836" y="358" text-anchor="middle">Jouw streamingdiensten</text>
+  </g>
+</svg>
