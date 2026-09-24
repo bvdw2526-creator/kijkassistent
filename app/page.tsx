@@ -597,7 +597,7 @@ export default function Home() {
         {user && <DateNight showIdle={mode === 'samen'} />}
 
         {/* Mode-slicer */}
-        <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
+        <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1 [@media(pointer:fine)]:flex-wrap">
           {(Object.keys(MODE_LABELS) as ViewMode[]).map((m) => {
             const active = mode === m
             return (
@@ -695,7 +695,7 @@ export default function Home() {
             <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-3">
               {tab === 'movie' ? 'Filmtip' : 'Serietip'} van vanavond
             </p>
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 mb-4">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 mb-4 [@media(pointer:fine)]:flex-wrap">
               {TIP_MOODS.map((m) => (
                 <button
                   key={m.id}
