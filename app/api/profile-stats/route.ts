@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
-  getCachedDetails,
+  getCachedDetailsBulk,
   getCreditsBulk,
   getWatchProvidersBulk,
   SOURCE_IDS,
@@ -72,11 +72,14 @@ export async function GET(request: NextRequest) {
     )
     const likedTitles = watched.filter((w) => !dislikedKeys.has(`${w.media_type}-${w.tmdb_id}`))
 
-    const detailsByTitle = await Promise.all(
-      likedTitles.map((t) => getCachedDetails(supabase, t.media_type, t.tmdb_id))
+    const detailsByKey = await getCachedDetailsBulk(
+      supabase,
+      likedTitles.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
     )
     const genreCounts = new Map<string, number>()
-    for (const details of detailsByTitle) {
+    for (const t of likedTitles) {
+      const details = detailsByKey.get(t.media_type + '-' + t.tmdb_id)
+      if (!details) continue
       for (const genre of details.genres) {
         genreCounts.set(genre.name, (genreCounts.get(genre.name) || 0) + 1)
       }

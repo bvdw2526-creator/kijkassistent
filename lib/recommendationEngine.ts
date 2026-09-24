@@ -116,7 +116,24 @@ export function monetizationTypesFor(providerIds: number[]): string {
 
 const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 24
 const TMDB_DETAILS_CACHE_MAX_AGE_HOURS = 24 * 7
-const RECOMMENDATIONS_CACHE_MAX_AGE_HOURS = 24
+// Een "lijkt hierop"-lijst van TMDB verandert nauwelijks; 24 uur betekende dat elke dag voor elke
+// bron alles opnieuw werd opgehaald. Nieuwe uitgaves komen via de discover-stap binnen, niet hier.
+const RECOMMENDATIONS_CACHE_MAX_AGE_HOURS = 24 * 7
+
+// Plafond op het aantal titels dat als *bron* voor de smaak meetelt (recentste eerst). Alles wat
+// iemand beoordeeld heeft blijft wel meetellen als "al gezien" (uitsluiten), dus een profiel met
+// duizenden titels kost niet meer rekentijd dan een van ongeveer driehonderd.
+const MAX_FAVORITE_SOURCES = 100
+const MAX_LOVE_SOURCES = 150
+const MAX_OK_SOURCES = 100
+
+// Live ophalen bij TMDB gaat in kleine porties, en stopt na een tijdsbudget: zo wordt wat al
+// binnen is telkens opgeslagen (een volgende poging gaat verder waar deze ophield) en loopt een
+// koude cache niet vast op de 60 seconden van Vercel.
+const LIVE_FETCH_CHUNK = 25
+const LIVE_FETCH_BUDGET_MS = 30_000
+// Grootte van .in()-lijsten bij het lezen uit de cache; Supabase geeft standaard maximaal 1000 rijen terug.
+const CACHE_READ_CHUNK = 200
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
@@ -256,43 +273,52 @@ export async function getWatchProvidersBulk(
   const tvIds = items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId)
 
   type CachedRow = { tmdb_id: number; sources: WatchProviderSource[]; fetched_at: string }
-  const [movieRows, tvRows] = await Promise.all([
-    movieIds.length
-      ? supabase.from('tmdb_watch_providers_cache').select('tmdb_id, sources, fetched_at').eq('media_type', 'movie').in('tmdb_id', movieIds)
-      : Promise.resolve({ data: [] as CachedRow[] }),
-    tvIds.length
-      ? supabase.from('tmdb_watch_providers_cache').select('tmdb_id, sources, fetched_at').eq('media_type', 'tv').in('tmdb_id', tvIds)
-      : Promise.resolve({ data: [] as CachedRow[] }),
-  ])
+  const readRows = async (mediaType: MediaType, ids: number[]): Promise<CachedRow[]> => {
+    const parts = await Promise.all(
+      chunked([...new Set(ids)], CACHE_READ_CHUNK).map((part) =>
+        supabase.from('tmdb_watch_providers_cache').select('tmdb_id, sources, fetched_at').eq('media_type', mediaType).in('tmdb_id', part)
+      )
+    )
+    return parts.flatMap((part) => (part.data || []) as CachedRow[])
+  }
+  const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
-  for (const [mediaType, rows] of [['movie', movieRows.data], ['tv', tvRows.data]] as const) {
-    for (const row of rows || []) {
+  for (const [mediaType, rows] of [['movie', movieRows], ['tv', tvRows]] as const) {
+    for (const row of rows) {
       const key = `${mediaType}-${row.tmdb_id}`
       staleFallback.set(key, row.sources)
       if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, row.sources)
     }
   }
 
-  const missing = items.filter((i) => !result.has(`${i.mediaType}-${i.tmdbId}`))
+  const missingByKey = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  for (const i of items) {
+    const key = `${i.mediaType}-${i.tmdbId}`
+    if (!result.has(key)) missingByKey.set(key, i)
+  }
+  const missing = Array.from(missingByKey.values())
 
   if (missing.length > 0) {
-    const fetched = await Promise.all(
-      missing.map(async (item) => ({
+    const fetched = await fetchLiveInChunks(
+      missing,
+      async (item) => ({
         key: `${item.mediaType}-${item.tmdbId}`,
         mediaType: item.mediaType,
         tmdbId: item.tmdbId,
         sources: await fetchWatchProvidersLive(item.mediaType, item.tmdbId),
-      }))
+      }),
+      async (done) => {
+        const upserts = done
+          .filter((f) => f.sources !== null)
+          .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
+        if (upserts.length > 0) await supabase.from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      }
     )
 
-    const upserts = fetched
-      .filter((f) => f.sources !== null)
-      .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
-
-    if (upserts.length > 0) {
-      await supabase.from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    for (const key of missingByKey.keys()) {
+      // Niet meer gehaald binnen het tijdsbudget: de laatst bekende (evt. verouderde) rij, anders leeg.
+      result.set(key, staleFallback.get(key) ?? [])
     }
-
     for (const f of fetched) {
       // Een mislukte live fetch mag geen "niet beschikbaar" worden: val terug op de
       // laatst bekende (evt. verouderde) cache-rij, of anders een lege lijst.
@@ -390,17 +416,18 @@ export async function getCreditsBulk(
   const tvIds = items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId)
 
   type CachedRow = { tmdb_id: number; cast_members: CastMember[]; directors: CastMember[]; fetched_at: string }
-  const [movieRows, tvRows] = await Promise.all([
-    movieIds.length
-      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, directors, fetched_at').eq('media_type', 'movie').in('tmdb_id', movieIds)
-      : Promise.resolve({ data: [] as CachedRow[] }),
-    tvIds.length
-      ? supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, directors, fetched_at').eq('media_type', 'tv').in('tmdb_id', tvIds)
-      : Promise.resolve({ data: [] as CachedRow[] }),
-  ])
+  const readRows = async (mediaType: MediaType, ids: number[]): Promise<CachedRow[]> => {
+    const parts = await Promise.all(
+      chunked([...new Set(ids)], CACHE_READ_CHUNK).map((part) =>
+        supabase.from('tmdb_credits_cache').select('tmdb_id, cast_members, directors, fetched_at').eq('media_type', mediaType).in('tmdb_id', part)
+      )
+    )
+    return parts.flatMap((part) => (part.data || []) as CachedRow[])
+  }
+  const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
-  for (const [mediaType, rows] of [['movie', movieRows.data], ['tv', tvRows.data]] as const) {
-    for (const row of rows || []) {
+  for (const [mediaType, rows] of [['movie', movieRows], ['tv', tvRows]] as const) {
+    for (const row of rows) {
       const key = `${mediaType}-${row.tmdb_id}`
       const credits: CreditsResult = { cast: row.cast_members, directors: row.directors || [] }
       staleFallback.set(key, credits)
@@ -408,32 +435,39 @@ export async function getCreditsBulk(
     }
   }
 
-  const missing = items.filter((i) => !result.has(`${i.mediaType}-${i.tmdbId}`))
+  const missingByKey = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  for (const i of items) {
+    const key = `${i.mediaType}-${i.tmdbId}`
+    if (!result.has(key)) missingByKey.set(key, i)
+  }
+  const missing = Array.from(missingByKey.values())
 
   if (missing.length > 0) {
-    const fetched = await Promise.all(
-      missing.map(async (item) => ({
+    const fetched = await fetchLiveInChunks(
+      missing,
+      async (item) => ({
         key: `${item.mediaType}-${item.tmdbId}`,
         mediaType: item.mediaType,
         tmdbId: item.tmdbId,
         credits: await fetchCreditsLive(item.mediaType, item.tmdbId),
-      }))
+      }),
+      async (done) => {
+        const upserts = done
+          .filter((f) => f.credits !== null)
+          .map((f) => ({
+            media_type: f.mediaType,
+            tmdb_id: f.tmdbId,
+            cast_members: f.credits!.cast,
+            directors: f.credits!.directors,
+            fetched_at: new Date().toISOString(),
+          }))
+        if (upserts.length > 0) await supabase.from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      }
     )
 
-    const upserts = fetched
-      .filter((f) => f.credits !== null)
-      .map((f) => ({
-        media_type: f.mediaType,
-        tmdb_id: f.tmdbId,
-        cast_members: f.credits!.cast,
-        directors: f.credits!.directors,
-        fetched_at: new Date().toISOString(),
-      }))
-
-    if (upserts.length > 0) {
-      await supabase.from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    for (const key of missingByKey.keys()) {
+      result.set(key, staleFallback.get(key) ?? { cast: [], directors: [] })
     }
-
     for (const f of fetched) {
       if (f.credits !== null) result.set(f.key, f.credits)
       else result.set(f.key, staleFallback.get(f.key) ?? { cast: [], directors: [] })
@@ -515,6 +549,109 @@ export async function getCachedDetails(supabase: SupabaseClient, mediaType: Medi
   return details
 }
 
+function chunked<T>(items: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size))
+  return out
+}
+
+async function fetchLiveInChunks<T, R>(
+  items: T[],
+  fetchOne: (item: T) => Promise<R>,
+  saveChunk: (done: R[]) => Promise<void>
+): Promise<R[]> {
+  const started = Date.now()
+  const all: R[] = []
+  for (const part of chunked(items, LIVE_FETCH_CHUNK)) {
+    if (Date.now() - started > LIVE_FETCH_BUDGET_MS) break
+    const done = await Promise.all(part.map(fetchOne))
+    await saveChunk(done)
+    all.push(...done)
+  }
+  return all
+}
+
+// Bulk-variant van getCachedDetails: een paar .in()-queries i.p.v. één SELECT per titel, en het
+// live ophalen van ontbrekende titels in porties met een tijdsbudget. Titels die niet meer
+// gehaald werden ontbreken in het resultaat; de aanroeper valt dan terug op "geen details" en
+// een volgende berekening haalt ze alsnog op.
+export async function getCachedDetailsBulk(
+  supabase: SupabaseClient,
+  items: { mediaType: MediaType; tmdbId: number }[]
+): Promise<Map<string, TitleDetails>> {
+  const result = new Map<string, TitleDetails>()
+  const stale = new Map<string, TitleDetails>()
+  const cutoffMs = Date.now() - TMDB_DETAILS_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
+
+  type Row = {
+    tmdb_id: number
+    genres: TitleDetails['genres']
+    overview: string
+    collection_id: number | null
+    collection_name: string | null
+    fetched_at: string
+  }
+  const select = 'tmdb_id, genres, overview, collection_id, collection_name, fetched_at'
+
+  for (const mediaType of ['movie', 'tv'] as const) {
+    const ids = [...new Set(items.filter((i) => i.mediaType === mediaType).map((i) => i.tmdbId))]
+    const parts = await Promise.all(
+      chunked(ids, CACHE_READ_CHUNK).map((part) =>
+        supabase.from('tmdb_details_cache').select(select).eq('media_type', mediaType).in('tmdb_id', part)
+      )
+    )
+    for (const part of parts) {
+      for (const row of (part.data || []) as Row[]) {
+        const key = `${mediaType}-${row.tmdb_id}`
+        const details: TitleDetails = {
+          genres: row.genres,
+          overview: row.overview,
+          collectionId: row.collection_id,
+          collectionName: row.collection_name,
+        }
+        stale.set(key, details)
+        if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, details)
+      }
+    }
+  }
+
+  const missing = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  for (const item of items) {
+    const key = `${item.mediaType}-${item.tmdbId}`
+    if (!result.has(key)) missing.set(key, item)
+  }
+
+  if (missing.size > 0) {
+    const fetched = await fetchLiveInChunks(
+      Array.from(missing.entries()),
+      async ([key, item]) => ({ key, item, details: await fetchDetails(item.mediaType, item.tmdbId) }),
+      async (done) => {
+        const upserts = done
+          .filter((f) => f.details !== null)
+          .map((f) => ({
+            media_type: f.item.mediaType,
+            tmdb_id: f.item.tmdbId,
+            genres: f.details!.genres,
+            overview: f.details!.overview,
+            collection_id: f.details!.collectionId,
+            collection_name: f.details!.collectionName,
+            fetched_at: new Date().toISOString(),
+          }))
+        if (upserts.length > 0) await supabase.from('tmdb_details_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      }
+    )
+    for (const f of fetched) {
+      // Een mislukte live fetch mag niet als "geen genres" gecached worden: dan de oude rij, of niets.
+      if (f.details) result.set(f.key, f.details)
+    }
+    for (const key of missing.keys()) {
+      if (!result.has(key) && stale.has(key)) result.set(key, stale.get(key)!)
+    }
+  }
+
+  return result
+}
+
 function mapTmdbResults(results: RawTmdbItem[], mediaType: MediaType): TmdbItem[] {
   return (results || []).map((item) => ({
     id: item.id,
@@ -542,17 +679,20 @@ async function getRecommendationPagesBulk(
   const tvIds = [...new Set(items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId))]
 
   type Row = { tmdb_id: number; page: number; results: TmdbItem[]; fetched_at: string }
-  const [movieRows, tvRows] = await Promise.all([
-    movieIds.length
-      ? supabase.from('tmdb_recommendations_cache').select('tmdb_id, page, results, fetched_at').eq('media_type', 'movie').in('tmdb_id', movieIds)
-      : Promise.resolve({ data: [] as Row[] }),
-    tvIds.length
-      ? supabase.from('tmdb_recommendations_cache').select('tmdb_id, page, results, fetched_at').eq('media_type', 'tv').in('tmdb_id', tvIds)
-      : Promise.resolve({ data: [] as Row[] }),
-  ])
+  // In porties lezen: bij veel bronnen komt een enkele query boven de 1000 rijen die Supabase
+  // teruggeeft uit, waarna de rest ten onrechte als "ontbreekt" gold en steeds opnieuw live werd opgehaald.
+  const readRows = async (mediaType: MediaType, ids: number[]): Promise<Row[]> => {
+    const parts = await Promise.all(
+      chunked(ids, CACHE_READ_CHUNK).map((part) =>
+        supabase.from('tmdb_recommendations_cache').select('tmdb_id, page, results, fetched_at').eq('media_type', mediaType).in('tmdb_id', part)
+      )
+    )
+    return parts.flatMap((part) => (part.data || []) as Row[])
+  }
+  const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
-  for (const [mediaType, rows] of [['movie', movieRows.data], ['tv', tvRows.data]] as const) {
-    for (const row of rows || []) {
+  for (const [mediaType, rows] of [['movie', movieRows], ['tv', tvRows]] as const) {
+    for (const row of rows) {
       const key = `${mediaType}-${row.tmdb_id}-${row.page}`
       staleFallback.set(key, row.results)
       if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, row.results)
@@ -568,8 +708,9 @@ async function getRecommendationPagesBulk(
   }
 
   if (missingByKey.size > 0) {
-    const fetched = await Promise.all(
-      Array.from(missingByKey.entries()).map(async ([key, item]) => {
+    const fetched = await fetchLiveInChunks(
+      Array.from(missingByKey.entries()),
+      async ([key, item]) => {
         const endpoint = item.mediaType === 'tv' ? 'tv' : 'movie'
         try {
           const res = await fetch(
@@ -582,19 +723,22 @@ async function getRecommendationPagesBulk(
         } catch {
           return { key, item, results: null as TmdbItem[] | null }
         }
-      })
+      },
+      // Elke portie meteen opslaan, zodat een afgebroken berekening niets kwijtraakt.
+      async (done) => {
+        const upserts = done
+          .filter((f) => f.results !== null)
+          .map((f) => ({ media_type: f.item.mediaType, tmdb_id: f.item.tmdbId, page: f.item.page, results: f.results, fetched_at: new Date().toISOString() }))
+        if (upserts.length > 0) await supabase.from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
+      }
     )
 
-    const upserts = fetched
-      .filter((f) => f.results !== null)
-      .map((f) => ({ media_type: f.item.mediaType, tmdb_id: f.item.tmdbId, page: f.item.page, results: f.results, fetched_at: new Date().toISOString() }))
-
-    if (upserts.length > 0) {
-      await supabase.from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
-    }
-
     for (const f of fetched) {
-      result.set(f.key, f.results ?? staleFallback.get(f.key) ?? [])
+      if (f.results !== null) result.set(f.key, f.results)
+    }
+    // Mislukt of niet meer gehaald binnen het tijdsbudget: de oude lijst, anders leeg (volgende keer opnieuw).
+    for (const key of missingByKey.keys()) {
+      if (!result.has(key)) result.set(key, staleFallback.get(key) ?? [])
     }
   }
 
@@ -693,17 +837,18 @@ export async function getEmbeddingsForItems(
   const movieIds = items.filter((i) => i.media_type === 'movie').map((i) => i.tmdb_id)
   const tvIds = items.filter((i) => i.media_type === 'tv').map((i) => i.tmdb_id)
 
-  const [movieRows, tvRows] = await Promise.all([
-    movieIds.length
-      ? supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', 'movie').in('tmdb_id', movieIds)
-      : Promise.resolve({ data: [] as { tmdb_id: number; embedding: number[] }[] }),
-    tvIds.length
-      ? supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', 'tv').in('tmdb_id', tvIds)
-      : Promise.resolve({ data: [] as { tmdb_id: number; embedding: number[] }[] }),
-  ])
+  const readRows = async (mediaType: MediaType, ids: number[]) => {
+    const parts = await Promise.all(
+      chunked([...new Set(ids)], CACHE_READ_CHUNK).map((part) =>
+        supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', mediaType).in('tmdb_id', part)
+      )
+    )
+    return parts.flatMap((part) => (part.data || []) as { tmdb_id: number; embedding: number[] }[])
+  }
+  const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
-  for (const row of movieRows.data || []) result.set(`movie-${row.tmdb_id}`, row.embedding)
-  for (const row of tvRows.data || []) result.set(`tv-${row.tmdb_id}`, row.embedding)
+  for (const row of movieRows) result.set(`movie-${row.tmdb_id}`, row.embedding)
+  for (const row of tvRows) result.set(`tv-${row.tmdb_id}`, row.embedding)
 
   const missing = items.filter((i) => i.text && !result.has(`${i.media_type}-${i.tmdb_id}`))
 
@@ -848,8 +993,8 @@ export async function discoverByGenres(
 }
 
 export interface ProfileInputs {
-  favorites: { tmdb_id: number; title: string; media_type: MediaType }[]
-  ratings: { tmdb_id: number; title: string; rating: string; media_type: MediaType }[]
+  favorites: { tmdb_id: number; title: string; media_type: MediaType; added_at?: string }[]
+  ratings: { tmdb_id: number; title: string; rating: string; media_type: MediaType; rated_at?: string }[]
   watchlist: { tmdb_id: number; media_type: MediaType }[]
   streamingServices: string[]
   excludedGenreIds: Set<number>
@@ -872,8 +1017,8 @@ export async function fetchProfileInputs(supabase: SupabaseClient, userId: strin
     { data: favoritePeople },
     { data: favoriteDirectors },
   ] = await Promise.all([
-    supabase.from('favorite_movies').select('tmdb_id, title, media_type').eq('user_id', userId),
-    supabase.from('ratings').select('tmdb_id, title, rating, media_type').eq('user_id', userId),
+    supabase.from('favorite_movies').select('tmdb_id, title, media_type, added_at').eq('user_id', userId),
+    supabase.from('ratings').select('tmdb_id, title, rating, media_type, rated_at').eq('user_id', userId),
     supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', userId),
     supabase.from('profiles').select('streaming_services, excluded_genres').eq('id', userId).single(),
     supabase.from('favorite_people').select('person_id, name').eq('user_id', userId),
@@ -955,13 +1100,18 @@ export async function computeTasteProfile(
     ...watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
   ])
 
-  const lovedItems = ratings.filter((r) => r.rating === 'love')
-  const okItems = ratings.filter((r) => r.rating === 'ok')
+  // Alleen de recentste titels tellen als bron voor de smaak (zie MAX_*_SOURCES); excludeIds
+  // hierboven blijft de volledige lijst, zodat al-beoordeelde titels nooit terugkomen.
+  const newestFirst = (a: { added_at?: string; rated_at?: string }, b: { added_at?: string; rated_at?: string }) =>
+    (b.rated_at ?? b.added_at ?? '').localeCompare(a.rated_at ?? a.added_at ?? '')
+  const sourceFavorites = [...favorites].sort(newestFirst).slice(0, MAX_FAVORITE_SOURCES)
+  const lovedItems = ratings.filter((r) => r.rating === 'love').sort(newestFirst).slice(0, MAX_LOVE_SOURCES)
+  const okItems = ratings.filter((r) => r.rating === 'ok').sort(newestFirst).slice(0, MAX_OK_SOURCES)
 
   // "core" = het smaakprofiel van favorieten + "echt leuk"; "ok" telt pas mee
   // als aanbevelingsbron vanaf de "balanced"-modus (zie MODE_CONFIG).
   const profileSources: ProfileSource[] = [
-    ...favorites.map((f): ProfileSource => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1, tier: 'core' })),
+    ...sourceFavorites.map((f): ProfileSource => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1, tier: 'core' })),
     ...lovedItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 2, tier: 'core' })),
     ...okItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5, tier: 'ok' })),
   ]
@@ -972,11 +1122,16 @@ export async function computeTasteProfile(
   const coreSources = profileSources.filter((s) => s.tier === 'core')
 
   const [sourceDetails, recommendationPagesByKey] = await Promise.all([
-    Promise.all(
-      coreSources.map(async (source): Promise<SourceDetail> => ({
-        ...source,
-        ...(await getCachedDetails(supabase, source.media_type, source.tmdb_id)),
-      }))
+    getCachedDetailsBulk(
+      supabase,
+      coreSources.map((source) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id }))
+    ).then((detailsByKey) =>
+      coreSources.map(
+        (source): SourceDetail => ({
+          ...source,
+          ...(detailsByKey.get(`${source.media_type}-${source.tmdb_id}`) ?? EMPTY_DETAILS),
+        })
+      )
     ),
     getRecommendationPagesBulk(
       supabase,
