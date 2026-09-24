@@ -476,6 +476,17 @@ export default function Settings() {
           )}
         </div>
 
+        {/* Alleen op een computer: de export van Letterboxd haal je ook op een computer op. */}
+        <Link
+          href="/import"
+          className="hidden [@media(pointer:fine)]:flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mt-8 hover:border-[#3d4c60] transition-colors"
+        >
+          <span>
+            <span className="block text-sm font-medium">Importeren uit Letterboxd</span>
+            <span className="block text-xs text-[#93A3B5] mt-0.5">Neem je films en beoordelingen over met je Letterboxd-export</span>
+          </span>
+        </Link>
+
         {isAdmin && (
           <Link
             href="/beheer"

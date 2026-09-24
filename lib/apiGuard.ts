@@ -9,6 +9,9 @@ export const LIMITS = {
   profileStats: { max: 30, windowSeconds: 3600 },
   search: { max: 60, windowSeconds: 60 },
   titleInfo: { max: 90, windowSeconds: 60 },
+  // De import van een Letterboxd-export gaat in porties van 25; duizenden films zijn honderd aanroepen.
+  importMatch: { max: 400, windowSeconds: 3600 },
+  importWarmup: { max: 150, windowSeconds: 3600 },
 } as const
 
 type Limit = { max: number; windowSeconds: number }

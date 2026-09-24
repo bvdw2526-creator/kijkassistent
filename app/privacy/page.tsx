@@ -9,7 +9,7 @@ export default function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 19 september 2026</p>
+      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 24 september 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -29,6 +29,11 @@ export default function Privacy() {
             gezamenlijke beoordelingen voor &quot;Samen&quot;.
           </li>
           <li>Tijdelijk opgeslagen aanbevelingen, zodat de app snel laadt.</li>
+          <li>
+            Als je je Letterboxd-export importeert: het bestand wordt alleen in je eigen browser gelezen en niet naar ons
+            gestuurd. Alleen de films en beoordelingen die je zelf kiest te importeren worden opgeslagen, net als
+            alles wat je zelf toevoegt.
+          </li>
         </ul>
         <p className="mt-3">
           We gebruiken geen advertenties, geen tracking en geen analysetools. We verkopen geen gegevens.

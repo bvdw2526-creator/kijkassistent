@@ -992,6 +992,33 @@ export async function discoverByGenres(
   return { results, label: `jouw voorkeur voor ${topGenres.slice(0, 3).map((g) => g.name).join(', ')}` }
 }
 
+// Vult vooraf de gedeelde caches voor een aantal titels (details, "lijkt hierop"-lijstjes en de
+// verhaal-vingerafdruk), zodat de eerste berekening na een grote import niet alles tegelijk
+// bij TMDB en Voyage hoeft op te halen. Bedoeld voor kleine porties tegelijk (zie de import-wizard).
+export async function warmTitleCaches(
+  supabase: SupabaseClient,
+  items: { mediaType: MediaType; tmdbId: number; title: string }[]
+): Promise<void> {
+  if (items.length === 0) return
+  const details = await getCachedDetailsBulk(
+    supabase,
+    items.map((i) => ({ mediaType: i.mediaType, tmdbId: i.tmdbId }))
+  )
+  await Promise.all([
+    getRecommendationPagesBulk(
+      supabase,
+      items.flatMap((i) => RECOMMENDATION_PAGES.map((page) => ({ mediaType: i.mediaType, tmdbId: i.tmdbId, page })))
+    ),
+    getEmbeddingsForItems(
+      supabase,
+      items.flatMap((i) => {
+        const overview = details.get(`${i.mediaType}-${i.tmdbId}`)?.overview
+        return overview ? [{ media_type: i.mediaType, tmdb_id: i.tmdbId, text: `${i.title}. ${overview}` }] : []
+      })
+    ),
+  ])
+}
+
 export interface ProfileInputs {
   favorites: { tmdb_id: number; title: string; media_type: MediaType; added_at?: string }[]
   ratings: { tmdb_id: number; title: string; rating: string; media_type: MediaType; rated_at?: string }[]
