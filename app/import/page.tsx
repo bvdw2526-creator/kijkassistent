@@ -444,7 +444,7 @@ export default function ImportPage() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => { setStep('file'); setError(null) }} className={btnGhost}>Ander bestand</button>
+                <button onClick={() => { setStep('file'); setError(null) }} className={btnGhost}>Terug</button>
                 <button onClick={startMatching} className={`${btnPrimary} flex-1`}>Volgende: films opzoeken</button>
               </div>
             </div>
