@@ -10,7 +10,7 @@ import MovieCard from './components/MovieCard'
 import LegalLinks from './components/LegalLinks'
 import PartnerPicks from './components/PartnerPicks'
 import DateNight from './components/DateNight'
-import UpcomingList from './components/UpcomingList'
+import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
@@ -28,23 +28,39 @@ type Movie = {
   overview?: string
   basedOn?: string[]
   genre_ids?: number[]
+  // Titel die nog moet uitkomen: staat tussen de aanbevelingen met een "Binnenkort"-label.
+  upcoming?: boolean
+  release_date?: string
 }
 
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
-// "binnenkort" is geen aanbevelingsmodus met een eigen berekende lijst (zoals de andere
-// vier) — het is puur een andere weergave in dezelfde modus-balk, direct na Samen.
-type ViewMode = RecommendationMode | 'binnenkort'
 type TogetherTier = 'intersection' | 'fallback' | 'empty' | 'none'
 
-const MODE_LABELS: Record<ViewMode, { label: string; hint: string }> = {
+const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> = {
   focused: { label: 'Puur mijn smaak', hint: 'Alleen wat ik echt leuk vind' },
   balanced: { label: 'Mijn smaak, breder', hint: 'Leuk + oké vind ik' },
   explore: { label: 'Verras me', hint: 'Doe maar wat aanbevelingen' },
   samen: { label: 'Samen', hint: 'Wat we allebei leuk zouden vinden' },
-  binnenkort: { label: 'Binnenkort', hint: 'Nieuwe films en series' },
 }
 
 const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [], samen: [] }
+
+// Plekken (0-gebaseerd) waar titels die nog moeten uitkomen tussen de gewone aanbevelingen komen.
+const UPCOMING_SLOTS = [2, 7, 12]
+
+function interleaveUpcoming<T>(base: T[], upcoming: T[]): T[] {
+  const out = [...base]
+  upcoming.forEach((item, i) => out.splice(Math.min(UPCOMING_SLOTS[i] ?? out.length, out.length), 0, item))
+  return out
+}
+
+function formatReleaseDate(iso?: string, long = false): string {
+  if (!iso) return ''
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(
+    'nl-NL',
+    long ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short' }
+  )
+}
 
 const RECOMMENDATIONS_CACHE_KEY_PREFIX = 'kijkassistent:recommendations:'
 
@@ -173,7 +189,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
-  const [mode, setMode] = useState<ViewMode>('balanced')
+  const [mode, setMode] = useState<RecommendationMode>('balanced')
   const [togetherConnected, setTogetherConnected] = useState<boolean | null>(null)
   const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
   const [togetherError, setTogetherError] = useState<string | null>(null)
@@ -368,7 +384,7 @@ export default function Home() {
       .catch(() => {})
   }
 
-  function handleModeChange(nextMode: ViewMode) {
+  function handleModeChange(nextMode: RecommendationMode) {
     setMode(nextMode)
   }
 
@@ -529,8 +545,7 @@ export default function Home() {
     setUser(null)
   }
 
-  // "binnenkort" heeft geen eigen aanbevelingslijst in byMode — zie ViewMode hierboven.
-  const movies = mode === 'binnenkort' ? [] : byMode[mode]
+  const movies = byMode[mode]
 
   if (loading && movies.length === 0 && !user) {
     return (
@@ -560,14 +575,17 @@ export default function Home() {
 
   // Hoogste match% bovenaan, ongeacht de volgorde waarin de aanbevelingsengine ze
   // aanleverde (die mixt met opzet genres door elkaar voor variatie).
-  const movieResults = movies.filter((m) => m.media_type === 'movie').sort((a, b) => b.matchPercent - a.matchPercent)
-  const tvResults = movies.filter((m) => m.media_type === 'tv').sort((a, b) => b.matchPercent - a.matchPercent)
-  const visible = tab === 'movie' ? movieResults : tvResults
+  const ordinary = movies.filter((m) => !m.upcoming)
+  const movieResults = ordinary.filter((m) => m.media_type === 'movie').sort((a, b) => b.matchPercent - a.matchPercent)
+  const tvResults = ordinary.filter((m) => m.media_type === 'tv').sort((a, b) => b.matchPercent - a.matchPercent)
+  // Titels die nog moeten uitkomen tellen niet mee in Films (x) / Series (x) en komen tussen de rest.
+  const upcomingOfTab = movies.filter((m) => m.upcoming && m.media_type === tab).sort((a, b) => b.matchPercent - a.matchPercent)
+  const visible = interleaveUpcoming(tab === 'movie' ? movieResults : tvResults, upcomingOfTab)
   const showSkeleton = loading && movies.length === 0
 
   // "Tip van vanavond": de beste Samen-titels, en per dag een andere daaruit. De dag en het
   // koppel bepalen het startpunt, dus jullie zien allebei dezelfde tip; "Andere tip" schuift door.
-  const rankedForTab = byMode.samen.filter((m) => m.media_type === tab).sort((a, b) => b.matchPercent - a.matchPercent)
+  const rankedForTab = byMode.samen.filter((m) => m.media_type === tab && !m.upcoming).sort((a, b) => b.matchPercent - a.matchPercent)
   const moodGenres = TIP_MOODS.find((m) => m.id === tipMood)?.genres ?? null
   const tipPool = moodGenres
     ? rankedForTab
@@ -595,11 +613,11 @@ export default function Home() {
           </button>
         </header>
 
-        {user && <DateNight showIdle={mode === 'samen'} />}
+        {DATENIGHT_ENABLED && user && <DateNight showIdle={mode === 'samen'} />}
 
         {/* Mode-slicer */}
         <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1 [@media(pointer:fine)]:flex-wrap">
-          {(Object.keys(MODE_LABELS) as ViewMode[]).map((m) => {
+          {(Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => {
             const active = mode === m
             return (
               <button
@@ -620,10 +638,6 @@ export default function Home() {
           })}
         </div>
 
-        {mode === 'binnenkort' && <UpcomingList />}
-
-        {mode !== 'binnenkort' && (
-        <>
         <div className="flex items-center justify-between mb-5">
           <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644]">
             <button
@@ -661,8 +675,9 @@ export default function Home() {
           </p>
         )}
 
-        {/* Bij Samen staat de eigen "tip van vanavond"; in de persoonlijke tabbladen de tip van de week. */}
-        {mode !== 'samen' && (
+        {/* De tip van de week staat alleen bij "Verras me": een populaire titel buiten je eigen lijst past daar
+            het best. Bij Samen staat de eigen "tip van vanavond". */}
+        {mode === 'explore' && (
           <WeeklyTip
             mediaType={tab}
             onRemoved={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)}
@@ -831,7 +846,8 @@ export default function Home() {
             {visible.map((movie, i) => (
               <MovieCard
                 key={`${movie.media_type}-${movie.id}`}
-                movie={movie}
+                movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? 'Nieuwe serie' : 'In de bioscoop' } : movie}
+                upcomingLabel={movie.upcoming ? `Binnenkort · ${formatReleaseDate(movie.release_date)}` : undefined}
                 priority={i < 4}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
@@ -842,8 +858,6 @@ export default function Home() {
               />
             ))}
           </div>
-        )}
-        </>
         )}
       </main>
 
@@ -882,9 +896,15 @@ export default function Home() {
                   <p className="text-sm text-[#93A3B5] mt-1.5">
                     {selected.media_type === 'tv' ? 'Serie' : 'Film'}
                   </p>
-                  <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
-                    {selected.matchPercent}% match
-                  </span>
+                  {selected.upcoming ? (
+                    <span className="inline-block mt-2 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-semibold px-2.5 py-1">
+                      Binnenkort
+                    </span>
+                  ) : (
+                    <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
+                      {selected.matchPercent}% match
+                    </span>
+                  )}
                   {bookTitles.has(`${selected.media_type}-${selected.id}`) && (
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
                       Gebaseerd op een boek
@@ -907,6 +927,15 @@ export default function Home() {
                 <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-4">{selected.overview}</p>
               )}
 
+              {selected.upcoming && (
+                <p className="text-sm text-[#52A9A0] mb-6">
+                  {selected.media_type === 'tv'
+                    ? `Eerste aflevering op ${formatReleaseDate(selected.release_date, true)}.`
+                    : `Verschijnt op ${formatReleaseDate(selected.release_date, true)} in de bioscoop.`}{' '}
+                  Nog niet te kijken, dus zet hem op je lijst om hem niet te missen.
+                </p>
+              )}
+
               {selected.basedOn && selected.basedOn.length > 0 && (
                 <p className="text-sm text-[#93A3B5] mb-6">
                   Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{selected.basedOn.join(', ')}</span>
@@ -919,13 +948,13 @@ export default function Home() {
                 </p>
               )}
 
-              <div className={`grid gap-2 mb-3 ${mode === 'samen' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              <div className={`grid gap-2 mb-3 ${mode === 'samen' || selected.upcoming ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
                   <PlusIcon className="w-4 h-4" />
                   {mode === 'samen' ? 'Op onze lijst' : 'Op watchlist'}
                 </button>
                 {/* Favoriet is persoonlijk; in Samen beoordeel je als koppel, dus daar niet. */}
-                {mode !== 'samen' && (
+                {mode !== 'samen' && !selected.upcoming && (
                   <button onClick={() => handleFavorite(selected)} className={btnSecondary}>
                     <StarIcon className="w-4 h-4" />
                     Favoriet
@@ -933,12 +962,14 @@ export default function Home() {
                 )}
               </div>
 
-              {mode === 'samen' && (
+              {mode === 'samen' && !selected.upcoming && (
                 <p className="text-xs text-[#5E6D80] mb-2 text-center">
                   Dit geldt alleen voor Samen — jouw eigen aanbevelingen blijven ongewijzigd.
                 </p>
               )}
 
+              {/* Beoordelen kan pas als je hem gezien hebt, dus niet bij titels die nog moeten uitkomen. */}
+              {!selected.upcoming && (
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleRate(selected, 'love')}
@@ -962,6 +993,7 @@ export default function Home() {
                   <span className="text-xs font-medium">{mode === 'samen' ? 'Niet voor ons' : 'Niet voor mij'}</span>
                 </button>
               </div>
+              )}
 
               <button
                 onClick={() => setSelected(null)}

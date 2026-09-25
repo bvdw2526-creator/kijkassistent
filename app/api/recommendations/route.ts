@@ -12,6 +12,7 @@ import {
   type RankedCandidate,
   type RecommendationItem,
 } from '@/lib/recommendationEngine'
+import { upcomingForModes } from '@/lib/upcomingTitles'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort voor
 // deze route bij een koude cache: veel losse TMDB-calls (aanbevelingen/cast/details per
@@ -55,7 +56,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(emptyResponse)
   }
 
-  const profileSignature = buildProfileSignature(inputs)
+  // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
+  const profileSignature = 'u1|' + buildProfileSignature(inputs)
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')
@@ -74,13 +76,32 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const { sortedByMode } = await computeTasteProfile(supabase, inputs)
+  const taste = await computeTasteProfile(supabase, inputs)
+  const { sortedByMode } = taste
+
+  // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts).
+  const upcoming = await upcomingForModes(
+    supabase,
+    process.env.TMDB_API_KEY,
+    taste,
+    {
+      excludedGenreIds: inputs.excludedGenreIds,
+      seenKeys: new Set(
+        [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist].map((x) => `${x.media_type}-${x.tmdb_id}`)
+      ),
+    }
+  )
 
   const userSourceIds = new Set(inputs.streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
   if (userSourceIds.size === 0) {
-    await cacheRecommendationsResult(supabase, user.id, profileSignature, sortedByMode)
-    return NextResponse.json(sortedByMode)
+    const plain = {
+      focused: [...sortedByMode.focused, ...upcoming.focused],
+      balanced: [...sortedByMode.balanced, ...upcoming.balanced],
+      explore: [...sortedByMode.explore, ...upcoming.explore],
+    }
+    await cacheRecommendationsResult(supabase, user.id, profileSignature, plain)
+    return NextResponse.json(plain)
   }
 
   // Eén candidate kan in meerdere modi voorkomen; beschikbaarheid per streamingdienst
@@ -103,6 +124,8 @@ export async function GET(request: NextRequest) {
         return { ...item, ...info }
       })
       .filter((m): m is RecommendationItem => m !== null)
+    // Titels die nog niet uit zijn hebben nog geen kijkinfo; ze komen er los bij.
+    result[mode] = [...result[mode], ...upcoming[mode]]
   }
 
   await cacheRecommendationsResult(supabase, user.id, profileSignature, result)

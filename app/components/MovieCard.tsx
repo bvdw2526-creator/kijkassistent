@@ -13,11 +13,14 @@ export default function MovieCard({
   onClick,
   badge,
   priority,
+  upcomingLabel,
 }: {
   movie: MovieCardMovie
   onClick: () => void
   badge?: string
   priority?: boolean
+  // Titel die nog moet uitkomen: dit label (bv. "Binnenkort · 29 okt.") komt in plaats van het matchpercentage.
+  upcomingLabel?: string
 }) {
   return (
     <button
@@ -42,7 +45,13 @@ export default function MovieCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
-        {typeof movie.matchPercent === 'number' && (
+        {upcomingLabel && (
+          <span className="absolute top-2 left-2 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-[#52A9A0] ring-1 ring-[#52A9A0]/40">
+            {upcomingLabel}
+          </span>
+        )}
+
+        {!upcomingLabel && typeof movie.matchPercent === 'number' && (
           <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-[#E8A33D] ring-1 ring-white/10">
             {movie.matchPercent}%
           </span>

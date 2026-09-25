@@ -17,6 +17,7 @@ import {
   type TmdbItem,
   type MediaType,
 } from '@/lib/recommendationEngine'
+import { upcomingForCouple } from '@/lib/upcomingTitles'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort: deze
 // route berekent het volledige smaakprofiel van twee mensen na elkaar/parallel (zie
@@ -349,7 +350,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v8-shared',
+      'v9-upcoming',
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -609,6 +610,16 @@ export async function GET(request: NextRequest) {
 
     const rawMatch = computeTasteMatch(tasteA, tasteB, inputsA, inputsB)
     const match = rawMatch ? { ...rawMatch, ownerId: user.id } : null
+
+    // Films en series die binnenkort uitkomen en bij jullie allebei passen. Los van de streamingcontrole
+    // hierboven (ze hebben nog geen kijkinfo) en alleen als er nog tijd over is.
+    if (Date.now() - computeStartedAt <= SOFT_DEADLINE_MS) {
+      const upcomingSamen = await upcomingForCouple(supabase, process.env.TMDB_API_KEY, tasteA, tasteB, {
+        excludedGenreIds: combinedExcludedGenreIds,
+        seenKeys: excludeIds,
+      })
+      resultItems = [...resultItems, ...upcomingSamen]
+    }
 
     await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems, match)
 
