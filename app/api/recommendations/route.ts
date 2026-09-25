@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
-  const profileSignature = 'u1|' + buildProfileSignature(inputs)
+  const profileSignature = 'u2|' + buildProfileSignature(inputs)
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')

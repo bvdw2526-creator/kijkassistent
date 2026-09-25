@@ -39,8 +39,14 @@ export type UpcomingItem = RecommendationItem & { upcoming: true; release_date: 
 const MONTHS_AHEAD = 6
 const MOVIE_PAGES = [1, 2, 3]
 const TV_PAGES = [1, 2]
-// Zoveel titels per soort tonen we per tabblad.
-const PER_TYPE = { focused: 2, balanced: 3, explore: 3, samen: 3 } as const
+// Welke titels (op volgorde van pasvorm, per soort) elk tabblad krijgt. De tabbladen delen bewust geen
+// titels: Puur mijn smaak de allerbeste, Mijn smaak breder de volgende, Verras me een stapje verder.
+const SLICES = {
+  focused: { start: 0, count: 2 },
+  balanced: { start: 2, count: 3 },
+  explore: { start: 5, count: 3 },
+  samen: { start: 0, count: 3 },
+} as const
 
 function amsterdamDate(offsetMonths = 0): string {
   const d = new Date()
@@ -205,22 +211,24 @@ function toItem(c: UpcomingCandidate, fit: number): UpcomingItem {
 export function pickForMode(
   candidates: UpcomingCandidate[],
   fits: Map<string, number>,
-  mode: keyof typeof PER_TYPE
+  mode: keyof typeof SLICES
 ): UpcomingItem[] {
   const out: UpcomingItem[] = []
   for (const type of ['movie', 'tv'] as const) {
     const ranked = candidates
       .filter((c) => c.media_type === type && fits.has(`${c.media_type}-${c.id}`))
       .sort((a, b) => fits.get(`${b.media_type}-${b.id}`)! - fits.get(`${a.media_type}-${a.id}`)!)
-    const count = PER_TYPE[mode]
-    let chosen = ranked.slice(0, count)
-    // Verras me: juist een stapje verder van je gewone smaak, en dan de bekendste eerst.
-    if (mode === 'explore' && ranked.length > count) {
+    const { start, count } = SLICES[mode]
+    let chosen = ranked.slice(start, start + count)
+    // Verras me: uit een bredere groep die verder van je gewone smaak ligt, de bekendste eerst.
+    if (mode === 'explore') {
       chosen = ranked
-        .slice(count, count + 9)
+        .slice(start, start + 9)
         .sort((a, b) => b.popularity - a.popularity)
         .slice(0, count)
     }
+    // Weinig kandidaten (bijvoorbeeld een kleine smaak): liever dezelfde als niets tonen.
+    if (chosen.length === 0) chosen = ranked.slice(0, count)
     for (const c of chosen) out.push(toItem(c, fits.get(`${c.media_type}-${c.id}`)!))
   }
   return out
