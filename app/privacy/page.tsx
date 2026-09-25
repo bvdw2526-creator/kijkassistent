@@ -28,7 +28,7 @@ export default function Privacy() {
             Als je een partner koppelt: de koppeling zelf (jouw partner ziet jouw e-mailadres in de uitnodiging) en de
             gezamenlijke beoordelingen voor &quot;Samen&quot;.
           </li>
-          <li>Tijdelijk opgeslagen aanbevelingen, zodat de app snel laadt.</li>
+          <li>Tijdelijk opgeslagen aanbevelingen, zodat de app snel laadt, en welke tip van de week je hebt gekregen.</li>
           <li>
             Als je je Letterboxd-export importeert: het bestand wordt alleen in je eigen browser gelezen en niet naar ons
             gestuurd. Alleen de films en beoordelingen die je zelf kiest te importeren worden opgeslagen, net als

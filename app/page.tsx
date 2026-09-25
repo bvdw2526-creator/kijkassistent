@@ -11,6 +11,7 @@ import LegalLinks from './components/LegalLinks'
 import PartnerPicks from './components/PartnerPicks'
 import DateNight from './components/DateNight'
 import UpcomingList from './components/UpcomingList'
+import WeeklyTip from './components/WeeklyTip'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
 
@@ -658,6 +659,14 @@ export default function Home() {
           <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">
             {refreshError}
           </p>
+        )}
+
+        {/* Bij Samen staat de eigen "tip van vanavond"; in de persoonlijke tabbladen de tip van de week. */}
+        {mode !== 'samen' && (
+          <WeeklyTip
+            mediaType={tab}
+            onRemoved={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)}
+          />
         )}
 
         {mode === 'samen' && togetherComputing && byMode.samen.length === 0 && (
