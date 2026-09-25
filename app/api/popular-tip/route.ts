@@ -6,6 +6,8 @@ export const maxDuration = 60
 
 const PAGES = [1, 2, 3]
 const MAX_ITEMS = 12
+// Vanaf zoveel titels binnen je abonnementen laten we het huren en kopen weg.
+const MIN_INCLUDED = 4
 // Genoeg stemmen om te voorkomen dat er onbekende of rommelige titels tussen komen.
 const MIN_VOTES = { movie: 300, tv: 200 } as const
 
@@ -105,8 +107,14 @@ export async function GET(request: NextRequest) {
       ? await resolveWatchInfo(supabase, candidates.map((c) => ({ media_type: type, id: c.id })), new Set(providerIds))
       : new Map<string, { watchOn: string; watchUrl: string } | null>()
 
-  const items = candidates
-    .filter((c) => providerIds.length === 0 || watchInfo.get(`${type}-${c.id}`))
+  const available = candidates.filter((c) => providerIds.length === 0 || watchInfo.get(`${type}-${c.id}`))
+  // Een tip moet bij je abonnementen zitten. Titels die je alleen kunt huren of kopen (bijvoorbeeld
+  // via Pathé Thuis) komen er alleen bij als er te weinig anders is.
+  const isRentOrBuy = (c: TmdbItem) => / · (huren|kopen)/.test(watchInfo.get(`${type}-${c.id}`)?.watchOn ?? '')
+  const included = available.filter((c) => !isRentOrBuy(c))
+  const chosen = included.length >= MIN_INCLUDED ? included : [...included, ...available.filter(isRentOrBuy)]
+
+  const items = chosen
     .slice(0, MAX_ITEMS)
     .map((c) => ({
       id: c.id,
