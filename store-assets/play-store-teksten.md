@@ -51,7 +51,7 @@ Maak ze zelf op je telefoon met je eigen account, dan zien ze er echt uit. Voors
 - **Verzamelt de app gegevens?** Ja.
 - **Persoonlijke gegevens: e-mailadres.** Verzameld, nodig voor de werking van de app en accountbeheer. Niet gedeeld voor advertenties of marketing.
 - **Gebruikers-ID's.** Verzameld voor de werking van de app.
-- **Gebruikersinhoud / activiteit in de app:** beoordelingen, favorieten en watchlist. Verzameld voor de werking van de app (aanbevelingen).
+- **Gebruikersinhoud / activiteit in de app:** beoordelingen, favorieten en kijklijst. Verzameld voor de werking van de app (aanbevelingen).
 - **Zoekopdrachten** worden doorgestuurd naar TMDB om resultaten te tonen; ze worden niet aan je naam of e-mailadres gekoppeld en niet door ons bewaard. Verwerkers die namens ons werken (Supabase, Vercel, TMDB, Voyage AI) tellen bij Google meestal niet als "delen", maar controleer de toelichting in de Console.
 - **Versleuteld verzonden?** Ja (https).
 - **Kunnen gebruikers verwijdering vragen?** Ja: in de app, en via de webpagina hierboven.

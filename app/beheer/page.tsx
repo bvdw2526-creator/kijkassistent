@@ -144,7 +144,7 @@ export default function Beheer() {
               <p className="text-sm font-medium mb-3">Per dag</p>
               <div className="grid grid-cols-[1fr_repeat(6,2.2rem)] gap-x-1 gap-y-1.5 text-xs">
                 <span />
-                {['nieuw', 'actief', 'beoord.', 'fav.', 'watch', 'samen'].map((h) => (
+                {['nieuw', 'actief', 'beoord.', 'fav.', 'kijk', 'samen'].map((h) => (
                   <span key={h} className="text-[#5E6D80] text-right text-[10px]">{h}</span>
                 ))}
                 {[...data.days].reverse().map((d) => (
@@ -186,7 +186,7 @@ export default function Beheer() {
                       <span className="text-xs text-[#E8A33D] flex-shrink-0">{lastActiveLabel(u.laatst_actief)}</span>
                     </div>
                     <p className="text-xs text-[#93A3B5] mt-1">
-                      {u.favorieten} favorieten · {u.beoordelingen} beoordelingen · {u.watchlist} op watchlist · {u.actieve_dagen_7}/7 dagen actief
+                      {u.favorieten} favorieten · {u.beoordelingen} beoordelingen · {u.watchlist} op kijklijst · {u.actieve_dagen_7}/7 dagen actief
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {u.gekoppeld && <span className="rounded-full bg-[#52A9A0]/12 px-2 py-0.5 text-[10px] text-[#52A9A0]">gekoppeld</span>}

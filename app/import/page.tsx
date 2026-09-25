@@ -262,7 +262,7 @@ export default function ImportPage() {
         const { error: writeError } = await supabase
           .from('watchlist')
           .upsert(part, { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true })
-        if (writeError) throw new Error(`Watchlist opslaan mislukt: ${writeError.message}`)
+        if (writeError) throw new Error(`Kijklijst opslaan mislukt: ${writeError.message}`)
       }
 
       // Smaak leren kennen: de titels die straks als bron meetellen, in porties vooraf inlezen.
@@ -388,7 +388,7 @@ export default function ImportPage() {
             <div className="flex flex-col gap-5">
               <p className="text-[#93A3B5] leading-relaxed">
                 <span className="text-[#F2EFE9]">{fileName}</span>: {data.ratings.length} beoordeelde films
-                {data.watchlist.length > 0 ? `, ${data.watchlist.length} op je watchlist` : ''}. Wat moet een aantal sterren
+                {data.watchlist.length > 0 ? `, ${data.watchlist.length} op je Letterboxd-watchlist` : ''}. Wat moet een aantal sterren
                 in Kijkassistent worden?
               </p>
 
@@ -431,7 +431,7 @@ export default function ImportPage() {
                 {data.watchlist.length > 0 && (
                   <label className="flex items-center gap-3 text-sm">
                     <input type="checkbox" checked={includeWatchlist} onChange={(e) => setIncludeWatchlist(e.target.checked)} className="accent-[#E8A33D] w-4 h-4" />
-                    <span>Ook mijn watchlist van Letterboxd overnemen <span className="text-[#93A3B5]">({data.watchlist.length})</span></span>
+                    <span>Ook mijn Letterboxd-watchlist op mijn kijklijst zetten <span className="text-[#93A3B5]">({data.watchlist.length})</span></span>
                   </label>
                 )}
                 <label className="flex items-center justify-between gap-3 text-sm">
@@ -486,7 +486,7 @@ export default function ImportPage() {
                   if (n === 0) return null
                   return (
                     <div key={a} className="flex justify-between">
-                      <span>{a === 'watchlist' ? 'Op je watchlist' : STAR_ACTION_LABELS[a]}</span>
+                      <span>{a === 'watchlist' ? 'Op je kijklijst' : STAR_ACTION_LABELS[a]}</span>
                       <span className="text-[#93A3B5]">{n}</span>
                     </div>
                   )
@@ -545,7 +545,7 @@ export default function ImportPage() {
                 <p className="font-medium text-base mb-1">Klaar!</p>
                 <p>{summary.ratings} beoordelingen geïmporteerd</p>
                 <p>{summary.favorites} favorieten toegevoegd</p>
-                {summary.watchlist > 0 && <p>{summary.watchlist} films op je watchlist gezet</p>}
+                {summary.watchlist > 0 && <p>{summary.watchlist} films op je kijklijst gezet</p>}
                 {summary.warmFailed > 0 && (
                   <p className="text-xs text-[#93A3B5] mt-1 leading-relaxed">
                     Bij {summary.warmFailed} films lukte het voorbereiden niet. Dat is niet erg: het eerste vernieuwen van je

@@ -182,6 +182,19 @@ const ONBOARDING_FORCE_DAYS = 5
 // aparte, handmatige "Vernieuwen"-knop voor is bedoeld.
 let hasFetchedThisSession = false
 
+// De Samen-lijst wordt (anders dan de persoonlijke lijsten) niet in localStorage bewaard. Bij het wisselen
+// van tabblad wordt deze pagina opnieuw opgebouwd, en omdat er dan niet opnieuw wordt opgehaald bleef Samen
+// leeg tot je op Vernieuwen drukte. Deze kopie in het geheugen blijft staan zolang de app openstaat.
+type TogetherSnapshot = {
+  userId: string
+  items: Movie[]
+  connected: boolean
+  connectionId: string | null
+  tier: TogetherTier | null
+  match: TasteMatch | null
+}
+let togetherSnapshot: TogetherSnapshot | null = null
+
 export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
@@ -235,15 +248,23 @@ export default function Home() {
           setByMode(cached)
           setLoading(false)
         }
+        const snapshot = togetherSnapshot && togetherSnapshot.userId === currentUser.id ? togetherSnapshot : null
+        if (snapshot) {
+          setByMode((current) => ({ ...current, samen: snapshot.items }))
+          setTogetherConnected(snapshot.connected)
+          setTogetherConnectionId(snapshot.connectionId)
+          setTogetherTier(snapshot.tier)
+          setTogetherMatch(snapshot.match)
+        }
         if (!hasFetchedThisSession) {
           hasFetchedThisSession = true
           loadRecommendations()
           loadTogetherRecommendations()
-        } else if (!cached) {
-          // Geen sessievlag-cache-mismatch: wel al "gefetcht" deze sessie, maar deze tab
-          // heeft zelf nog niets — dan alsnog ophalen in plaats van leeg te laten staan.
-          loadRecommendations()
-          loadTogetherRecommendations()
+        } else {
+          // Wel al opgehaald deze sessie, maar deze pagina heeft zelf nog niets van het genoemde: dan alsnog
+          // ophalen in plaats van leeg te laten staan.
+          if (!cached) loadRecommendations()
+          if (!snapshot) loadTogetherRecommendations()
         }
       } else {
         setLoading(false)
@@ -364,6 +385,14 @@ export default function Home() {
       setTogetherTier(data.tier || null)
       setTogetherMatch(data.match ?? null)
       setByMode((current) => ({ ...current, samen: data.items || [] }))
+      togetherSnapshot = {
+        userId: session.user.id,
+        items: data.items || [],
+        connected: !!data.connected,
+        connectionId: data.connectionId || null,
+        tier: data.tier || null,
+        match: data.match ?? null,
+      }
     } catch (err) {
       if (requestId !== togetherRequestIdRef.current) return
       console.error('Samen-aanbevelingen ophalen mislukt:', err)
@@ -395,10 +424,12 @@ export default function Home() {
       explore: current.explore.filter((m) => !movieKey(m)),
       samen: current.samen.filter((m) => !movieKey(m)),
     }))
+    if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
   }
 
   function removeFromSamen(movieKey: (m: Movie) => boolean) {
     setByMode((current) => ({ ...current, samen: current.samen.filter((m) => !movieKey(m)) }))
+    if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
   }
 
   async function handleAddToWatchlist(movie: Movie) {
@@ -445,7 +476,7 @@ export default function Home() {
     })
     if (error) {
       console.error('Op watchlist zetten mislukt:', error)
-      setActionError(`Kon niet op de watchlist zetten: ${error.message}`)
+      setActionError(`Kon niet op de kijklijst zetten: ${error.message}`)
       return
     }
     removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -582,6 +613,9 @@ export default function Home() {
   const upcomingOfTab = movies.filter((m) => m.upcoming && m.media_type === tab).sort((a, b) => b.matchPercent - a.matchPercent)
   const visible = interleaveUpcoming(tab === 'movie' ? movieResults : tvResults, upcomingOfTab)
   const showSkeleton = loading && movies.length === 0
+  // Bij Samen weten we pas na het eerste antwoord of er een partner is en wat er te tonen valt; tot die tijd
+  // is "nog geen gedeelde aanbevelingen" onjuist, dus dan liever de laadweergave.
+  const togetherLoading = mode === 'samen' && togetherConnected === null && !togetherError
 
   // "Tip van vanavond": de beste Samen-titels, en per dag een andere daaruit. De dag en het
   // koppel bepalen het startpunt, dus jullie zien allebei dezelfde tip; "Andere tip" schuift door.
@@ -829,9 +863,9 @@ export default function Home() {
 
         {mode === 'samen' && togetherConnected && <PartnerPicks mediaType={tab} />}
 
-        {showSkeleton && <PosterSkeletonGrid />}
+        {(showSkeleton || togetherLoading) && <PosterSkeletonGrid />}
 
-        {!showSkeleton && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
+        {!showSkeleton && !togetherLoading && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
           <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center leading-relaxed">
             {mode === 'samen'
               ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
@@ -951,7 +985,7 @@ export default function Home() {
               <div className={`grid gap-2 mb-3 ${mode === 'samen' || selected.upcoming ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
                   <PlusIcon className="w-4 h-4" />
-                  {mode === 'samen' ? 'Op onze lijst' : 'Op watchlist'}
+                  {mode === 'samen' ? 'Op onze lijst' : 'Op kijklijst'}
                 </button>
                 {/* Favoriet is persoonlijk; in Samen beoordeel je als koppel, dus daar niet. */}
                 {mode !== 'samen' && !selected.upcoming && (

@@ -7,7 +7,7 @@ import { HomeIcon, SearchIcon, BookmarkIcon, ChartIcon, SettingsIcon } from './I
 const TABS = [
   { href: '/', label: 'Voor jou', icon: HomeIcon },
   { href: '/onboarding', label: 'Zoeken', icon: SearchIcon },
-  { href: '/watchlist', label: 'Watchlist', icon: BookmarkIcon },
+  { href: '/watchlist', label: 'Kijklijst', icon: BookmarkIcon },
   { href: '/profiel', label: 'Stats', icon: ChartIcon },
   { href: '/settings', label: 'Instellingen', icon: SettingsIcon },
 ]

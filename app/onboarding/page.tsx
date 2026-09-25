@@ -42,6 +42,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false)
   const [ratingError, setRatingError] = useState<string | null>(null)
   const [infoItem, setInfoItem] = useState<TitleInfoItem | null>(null)
+  const [watchlistKeys, setWatchlistKeys] = useState<Set<string>>(new Set())
 
   const [bookResults, setBookResults] = useState<Movie[]>([])
   const [bookType, setBookType] = useState<'movie' | 'tv'>('movie')
@@ -159,9 +160,35 @@ export default function Onboarding() {
     }
   }
 
+  async function loadWatchlistKeys() {
+    const user = await getCurrentUser()
+    if (!user) return
+    const { data } = await supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', user.id)
+    if (data) setWatchlistKeys(new Set(data.map((w) => `${w.media_type}-${w.tmdb_id}`)))
+  }
+
+  // Zet een titel op je kijklijst (kan ook als je hem nog niet hebt gezien).
+  async function addToWatchlist(item: { id: number; title: string; media_type: 'movie' | 'tv'; poster_path?: string | null }) {
+    const key = `${item.media_type}-${item.id}`
+    if (watchlistKeys.has(key)) return
+    const user = await getCurrentUser()
+    if (!user) return
+    setRatingError(null)
+    const { error } = await supabase.from('watchlist').upsert(
+      { user_id: user.id, tmdb_id: item.id, title: item.title, poster_path: item.poster_path ?? null, media_type: item.media_type },
+      { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true }
+    )
+    if (error) {
+      setRatingError(`Kon niet op de kijklijst zetten: ${error.message}`)
+      return
+    }
+    setWatchlistKeys((current) => new Set(current).add(key))
+  }
+
   useEffect(() => {
     loadFavorites()
     loadRatings()
+    loadWatchlistKeys()
   }, [])
 
   async function handleSearch() {
@@ -565,28 +592,42 @@ export default function Onboarding() {
 
       {infoItem && (
         <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
-          <button
-            onClick={() => addFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })}
-            className={`${btnPrimary} w-full mb-3`}
-          >
-            {favorites.some((f) => f.id === infoItem.id && f.media_type === infoItem.media_type) ? (
-              <CheckIcon className="w-4 h-4" />
-            ) : (
-              <PlusIcon className="w-4 h-4" />
-            )}
-            Favoriet
-          </button>
-          <div className="flex gap-1.5 flex-wrap">
-            {RATING_BUTTONS.map(({ rating, label, tone }) => (
-              <button
-                key={rating}
-                onClick={() => rateMovie(infoItem, rating)}
-                className={chip(ratings.get(ratingKey(infoItem)) === rating, tone, 'sm')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {(details) => (
+            <>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <button
+                  onClick={() => addToWatchlist({ ...infoItem, poster_path: details?.posterPath ?? infoItem.poster_path ?? null })}
+                  className={btnPrimary}
+                >
+                  {watchlistKeys.has(`${infoItem.media_type}-${infoItem.id}`) ? (
+                    <CheckIcon className="w-4 h-4" />
+                  ) : (
+                    <PlusIcon className="w-4 h-4" />
+                  )}
+                  Op kijklijst
+                </button>
+                <button onClick={() => addFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })} className={btnSecondary}>
+                  {favorites.some((f) => f.id === infoItem.id && f.media_type === infoItem.media_type) ? (
+                    <CheckIcon className="w-4 h-4" />
+                  ) : (
+                    <PlusIcon className="w-4 h-4" />
+                  )}
+                  Favoriet
+                </button>
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {RATING_BUTTONS.map(({ rating, label, tone }) => (
+                  <button
+                    key={rating}
+                    onClick={() => rateMovie(infoItem, rating)}
+                    className={chip(ratings.get(ratingKey(infoItem)) === rating, tone, 'sm')}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </TitleInfoSheet>
       )}
 

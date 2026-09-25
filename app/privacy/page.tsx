@@ -23,7 +23,7 @@ export default function Privacy() {
         <ul className="list-disc pl-5 space-y-1">
           <li>Je e-mailadres en wachtwoord (het wachtwoord wordt versleuteld opgeslagen en is voor ons niet leesbaar).</li>
           <li>Je streamingdiensten en de genres die je hebt uitgesloten.</li>
-          <li>Je favoriete films, series, acteurs en regisseurs, je beoordelingen en je watchlist.</li>
+          <li>Je favoriete films, series, acteurs en regisseurs, je beoordelingen en je kijklijst.</li>
           <li>
             Als je een partner koppelt: de koppeling zelf (jouw partner ziet jouw e-mailadres in de uitnodiging) en de
             gezamenlijke beoordelingen voor &quot;Samen&quot;.

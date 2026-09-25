@@ -194,11 +194,11 @@ export default function Watchlist() {
 
     if (deleteError) {
       console.error('Verwijderen van watchlist mislukt:', deleteError)
-      setError(`Kon het item niet van de watchlist verwijderen: ${deleteError.message}`)
+      setError(`Kon het item niet van de kijklijst verwijderen: ${deleteError.message}`)
       return
     }
     if (!deletedRow || deletedRow.length === 0) {
-      setError('Het item leek van de watchlist verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
+      setError('Het item leek van de kijklijst verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
       return
     }
 
@@ -222,11 +222,11 @@ export default function Watchlist() {
 
     if (deleteError) {
       console.error('Verwijderen van watchlist mislukt:', deleteError)
-      setError(`Kon het item niet van de watchlist verwijderen: ${deleteError.message}`)
+      setError(`Kon het item niet van de kijklijst verwijderen: ${deleteError.message}`)
       return
     }
     if (!deletedRow || deletedRow.length === 0) {
-      setError('Het item leek van de watchlist verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
+      setError('Het item leek van de kijklijst verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
       return
     }
 
@@ -318,7 +318,7 @@ export default function Watchlist() {
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
-        <h1 className="font-display text-2xl mb-1">Watchlist</h1>
+        <h1 className="font-display text-2xl mb-1">Kijklijst</h1>
         <p className="text-[#93A3B5] mb-6">{scope === 'shared' ? 'Wat jullie samen nog willen zien.' : 'Wat je nog wilt zien.'}</p>
 
         {connectionId && (
@@ -376,7 +376,7 @@ export default function Watchlist() {
           <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center">
             {scope === 'shared'
               ? 'Nog niets op jullie lijst. Tik in Samen op "Op onze lijst" bij een titel die jullie allebei willen zien.'
-              : 'Nog niets op je watchlist. Voeg iets toe vanuit je aanbevelingen.'}
+              : 'Nog niets op je kijklijst. Voeg iets toe vanuit je aanbevelingen.'}
           </p>
         )}
 

@@ -27,7 +27,7 @@ export default function AccountVerwijderen() {
         <ul className="list-disc pl-5 space-y-1">
           <li>Je account, met je e-mailadres en inloggegevens.</li>
           <li>Je favoriete films, series, acteurs en regisseurs.</li>
-          <li>Je beoordelingen en je watchlist.</li>
+          <li>Je beoordelingen en je kijklijst.</li>
           <li>Je instellingen, zoals streamingdiensten en uitgesloten genres.</li>
           <li>Een eventuele koppeling met een partner en de gezamenlijke lijst en beoordelingen.</li>
           <li>Opgeslagen aanbevelingen die voor jou zijn berekend.</li>

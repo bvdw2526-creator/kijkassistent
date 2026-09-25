@@ -305,7 +305,7 @@ export default function WeeklyTip({
           <div className="flex gap-2 mt-4">
             {done === 'watchlist' ? (
               <p className="flex-1 flex items-center gap-1.5 text-sm text-[#52A9A0]">
-                <CheckIcon className="w-4 h-4" /> Staat op je watchlist
+                <CheckIcon className="w-4 h-4" /> Staat op je kijklijst
               </p>
             ) : (
               <button
@@ -313,7 +313,7 @@ export default function WeeklyTip({
                 className={`${btnPrimary} flex-1`}
               >
                 <PlusIcon className="w-4 h-4" />
-                Op watchlist
+                Op kijklijst
               </button>
             )}
             <button onClick={anotherTip} className={btnGhost}>
@@ -346,7 +346,7 @@ export default function WeeklyTip({
                 className={`${btnPrimary} w-full mb-3`}
               >
                 <PlusIcon className="w-4 h-4" />
-                Op watchlist
+                Op kijklijst
               </button>
               <div className="flex gap-1.5 flex-wrap">
                 <button onClick={() => rate(info, 'love').then(() => setInfo(null))} className={chip(false, 'accent', 'sm')}>Zeker meer zoals dit</button>

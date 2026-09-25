@@ -162,7 +162,7 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
       source_mode: 'samen',
     })
     if (insertError) {
-      setError(`Kon niet op je watchlist zetten: ${insertError.message}`)
+      setError(`Kon niet op je kijklijst zetten: ${insertError.message}`)
       return
     }
     removePick(item)
@@ -220,7 +220,7 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
                   Op onze lijst
                 </button>
                 <button onClick={() => addToMine(withPoster, watchOn)} disabled={!details} className={btnSecondary}>
-                  Op mijn watchlist
+                  Op mijn kijklijst
                 </button>
               </div>
             )

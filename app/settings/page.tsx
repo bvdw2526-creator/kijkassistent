@@ -448,7 +448,7 @@ export default function Settings() {
         <div className="mt-12 pt-6 border-t border-[#2A3644]">
           <SectionTitle
             title="Account verwijderen"
-            hint="Wist je account en al je gegevens (favorieten, beoordelingen, watchlist en koppelingen). Dit kan niet ongedaan worden gemaakt."
+            hint="Wist je account en al je gegevens (favorieten, beoordelingen, kijklijst en koppelingen). Dit kan niet ongedaan worden gemaakt."
           />
           {!confirmDelete ? (
             <button

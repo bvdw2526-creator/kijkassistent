@@ -224,7 +224,7 @@ export default function DateNight({ showIdle }: { showIdle: boolean }) {
               {!selected && items === null && <div className="h-24 rounded-xl bg-[#212C3B] animate-skeleton" />}
               {!selected && items !== null && items.length === 0 && (
                 <p className="text-sm text-[#93A3B5] leading-relaxed">
-                  Jullie gezamenlijke lijst is nog leeg. Zet eerst iets op Onze lijst (bij Samen of via de tab Watchlist), dan kun je hier kiezen.
+                  Jullie gezamenlijke lijst is nog leeg. Zet eerst iets op Onze lijst (bij Samen of via de tab Kijklijst), dan kun je hier kiezen.
                 </p>
               )}
               {!selected && items && items.length > 0 && (
