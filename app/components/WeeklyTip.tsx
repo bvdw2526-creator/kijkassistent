@@ -82,6 +82,16 @@ export default function WeeklyTip({
     }
   }
 
+  // Staat de titel al ergens in je eigen lijsten (beoordeeld, favoriet of watchlist)?
+  async function isKnown(userId: string, id: number): Promise<boolean> {
+    const checks = await Promise.all(
+      ['ratings', 'favorite_movies', 'watchlist'].map((table) =>
+        supabase.from(table).select('tmdb_id').eq('user_id', userId).eq('tmdb_id', id).eq('media_type', mediaType).limit(1)
+      )
+    )
+    return checks.some((c) => (c.data?.length ?? 0) > 0)
+  }
+
   // Laad (of kies en bewaar) de tip van deze week, en kijk of er een van vorige week openstaat.
   useEffect(() => {
     let cancelled = false
@@ -99,8 +109,13 @@ export default function WeeklyTip({
         .maybeSingle()
       if (cancelled) return
 
-      if (stored) {
-        setTip(stored as Tip)
+      // Een bewaarde tip die je intussen al hebt beoordeeld of opgeslagen is geen tip meer.
+      let current = stored as Tip | null
+      if (current && (await isKnown(user.id, current.tmdb_id))) current = null
+      if (cancelled) return
+
+      if (current) {
+        setTip(current)
       } else {
         const pool = await loadPool()
         if (cancelled) return
@@ -112,7 +127,8 @@ export default function WeeklyTip({
           setTip(row)
           await supabase.from('weekly_tips').upsert(
             { user_id: user.id, week_start: weekStart, ...row },
-            { onConflict: 'user_id,week_start,media_type', ignoreDuplicates: true }
+            // Was er al een (inmiddels bekende) tip, dan overschrijven; anders een eventuele andere apparaat laten winnen.
+          { onConflict: 'user_id,week_start,media_type', ignoreDuplicates: !stored }
           )
         } else {
           setTip(null)
@@ -176,18 +192,33 @@ export default function WeeklyTip({
     poolRef.current[mediaType] = (poolRef.current[mediaType] ?? []).filter((c) => c.id !== id)
   }
 
-  async function anotherTip() {
-    if (!userId) return
-    const pool = (await loadPool()).filter((c) => c.id !== shownTip?.tmdb_id)
-    if (pool.length === 0) return
+  // Kiest de volgende titel uit de lijst, behalve die we net gehad hebben.
+  async function pickNext(exceptId: number | undefined): Promise<Tip | null> {
+    const pool = (await loadPool()).filter((c) => c.id !== exceptId)
+    if (pool.length === 0) return null
     const next = toTip(pool[skipsRef.current % pool.length])
     skipsRef.current += 1
+    return next
+  }
+
+  // Zet een andere tip neer (of haalt de kaart weg als er niets meer te kiezen valt).
+  async function replaceTip(next: Tip | null) {
+    if (!userId) return
     setTip(next)
     setFacts([])
     setDone(null)
-    await supabase
-      .from('weekly_tips')
-      .upsert({ user_id: userId, week_start: weekStart, ...next }, { onConflict: 'user_id,week_start,media_type' })
+    if (next) {
+      await supabase
+        .from('weekly_tips')
+        .upsert({ user_id: userId, week_start: weekStart, ...next }, { onConflict: 'user_id,week_start,media_type' })
+    } else {
+      await supabase.from('weekly_tips').delete().eq('user_id', userId).eq('week_start', weekStart).eq('media_type', mediaType)
+    }
+  }
+
+  async function anotherTip() {
+    const next = await pickNext(shownTip?.tmdb_id)
+    if (next) await replaceTip(next)
   }
 
   async function addToWatchlist(item: { id: number; title: string; poster_path: string | null }) {
@@ -210,6 +241,8 @@ export default function WeeklyTip({
     if (error) return
     dropFromPool(item.id)
     onRemoved(item.id, mediaType)
+    // Heb je de tip zelf beoordeeld, dan is het geen tip meer: meteen een nieuwe.
+    if (item.id === shownTip?.tmdb_id) await replaceTip(await pickNext(item.id))
   }
 
   async function rateLastWeek(rating: Rating) {
