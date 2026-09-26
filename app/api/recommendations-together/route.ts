@@ -581,11 +581,15 @@ export async function GET(request: NextRequest) {
     )
 
     let resultItems: RecommendationItem[]
-    if (combinedSourceIds.size === 0 || items.length === 0 || Date.now() - computeStartedAt > SOFT_DEADLINE_MS) {
-      // Over de deadline heen: geen tijd meer voor nog een beschikbaarheidscheck. De titels
-      // blijven gewoon zonder "waar te zien"-label, in plaats van de hele berekening te
-      // verliezen omdat Vercel de functie halverwege afbreekt.
+    if (combinedSourceIds.size === 0 || items.length === 0) {
       resultItems = items
+    } else if (Date.now() - computeStartedAt > SOFT_DEADLINE_MS) {
+      // Over de deadline heen: geen tijd meer voor live TMDB-calls, in plaats van de hele berekening te
+      // verliezen omdat Vercel de functie halverwege afbreekt. Het "waar te zien"-label komen we wel uit de
+      // cache halen (die is bij de streamingcontrole hierboven al gevuld); titels waarvan de cache niets
+      // weet blijven staan, zonder label.
+      const cachedWatchInfo = await resolveWatchInfo(supabase, items, combinedSourceIds, { cacheOnly: true })
+      resultItems = items.map((item) => ({ ...item, ...(cachedWatchInfo.get(`${item.media_type}-${item.id}`) ?? {}) }))
     } else {
       const watchInfoMap = await resolveWatchInfo(supabase, items, combinedSourceIds)
       resultItems = items

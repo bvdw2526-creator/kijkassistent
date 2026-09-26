@@ -263,7 +263,9 @@ async function fetchWatchProvidersLive(mediaType: MediaType, tmdbId: number): Pr
 // gebundelde upsert voor de titels die niet of verouderd in de cache staan.
 export async function getWatchProvidersBulk(
   supabase: SupabaseClient,
-  items: { mediaType: MediaType; tmdbId: number }[]
+  items: { mediaType: MediaType; tmdbId: number }[],
+  // cacheOnly: geen live TMDB-calls meer (bv. omdat de tijd bijna op is); wat niet in de cache staat blijft leeg.
+  options: { cacheOnly?: boolean } = {}
 ): Promise<Map<string, WatchProviderSource[]>> {
   const result = new Map<string, WatchProviderSource[]>()
   const staleFallback = new Map<string, WatchProviderSource[]>()
@@ -298,7 +300,9 @@ export async function getWatchProvidersBulk(
   }
   const missing = Array.from(missingByKey.values())
 
-  if (missing.length > 0) {
+  if (options.cacheOnly) {
+    for (const key of missingByKey.keys()) result.set(key, staleFallback.get(key) ?? [])
+  } else if (missing.length > 0) {
     const fetched = await fetchLiveInChunks(
       missing,
       async (item) => ({
@@ -337,11 +341,13 @@ export async function getWatchProvidersBulk(
 export async function resolveWatchInfo(
   supabase: SupabaseClient,
   items: { media_type: MediaType; id: number }[],
-  userSourceIds: Set<number>
+  userSourceIds: Set<number>,
+  options: { cacheOnly?: boolean } = {}
 ): Promise<Map<string, { watchOn: string; watchUrl: string } | null>> {
   const providersByKey = await getWatchProvidersBulk(
     supabase,
-    items.map((item) => ({ mediaType: item.media_type, tmdbId: item.id }))
+    items.map((item) => ({ mediaType: item.media_type, tmdbId: item.id })),
+    options
   )
 
   const entries = items.map((item) => {
