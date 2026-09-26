@@ -18,6 +18,7 @@ import {
   HomeIcon,
   SettingsIcon,
   UsersIcon,
+  BookmarkIcon,
 } from '../components/Icons'
 
 const AVAILABLE_SERVICES = [
@@ -675,6 +676,15 @@ export default function Wizard() {
               <div>
                 <p className="font-medium text-sm mb-1">Instellingen</p>
                 <p className="text-sm text-[#93A3B5] leading-relaxed">Streamingdiensten, genres uitsluiten en favoriete acteurs/regisseurs kun je hier altijd nog aanpassen.</p>
+              </div>
+            </div>
+            <div className={`${card} p-4 flex gap-3`}>
+              <div className="w-9 h-9 rounded-full bg-[#E8A33D]/12 flex items-center justify-center flex-shrink-0">
+                <BookmarkIcon className="w-4.5 h-4.5 text-[#E8A33D]" />
+              </div>
+              <div>
+                <p className="font-medium text-sm mb-1">Kom je van Letterboxd?</p>
+                <p className="text-sm text-[#93A3B5] leading-relaxed">Op een pc of laptop kun je bij Instellingen je films en beoordelingen uit Letterboxd importeren. Dan begint Kijkassistent niet bij nul.</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
