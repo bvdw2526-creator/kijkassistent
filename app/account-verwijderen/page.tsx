@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export const metadata = { title: 'Account en gegevens verwijderen — Kijkassistent' }
 
-const CONTACT = 'bob@vdwoude.net'
+const CONTACT = 'info@kijkassistent.nl'
 
 // Openbaar bereikbaar zonder in te loggen: Google Play eist een webadres waar gebruikers kunnen
 // lezen hoe ze hun account en gegevens laten verwijderen.

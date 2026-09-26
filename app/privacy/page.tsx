@@ -2,14 +2,14 @@ import Link from 'next/link'
 
 export const metadata = { title: 'Privacyverklaring — Kijkassistent' }
 
-const CONTACT = 'bob@vdwoude.net'
+const CONTACT = 'info@kijkassistent.nl'
 
 export default function Privacy() {
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 24 september 2026</p>
+      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 26 september 2026</p>
 
       <Section title="Wie zijn wij">
         <p>

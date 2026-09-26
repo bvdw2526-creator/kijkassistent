@@ -8,7 +8,7 @@ Alles hieronder is een voorstel om over te nemen in de Play Console. Controleer 
 - **Start-URL**: `https://www.kijkassistent.nl/` (let op: mét www, het adres zonder www stuurt door)
 - **Privacybeleid-URL**: `https://www.kijkassistent.nl/privacy`
 - **URL voor het verwijderen van accounts**: `https://www.kijkassistent.nl/account-verwijderen`
-- **Contact-e-mail** (zichtbaar in de winkel): bob@vdwoude.net
+- **Contact-e-mail** (zichtbaar in de winkel): info@kijkassistent.nl
 - **Categorie**: Entertainment
 - **Gratis, geen advertenties, geen aankopen in de app**
 
