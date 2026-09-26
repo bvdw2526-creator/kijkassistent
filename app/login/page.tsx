@@ -64,6 +64,9 @@ export default function Login() {
           onChange={(e) => setPassword(e.target.value)}
           className={input}
         />
+        <Link href="/wachtwoord-vergeten" className="self-end text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors -mt-1">
+          Wachtwoord vergeten?
+        </Link>
 
         {error && (
           <p className="text-[#C97064] text-sm bg-[#C97064]/5 border border-[#C97064]/40 rounded-xl px-3.5 py-2.5">
