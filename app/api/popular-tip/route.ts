@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
   const { data: profile } = await supabase.from('profiles').select('streaming_services, excluded_genres').eq('id', user.id).single()
   const services: string[] = profile?.streaming_services || []
-  const excludedGenres: number[] = profile?.excluded_genres || []
+  const excludedGenres: number[] = Array.isArray(profile?.excluded_genres) ? profile.excluded_genres : []
   const providerIds = Array.from(new Set(services.map((s) => SOURCE_IDS[s]).filter(Boolean)))
 
   const query = new URLSearchParams({

@@ -1057,7 +1057,7 @@ export async function fetchProfileInputs(supabase: SupabaseClient, userId: strin
     ratings: ratings || [],
     watchlist: watchlist || [],
     streamingServices: profile?.streaming_services || [],
-    excludedGenreIds: new Set<number>(profile?.excluded_genres || []),
+    excludedGenreIds: new Set<number>(Array.isArray(profile?.excluded_genres) ? profile.excluded_genres : []),
     favoritePeopleList: favoritePeople || [],
     favoriteDirectorsList: favoriteDirectors || [],
   }

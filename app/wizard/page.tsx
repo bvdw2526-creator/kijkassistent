@@ -134,7 +134,7 @@ export default function Wizard() {
 
       setSelectedServices(services)
       setFavorites(favMovies)
-      setExcludedGenres(profile?.excluded_genres || [])
+      setExcludedGenres(Array.isArray(profile?.excluded_genres) ? profile.excluded_genres : [])
       setFavoriteActors(people || [])
       setFavoriteDirectors(directors || [])
 

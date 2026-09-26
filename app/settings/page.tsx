@@ -117,7 +117,7 @@ export default function Settings() {
       .eq('id', user.id)
       .single()
     setSelected(data?.streaming_services || [])
-    setExcludedGenres(data?.excluded_genres || [])
+    setExcludedGenres(Array.isArray(data?.excluded_genres) ? data.excluded_genres : [])
     setOnboardingComplete(!!data?.onboarding_completed_at)
     setLoading(false)
   }

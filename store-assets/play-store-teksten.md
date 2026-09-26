@@ -25,10 +25,11 @@ Voeg een paar favorieten toe en geef aan wat je van films en series vindt: "zeke
 Kies je diensten (Netflix, Videoland, Disney+, Prime Video, HBO Max, NPO Start, Pathé Thuis) en zie bij elke tip waar je hem kunt kijken.
 
 **Samen kijken**
-Koppel je partner en zie wat jullie allebei leuk zouden vinden, met een gezamenlijke lijst, een kijkavond plannen en een verrassing kiezen voor een datenight. Zie hoe goed jullie smaak overeenkomt.
+Koppel je partner en zie wat jullie allebei leuk zouden vinden, met een gezamenlijke lijst en een kijkavond plannen. Zie hoe goed jullie smaak overeenkomt, en beoordeel allebei zelf wat jullie samen keken.
 
 **En verder**
-- Binnenkort: nieuwe films en series die eraan komen.
+- Ook films en series die binnenkort uitkomen, gekozen op jouw smaak, tussen je aanbevelingen.
+- Een tip van de week, met een weetje over de film.
 - Boekverfilmingen: films en series die op een boek gebaseerd zijn.
 - Favoriete acteurs en regisseurs, en genres die je liever niet ziet.
 - Statistieken over jouw smaak en welke streamingdienst het best bij je past.
@@ -43,8 +44,8 @@ Maak ze zelf op je telefoon met je eigen account, dan zien ze er echt uit. Voors
 1. Voor jou: de aanbevelingen (Mijn smaak, breder).
 2. Een titel met de info en waar je hem kunt kijken.
 3. Samen: de tip van vanavond met de smaakmatch.
-4. Onze lijst / kijkavond plannen.
-5. Binnenkort.
+4. Kijklijst (Mijn lijst / Onze lijst) en kijkavond plannen.
+5. Een titel met het label "Binnenkort" tussen de aanbevelingen (Voor jou).
 6. Stats.
 
 ## Data safety (veiligheid van gegevens): antwoorden om over te nemen
