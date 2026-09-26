@@ -6,7 +6,7 @@ import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import TitleInfoSheet from '../components/TitleInfoSheet'
 import { card, chip } from '../components/ui'
-import { TrashIcon, HeartIcon, OkIcon, DislikeIcon } from '../components/Icons'
+import { TrashIcon, HeartIcon, OkIcon, DislikeIcon, StarIcon } from '../components/Icons'
 
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
 
@@ -197,6 +197,55 @@ export default function Watchlist() {
     setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
+  // Favoriet = gezien en geweldig gevonden (zoals bij Zoeken en in de aanbevelingen). De titel gaat daarmee van
+  // je kijklijst af, en op "Onze lijst" ook van de gezamenlijke lijst.
+  async function handleFavorite(item: WatchlistItem) {
+    const user = await getCurrentUser()
+    if (!user) return
+    setError(null)
+
+    const { error: favoriteError } = await supabase.from('favorite_movies').insert({
+      user_id: user.id,
+      tmdb_id: item.id,
+      title: item.title,
+      media_type: item.media_type,
+    })
+    // 23505 = staat al bij je favorieten: dan is het doel al bereikt.
+    if (favoriteError && favoriteError.code !== '23505') {
+      console.error('Favoriet toevoegen mislukt:', favoriteError)
+      setError(`Kon niet als favoriet opslaan: ${favoriteError.message}`)
+      return
+    }
+
+    if (scope === 'shared' && connectionId) {
+      const { error: removeSharedError } = await supabase
+        .from('couple_watchlist')
+        .delete()
+        .eq('connection_id', connectionId)
+        .eq('tmdb_id', item.id)
+        .eq('media_type', item.media_type)
+      if (removeSharedError) {
+        console.error('Verwijderen van gezamenlijke watchlist mislukt:', removeSharedError)
+        setError('Opgeslagen als favoriet, maar de titel kon niet van jullie lijst worden gehaald.')
+        return
+      }
+      setSharedItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
+    }
+
+    const { error: removeMineError } = await supabase
+      .from('watchlist')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('tmdb_id', item.id)
+      .eq('media_type', item.media_type)
+    if (removeMineError) {
+      console.error('Verwijderen van watchlist mislukt:', removeMineError)
+      setError('Opgeslagen als favoriet, maar de titel kon niet van je kijklijst worden gehaald.')
+      return
+    }
+    setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
+  }
+
   // Alleen van de watchlist af, zonder rating — zo blijft de titel ongewaardeerd en
   // telt hij weer gewoon mee als kandidaat in de aanbevelingscategorieën.
   async function handleRemove(item: WatchlistItem) {
@@ -373,6 +422,12 @@ export default function Watchlist() {
               </div>
               <div className="flex gap-1.5 flex-wrap mt-3 pl-[76px]">
                 <button
+                  onClick={() => handleFavorite(item)}
+                  className={`${chip(false, 'accent', 'sm')} flex items-center gap-1`}
+                >
+                  <StarIcon className="w-3 h-3" /> Favoriet
+                </button>
+                <button
                   onClick={() => handleRate(item, 'love')}
                   className={`${chip(false, 'accent', 'sm')} flex items-center gap-1`}
                 >
@@ -399,6 +454,15 @@ export default function Watchlist() {
       {infoItem && (
         <TitleInfoSheet item={infoItem} onClose={() => setInfoItem(null)}>
           <div className="flex gap-1.5 flex-wrap mb-1">
+            <button
+              onClick={async () => {
+                await handleFavorite(infoItem)
+                setInfoItem(null)
+              }}
+              className={chip(false, 'accent', 'sm')}
+            >
+              Favoriet
+            </button>
             {(['love', 'ok', 'dislike'] as const).map((rating) => (
               <button
                 key={rating}
