@@ -14,7 +14,8 @@ import DateNight from './components/DateNight'
 import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
-import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon } from './components/Icons'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon } from './components/Icons'
+import { spotifySoundtrackUrl } from '@/lib/spotify'
 
 type Movie = {
   id: number
@@ -1014,6 +1015,16 @@ export default function Home() {
                 </button>
               </div>
               )}
+
+              <a
+                href={spotifySoundtrackUrl(selected.title)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${btnGhost} w-full mt-2`}
+              >
+                <MusicNoteIcon className="w-4 h-4" />
+                Soundtrack op Spotify
+              </a>
 
               <button
                 onClick={() => setSelected(null)}

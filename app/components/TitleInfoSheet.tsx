@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { authFetch } from '@/lib/supabase'
+import { spotifySoundtrackUrl } from '@/lib/spotify'
 import { btnGhost } from './ui'
-import { CloseIcon } from './Icons'
+import { CloseIcon, MusicNoteIcon } from './Icons'
 
 export type TitleInfoItem = {
   id: number
@@ -136,6 +137,16 @@ export default function TitleInfoSheet({
           )}
 
           {typeof children === 'function' ? children(info) : children}
+
+          <a
+            href={spotifySoundtrackUrl(item.title)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${btnGhost} w-full mt-2`}
+          >
+            <MusicNoteIcon className="w-4 h-4" />
+            Soundtrack op Spotify
+          </a>
 
           <button onClick={onClose} className={`${btnGhost} w-full mt-3`}>
             <CloseIcon className="w-4 h-4" />

@@ -146,3 +146,13 @@ export function StarIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function MusicNoteIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="M9 18V5.5L20 3v12.5" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="17" cy="15.5" r="3" />
+    </svg>
+  )
+}
