@@ -14,8 +14,9 @@ import DateNight from './components/DateNight'
 import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
-import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon } from './components/Icons'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon } from './components/Icons'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
+import { wikipediaSearchUrl } from '@/lib/wikipedia'
 
 type Movie = {
   id: number
@@ -211,6 +212,7 @@ export default function Home() {
   const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
+  const [trueStoryTitles, setTrueStoryTitles] = useState<Set<string>>(new Set())
   const [soundtrackTitles, setSoundtrackTitles] = useState<Set<string>>(new Set())
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [tipSkips, setTipSkips] = useState(0)
@@ -403,15 +405,17 @@ export default function Home() {
     }
   }
 
-  // Los van de aanbevelingen zelf: het label verschijnt pas als het (gecachete) antwoord er
-  // is, en een mislukte aanvraag laat de popup gewoon zonder label staan.
+  // Los van de aanbevelingen zelf: de labels verschijnen pas als het (gecachete) antwoord er
+  // is, en een mislukte aanvraag laat de popup gewoon zonder labels staan. Eén aanroep voor
+  // beide TMDB-trefwoorden (boek/waargebeurd), zie app/api/is-book-adaptation/route.ts.
   function checkBookAdaptation(movie: Movie) {
     const key = `${movie.media_type}-${movie.id}`
-    if (bookTitles.has(key)) return
+    if (bookTitles.has(key) && trueStoryTitles.has(key)) return
     authFetch(`/api/is-book-adaptation?type=${movie.media_type}&id=${movie.id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.isBookAdaptation) setBookTitles((current) => new Set(current).add(key))
+        if (data.isTrueStory) setTrueStoryTitles((current) => new Set(current).add(key))
       })
       .catch(() => {})
   }
@@ -954,6 +958,11 @@ export default function Home() {
                       Gebaseerd op een boek
                     </span>
                   )}
+                  {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                      Waargebeurd verhaal
+                    </span>
+                  )}
                   {selected.vote_average > 0 && (
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
                       ★ {selected.vote_average.toFixed(1)} TMDB
@@ -1041,6 +1050,18 @@ export default function Home() {
                 >
                   <MusicNoteIcon className="w-4 h-4" />
                   Soundtrack op Spotify
+                </a>
+              )}
+
+              {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (
+                <a
+                  href={wikipediaSearchUrl(selected.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${btnGhost} w-full mt-2`}
+                >
+                  <GlobeIcon className="w-4 h-4" />
+                  Het echte verhaal op Wikipedia
                 </a>
               )}
 

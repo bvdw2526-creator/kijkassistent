@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 
 const BOOK_KEYWORD_ID = 818
+// Zie app/api/is-book-adaptation/route.ts voor waarom dit trefwoord (in tegenstelling tot bv.
+// "soundtrack") betrouwbaar is.
+const TRUE_STORY_KEYWORD_ID = 9672
 const CACHE_SECONDS = 60 * 60 * 24
 
 type ProviderEntry = { provider_name: string }
@@ -37,6 +40,7 @@ export async function GET(request: NextRequest) {
       year: date.slice(0, 4),
       posterPath: data.poster_path || null,
       isBookAdaptation: keywords.some((k) => k.id === BOOK_KEYWORD_ID),
+      isTrueStory: keywords.some((k) => k.id === TRUE_STORY_KEYWORD_ID),
       streaming: uniqueNames([...(nl?.flatrate || []), ...(nl?.free || []), ...(nl?.ads || [])] as ProviderEntry[]),
       // Huren of kopen: Pathé Thuis eerst, want die kennen we als eigen optie in de app.
       rentBuy: uniqueNames([...(nl?.rent || []), ...(nl?.buy || [])] as ProviderEntry[]).sort(

@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { authFetch } from '@/lib/supabase'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
+import { wikipediaSearchUrl } from '@/lib/wikipedia'
 import { btnGhost } from './ui'
-import { CloseIcon, MusicNoteIcon } from './Icons'
+import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
   id: number
@@ -21,6 +22,7 @@ export type TitleInfo = {
   year: string
   posterPath: string | null
   isBookAdaptation: boolean
+  isTrueStory: boolean
   streaming: string[]
   rentBuy: string[]
 }
@@ -115,6 +117,11 @@ export default function TitleInfoSheet({
                     Gebaseerd op een boek
                   </span>
                 )}
+                {info?.isTrueStory && (
+                  <span className="rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                    Waargebeurd verhaal
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -157,6 +164,18 @@ export default function TitleInfoSheet({
             >
               <MusicNoteIcon className="w-4 h-4" />
               Soundtrack op Spotify
+            </a>
+          )}
+
+          {info?.isTrueStory && (
+            <a
+              href={wikipediaSearchUrl(item.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${btnGhost} w-full mt-2`}
+            >
+              <GlobeIcon className="w-4 h-4" />
+              Het echte verhaal op Wikipedia
             </a>
           )}
 
