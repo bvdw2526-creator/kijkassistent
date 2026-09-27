@@ -873,6 +873,82 @@ export async function getEmbeddingsForItems(
   return result
 }
 
+// Zorgt dat er voor deze items een embedding in de database staat (berekent en bewaart wat
+// ontbreekt), zonder de vectoren zelf terug te geven — gebruikt vóór computeEmbeddingSimilarities
+// hieronder, dat de vergelijking zelf in de database laat gebeuren (zie migratie
+// 20260927_embedding_similarity_rpc). Zo hoeft nooit een volledige kandidatenlijst met complete
+// 1024-dimensionale profielen (enkele honderden KB per titel) naar de app te worden gestuurd —
+// alleen de uitkomst (een paar matchgetallen). Dat bleek de reden dat "Vernieuwen" bij veel
+// tegelijk lopende aanvragen soms 20-30 seconden kon duren (zie de database-metingen: bij 16
+// gelijktijdige volledige-vectoraanvragen 17-30s, tegen 428ms voor 1 aanvraag met alleen scores).
+async function ensureEmbeddingsExist(
+  supabase: SupabaseClient,
+  items: { media_type: MediaType; tmdb_id: number; text: string }[]
+): Promise<Set<string>> {
+  const movieIds = items.filter((i) => i.media_type === 'movie').map((i) => i.tmdb_id)
+  const tvIds = items.filter((i) => i.media_type === 'tv').map((i) => i.tmdb_id)
+
+  const readExistingIds = async (mediaType: MediaType, ids: number[]): Promise<Set<number>> => {
+    const parts = await Promise.all(
+      chunked([...new Set(ids)], CACHE_READ_CHUNK).map((part) =>
+        supabase.from('title_embeddings').select('tmdb_id').eq('media_type', mediaType).in('tmdb_id', part)
+      )
+    )
+    return new Set(parts.flatMap((part) => (part.data || []).map((r) => r.tmdb_id as number)))
+  }
+  const [existingMovie, existingTv] = await Promise.all([readExistingIds('movie', movieIds), readExistingIds('tv', tvIds)])
+
+  const available = new Set<string>()
+  for (const id of existingMovie) available.add(`movie-${id}`)
+  for (const id of existingTv) available.add(`tv-${id}`)
+
+  const missing = items.filter((i) => i.text && !available.has(`${i.media_type}-${i.tmdb_id}`))
+  if (missing.length > 0) {
+    const vectors = await embedTexts(missing.map((m) => m.text))
+    const upserts = missing
+      .map((item, i) => ({ media_type: item.media_type, tmdb_id: item.tmdb_id, embedding: vectors[i] }))
+      .filter((u) => u.embedding && u.embedding.length > 0)
+    if (upserts.length > 0) {
+      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      upserts.forEach((u) => available.add(`${u.media_type}-${u.tmdb_id}`))
+    }
+  }
+  return available
+}
+
+// Vergelijkt items met één of meer smaakvectoren (bv. [jouwSmaak] of [smaakA, smaakB] bij
+// Samen) — de overeenkomst zelf wordt in de database berekend (pgvector), niet in de app.
+// Resultaat: per item een array met een score per meegegeven vector, in dezelfde volgorde.
+export async function computeEmbeddingSimilarities(
+  supabase: SupabaseClient,
+  queryVectors: number[][],
+  candidates: { media_type: MediaType; tmdb_id: number; text: string }[]
+): Promise<Map<string, number[]>> {
+  const result = new Map<string, number[]>()
+  if (queryVectors.length === 0 || candidates.length === 0) return result
+
+  const available = await ensureEmbeddingsExist(supabase, candidates)
+  const usable = candidates.filter((c) => available.has(`${c.media_type}-${c.tmdb_id}`))
+  if (usable.length === 0) return result
+
+  await Promise.all(
+    chunked(usable, CACHE_READ_CHUNK).map(async (part) => {
+      const { data, error } = await supabase.rpc('embedding_similarities', {
+        p_vectors: queryVectors,
+        p_candidates: part.map((c) => ({ media_type: c.media_type, tmdb_id: c.tmdb_id })),
+      })
+      if (error) {
+        console.error('embedding_similarities RPC mislukt:', error)
+        return
+      }
+      for (const row of (data || []) as { media_type: MediaType; tmdb_id: number; similarities: number[] }[]) {
+        result.set(`${row.media_type}-${row.tmdb_id}`, row.similarities)
+      }
+    })
+  )
+  return result
+}
+
 function pickByGenreRoundRobin<T extends { id: number; score: number; genre_ids: number[] }>(
   candidates: T[],
   relevantGenreIds: number[],
@@ -1015,7 +1091,7 @@ export async function warmTitleCaches(
       supabase,
       items.flatMap((i) => RECOMMENDATION_PAGES.map((page) => ({ mediaType: i.mediaType, tmdbId: i.tmdbId, page })))
     ),
-    getEmbeddingsForItems(
+    ensureEmbeddingsExist(
       supabase,
       items.flatMap((i) => {
         const overview = details.get(`${i.mediaType}-${i.tmdbId}`)?.overview
@@ -1331,12 +1407,12 @@ export async function computeTasteProfile(
       .filter((c) => c.overview)
       .map((c) => ({ media_type: c.media_type, tmdb_id: c.id, text: `${c.title}. ${c.overview}` }))
 
-    const candidateEmbeddings = await getEmbeddingsForItems(supabase, candidateEmbeddingItems)
+    const similarities = await computeEmbeddingSimilarities(supabase, [userVector], candidateEmbeddingItems)
 
     for (const candidate of candidates) {
-      const vec = candidateEmbeddings.get(`${candidate.media_type}-${candidate.id}`)
-      if (!vec || vec.length === 0) continue
-      const similarity = cosineSimilarity(userVector, vec)
+      const sims = similarities.get(`${candidate.media_type}-${candidate.id}`)
+      if (!sims || sims.length === 0) continue
+      const similarity = sims[0]
       candidate.embeddingBonus = similarity
       if (similarity > 0.5) candidate.basedOn.add('vergelijkbare verhaallijn')
     }

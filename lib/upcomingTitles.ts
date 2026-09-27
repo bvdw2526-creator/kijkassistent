@@ -2,8 +2,7 @@
 // met een label "Binnenkort". Alleen op de server gebruikt.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  cosineSimilarity,
-  getEmbeddingsForItems,
+  computeEmbeddingSimilarities,
   type GenreAffinity,
   type MediaType,
   type RecommendationItem,
@@ -154,9 +153,10 @@ export async function scoreUpcoming(
   const fits = new Map<string, number>()
   if (usable.length === 0) return fits
 
-  const embeddings = taste.userVector.length
-    ? await getEmbeddingsForItems(
+  const similarities = taste.userVector.length
+    ? await computeEmbeddingSimilarities(
         supabase,
+        [taste.userVector],
         usable.filter((c) => c.overview).map((c) => ({ media_type: c.media_type, tmdb_id: c.id, text: `${c.title}. ${c.overview}` }))
       )
     : new Map<string, number[]>()
@@ -172,8 +172,8 @@ export async function scoreUpcoming(
       c.genre_ids.length ? c.genre_ids.reduce((sum, g) => sum + (byGenre.get(g) ?? 0), 0) / c.genre_ids.length : 0
     )
     const storyFit = ofType.map((c) => {
-      const vec = embeddings.get(`${c.media_type}-${c.id}`)
-      return vec && vec.length ? cosineSimilarity(taste.userVector, vec) : null
+      const sims = similarities.get(`${c.media_type}-${c.id}`)
+      return sims && sims.length ? sims[0] : null
     })
     const genrePct = percentiles(genreFit)
     const storyPct = percentiles(storyFit)

@@ -9,7 +9,7 @@ import {
   discoverByGenres,
   resolveWatchInfo,
   getCachedDetails,
-  getEmbeddingsForItems,
+  computeEmbeddingSimilarities,
   cosineSimilarity,
   type RankedCandidate,
   type RecommendationItem,
@@ -77,17 +77,18 @@ async function applyJointFit(
 ): Promise<RankedCandidate[]> {
   if (items.length === 0 || vectorA.length === 0 || vectorB.length === 0) return items
 
-  const embeddings = await getEmbeddingsForItems(
+  const similarities = await computeEmbeddingSimilarities(
     supabase,
+    [vectorA, vectorB],
     items
       .filter((i) => i.overview)
       .map((i) => ({ media_type: i.media_type, tmdb_id: i.id, text: `${i.title}. ${i.overview}` }))
   )
 
   const fits = items.map((item) => {
-    const vec = embeddings.get(`${item.media_type}-${item.id}`)
-    if (!vec || vec.length === 0) return null
-    return { a: cosineSimilarity(vectorA, vec), b: cosineSimilarity(vectorB, vec) }
+    const sims = similarities.get(`${item.media_type}-${item.id}`)
+    if (!sims || sims.length < 2) return null
+    return { a: sims[0], b: sims[1] }
   })
   const jointValues = fits.map((f) => (f ? Math.min(f.a, f.b) : null))
   // Schaal binnen deze lijst: het laagste tiende deel (uitschieters) telt als 0%, de beste als
