@@ -40,6 +40,7 @@ export default function TitleInfoSheet({
 }) {
   const [info, setInfo] = useState<TitleInfo | null>(null)
   const [failed, setFailed] = useState(false)
+  const [hasSoundtrack, setHasSoundtrack] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -53,10 +54,19 @@ export default function TitleInfoSheet({
       .catch(() => {
         if (!cancelled) setFailed(true)
       })
+    // Los van de titel-details: alleen de Spotify-knop tonen als er echt een soundtrackalbum
+    // bij deze titel lijkt te bestaan (zie lib/spotifyApi.ts). Een mislukte controle laat de
+    // knop gewoon weg, in plaats van hem foutief te tonen.
+    authFetch(`/api/has-soundtrack?title=${encodeURIComponent(item.title)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setHasSoundtrack(!!data.hasSoundtrack)
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [item.id, item.media_type])
+  }, [item.id, item.media_type, item.title])
 
   const poster = info?.posterPath ?? item.poster_path ?? null
 
@@ -138,15 +148,17 @@ export default function TitleInfoSheet({
 
           {typeof children === 'function' ? children(info) : children}
 
-          <a
-            href={spotifySoundtrackUrl(item.title)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`${btnGhost} w-full mt-2`}
-          >
-            <MusicNoteIcon className="w-4 h-4" />
-            Soundtrack op Spotify
-          </a>
+          {hasSoundtrack && (
+            <a
+              href={spotifySoundtrackUrl(item.title)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${btnGhost} w-full mt-2`}
+            >
+              <MusicNoteIcon className="w-4 h-4" />
+              Soundtrack op Spotify
+            </a>
+          )}
 
           <button onClick={onClose} className={`${btnGhost} w-full mt-3`}>
             <CloseIcon className="w-4 h-4" />

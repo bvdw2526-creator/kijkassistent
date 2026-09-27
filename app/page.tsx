@@ -211,6 +211,7 @@ export default function Home() {
   const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
+  const [soundtrackTitles, setSoundtrackTitles] = useState<Set<string>>(new Set())
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [tipSkips, setTipSkips] = useState(0)
   const [togetherComputing, setTogetherComputing] = useState(false)
@@ -411,6 +412,19 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => {
         if (data.isBookAdaptation) setBookTitles((current) => new Set(current).add(key))
+      })
+      .catch(() => {})
+  }
+
+  // Zelfde opzet als checkBookAdaptation: alleen de Spotify-knop tonen als er echt een
+  // soundtrackalbum bij deze titel lijkt te bestaan (zie lib/spotifyApi.ts).
+  function checkHasSoundtrack(movie: Movie) {
+    const key = `${movie.media_type}-${movie.id}`
+    if (soundtrackTitles.has(key)) return
+    authFetch(`/api/has-soundtrack?title=${encodeURIComponent(movie.title)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.hasSoundtrack) setSoundtrackTitles((current) => new Set(current).add(key))
       })
       .catch(() => {})
   }
@@ -781,6 +795,7 @@ export default function Home() {
                     setActionError(null)
                     setSelected(tipItem)
                     checkBookAdaptation(tipItem)
+                    checkHasSoundtrack(tipItem)
                   }}
                   className="flex gap-4 w-full text-left touch-manipulation"
                 >
@@ -882,6 +897,7 @@ export default function Home() {
                   setActionError(null)
                   setSelected(movie)
                   checkBookAdaptation(movie)
+                  checkHasSoundtrack(movie)
                 }}
               />
             ))}
@@ -1016,15 +1032,17 @@ export default function Home() {
               </div>
               )}
 
-              <a
-                href={spotifySoundtrackUrl(selected.title)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${btnGhost} w-full mt-2`}
-              >
-                <MusicNoteIcon className="w-4 h-4" />
-                Soundtrack op Spotify
-              </a>
+              {soundtrackTitles.has(`${selected.media_type}-${selected.id}`) && (
+                <a
+                  href={spotifySoundtrackUrl(selected.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${btnGhost} w-full mt-2`}
+                >
+                  <MusicNoteIcon className="w-4 h-4" />
+                  Soundtrack op Spotify
+                </a>
+              )}
 
               <button
                 onClick={() => setSelected(null)}
