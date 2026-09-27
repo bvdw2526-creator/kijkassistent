@@ -834,6 +834,23 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB))
 }
 
+// PostgREST geeft een pgvector-kolom terug als tekst (bv. "[0.1,0.2,...]"), niet als JSON-array
+// zoals de oude jsonb-kolom deed — die tekst is toevallig ook geldige JSON-array-syntax, dus
+// parsen we 'm gewoon. (Vers berekende embeddings die nog moeten worden opgeslagen zijn al een
+// echte array en hoeven niet geparsed te worden.)
+function parseStoredEmbedding(raw: unknown): number[] {
+  if (Array.isArray(raw)) return raw as number[]
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export async function getEmbeddingsForItems(
   supabase: SupabaseClient,
   items: { media_type: MediaType; tmdb_id: number; text: string }[]
@@ -849,7 +866,9 @@ export async function getEmbeddingsForItems(
         supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', mediaType).in('tmdb_id', part)
       )
     )
-    return parts.flatMap((part) => (part.data || []) as { tmdb_id: number; embedding: number[] }[])
+    return parts.flatMap((part) =>
+      (part.data || []).map((row) => ({ tmdb_id: row.tmdb_id as number, embedding: parseStoredEmbedding(row.embedding) }))
+    )
   }
   const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
