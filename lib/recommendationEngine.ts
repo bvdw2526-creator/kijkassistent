@@ -143,6 +143,13 @@ const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
 const EMBEDDING_BONUS_WEIGHT = 2
+// Hoe het matchpercentage op een kaart wordt berekend. Zie docs/matchpercentage.md voor de uitleg en om terug
+// te zetten.
+//  - 'percentile': hoeveel procent van alle titels die we voor je overwogen minder bewijs heeft dan deze titel.
+//    Eén schaal voor alle tabbladen, dus 80% bij "Puur mijn smaak" en bij "Verras me" betekent hetzelfde.
+//  - 'relative' (de oude berekening): score gedeeld door de beste score in hetzelfde tabblad; de beste is altijd 100%.
+export type MatchPercentMethod = 'percentile' | 'relative'
+export const MATCH_PERCENT_METHOD: MatchPercentMethod = 'percentile'
 const COLLECTION_WEIGHT = 3
 const TMDB_CREDITS_CACHE_MAX_AGE_HOURS = 24 * 7
 // Favoriete acteurs/actrices moeten "zwaar meetellen" — hoger dan een collectie-match
@@ -1740,23 +1747,47 @@ export async function computeTasteProfile(
 
   const exploreResults = buildModeResults('explore', new Set([...focusedKeys, ...balancedKeys]))
 
-  // Zet de ruwe score om in een percentage "hoe goed dit bij je smaak past", relatief
-  // aan de sterkste match binnen hetzelfde tabblad (die krijgt 100%). Een absolute
-  // drempel zou niet werken: de scoreschaal verschilt sterk per modus (bv. "explore"
-  // dempt scores bewust sterker, zie MODE_CONFIG) en per gebruiker (meer favorieten/
-  // ratings geeft hogere ruwe scores). Relatief per tabblad blijft dus altijd 0-100%.
-  function addMatchPercent(items: RankedCandidate[]): RankedCandidate[] {
-    if (items.length === 0) return items
-    const maxScore = Math.max(...items.map((i) => i.score))
-    return items.map((item) => ({
-      ...item,
-      matchPercent: maxScore > 0 ? Math.round((item.score / maxScore) * 100) : 0,
-    }))
-  }
-
   // Bredest mogelijke weging ("explore") over de hele kandidatenpool, zonder de
   // per-genre round-robin/long-tail-inperking van sortedByMode — zie TasteProfile.
-  const allCandidates = addMatchPercent(scoreCandidates('explore', new Set()))
+  const scoredPool = scoreCandidates('explore', new Set())
+
+  // Eén vaste maatstaf voor alle tabbladen (zie MATCH_PERCENT_METHOD): hoeveel bewijs er voor deze titel is,
+  // zonder de tabblad-specifieke weging (geen "oké"-bronnen, discover telt zoals bij "Puur mijn smaak").
+  const referenceScore = (c: RankedCandidate) =>
+    c.coreScore + c.collectionScore + c.embeddingBonus * EMBEDDING_BONUS_WEIGHT + c.actorScore + c.directorScore - (c.dislikeScore ?? 0) + c.discoverScore * MODE_CONFIG.focused.discoverWeight
+  const sortedReference = scoredPool.map(referenceScore).sort((a, b) => a - b)
+  const percentileOf = (value: number) => {
+    if (sortedReference.length < 2) return 0
+    // Aandeel van alle overwogen titels dat lager scoort (eerste index van `value` in de gesorteerde lijst).
+    let lo = 0
+    let hi = sortedReference.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (sortedReference[mid] < value) lo = mid + 1
+      else hi = mid
+    }
+    return Math.round((lo / (sortedReference.length - 1)) * 100)
+  }
+
+  function addMatchPercent(items: RankedCandidate[]): RankedCandidate[] {
+    if (items.length === 0) return items
+    if (MATCH_PERCENT_METHOD === 'relative') {
+      const maxScore = Math.max(...items.map((i) => i.score))
+      return items.map((item) => ({
+        ...item,
+        matchPercent: maxScore > 0 ? Math.round((item.score / maxScore) * 100) : 0,
+      }))
+    }
+    // Percentielen van de vaste maatstaf, maar de volgorde binnen het tabblad blijft die van de eigen score van
+    // het tabblad: de hoogste percentages gaan naar de hoogste scores.
+    const key = (c: RankedCandidate) => `${c.media_type}-${c.id}`
+    const byScore = [...items].sort((a, b) => b.score - a.score)
+    const percents = byScore.map((c) => percentileOf(referenceScore(c))).sort((a, b) => b - a)
+    const percentByKey = new Map(byScore.map((c, i) => [key(c), percents[i]]))
+    return items.map((item) => ({ ...item, matchPercent: percentByKey.get(key(item)) ?? 0 }))
+  }
+
+  const allCandidates = addMatchPercent(scoredPool)
 
   return {
     sortedByMode: {

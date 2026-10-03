@@ -6,6 +6,7 @@ import {
   SOURCE_IDS,
   fetchProfileInputs,
   buildProfileSignature,
+  MATCH_PERCENT_METHOD,
   computeTasteProfile,
   resolveWatchInfo,
   type RecommendationMode,
@@ -57,7 +58,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
-  const profileSignature = 'u3|' + buildProfileSignature(inputs)
+  // De methode zit in de handtekening: wisselen van berekening maakt opgeslagen lijsten vanzelf ongeldig.
+  const profileSignature = `u3|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs)
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')
