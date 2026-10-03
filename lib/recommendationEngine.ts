@@ -64,6 +64,9 @@ interface ScoredCandidate extends TmdbItem {
   embeddingBonus: number
   actorScore: number
   directorScore: number
+  // Straf door "niet voor mij" (zie MAX_DISLIKE_SOURCES) en het aantal afgekeurde titels waar deze kandidaat op lijkt.
+  dislikeScore: number
+  dislikeHits: number
   basedOn: Set<string>
 }
 
@@ -78,6 +81,8 @@ export interface RankedCandidate extends TmdbItem {
   embeddingBonus: number
   actorScore: number
   directorScore: number
+  dislikeScore?: number
+  dislikeHits?: number
 }
 
 export interface RecommendationItem extends RankedCandidate {
@@ -154,6 +159,33 @@ const DIRECTOR_MATCH_WEIGHT = 5
 // wel duidelijk hoger scoort dan eentje met 1-2 bronnen, maar niet meer lineair blijft
 // oplopen tot een score die alles overstemt.
 const CORE_SOURCE_DECAY = 0.75
+
+// "Niet voor mij" telt mee als negatief signaal (niet alleen als "deze ene titel niet meer tonen").
+// Dezelfde TMDB-verwantschapslijsten als bij "zeker leuk", maar omgekeerd: staat een kandidaat in de
+// "lijkt hierop"-lijst van iets wat je afkeurde, dan gaat de score omlaag. Gewicht gelijk aan "zeker leuk" (2).
+// Gemeten op echte gebruikers is dit signaal zwakker dan het lijkt (afkeuringen en favorieten liggen vaak in
+// dezelfde hoek, bv. fantasy), daarom telt het pas mee voor zover het het positieve bewijs overstemt
+// (zie DISLIKE_VS_POSITIVE) en worden vervolgdelen van iets wat je leuk vond beschermd.
+const MAX_DISLIKE_SOURCES = 60
+const DISLIKE_SOURCE_WEIGHT = 2
+// De straf is alleen het deel van het afkeur-bewijs dat meer is dan dit aandeel van het positieve bewijs.
+const DISLIKE_VS_POSITIVE = 0.6
+// Genre-straf alleen bij een duidelijk patroon: minstens 3 afgekeurde titels in een genre én het
+// aandeel afgekeurd (t.o.v. wat je er leuk vond) boven de drempel. Bij iemand die veel van een genre
+// houdt maar er een paar afkeurt (heel normaal) gebeurt er dus niets.
+const GENRE_DISLIKE_MIN = 3
+const GENRE_DISLIKE_RATE_FLOOR = 0.35
+const GENRE_DISLIKE_PENALTY = 6
+const DISLIKE_PENALTY_CAP = 6
+// Verhaal-buren: de NEIGHBOR_K dichtstbijzijnde titels uit je smaakset (favorieten/"zeker leuk" en afgekeurd) bepalen een
+// extra straf als die buren vooral afgekeurd zijn. Alleen overeenkomst boven NEIGHBOR_BASE_SIM telt mee (de meeste titels
+// liggen rond 0,5-0,6 bij elkaar). Gemeten op een echte gebruiker: een matig maar bruikbaar signaal, dus bescheiden gewicht.
+const NEIGHBOR_K = 5
+const NEIGHBOR_BASE_SIM = 0.5
+const NEIGHBOR_WEIGHT = 10
+// Hoeveel van de best scorende kandidaten we op buren controleren (de rest staat toch te laag om te tonen).
+const MAX_NEIGHBOR_CANDIDATES = 600
+const NEIGHBOR_CHUNK = 250
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
 // gebruiker die acteur/actrice nog herkent, en het houdt de gecachete payload klein.
 const CAST_TOP_N = 10
@@ -968,6 +1000,39 @@ export async function computeEmbeddingSimilarities(
   return result
 }
 
+// Per kandidaat de dichtstbijzijnde titels uit iemands smaakset met hun overeenkomst (0-1), zie de database-
+// functie embedding_taste_neighbors. De vergelijking gebeurt in de database; hier gaan alleen id's heen en komen
+// een paar getallen terug.
+async function computeTasteNeighbors(
+  supabase: SupabaseClient,
+  rated: { media_type: MediaType; tmdb_id: number; verdict: 'love' | 'dislike' }[],
+  candidates: { media_type: MediaType; tmdb_id: number }[]
+): Promise<Map<string, { v: string; s: number }[]>> {
+  const result = new Map<string, { v: string; s: number }[]>()
+  if (rated.length === 0 || candidates.length === 0) return result
+  const parts = chunked(candidates, NEIGHBOR_CHUNK)
+  // Twee tegelijk: de berekening is zwaar genoeg om de database niet vol te zetten (zie het vernieuw-probleem).
+  for (let i = 0; i < parts.length; i += 2) {
+    await Promise.all(
+      parts.slice(i, i + 2).map(async (part) => {
+        const { data, error } = await supabase.rpc('embedding_taste_neighbors', {
+          p_candidates: part.map((c) => ({ media_type: c.media_type, tmdb_id: c.tmdb_id })),
+          p_rated: rated,
+          p_k: NEIGHBOR_K,
+        })
+        if (error) {
+          console.error('embedding_taste_neighbors RPC mislukt:', error)
+          return
+        }
+        for (const row of (data || []) as { media_type: MediaType; tmdb_id: number; neighbors: { v: string; s: number }[] }[]) {
+          result.set(`${row.media_type}-${row.tmdb_id}`, row.neighbors)
+        }
+      })
+    )
+  }
+  return result
+}
+
 function pickByGenreRoundRobin<T extends { id: number; score: number; genre_ids: number[] }>(
   candidates: T[],
   relevantGenreIds: number[],
@@ -1200,6 +1265,9 @@ export interface TasteProfile {
   // (leeg als er geen embeddings zijn). De "samen"-route meet hiermee hoe goed een titel
   // bij elk van beide partners past.
   userVector: number[]
+  // Titels die door "niet voor mij" volledig zijn uitgesloten (de rest van een franchise waarvan je
+  // meerdere delen afkeurde). De "samen"-route gebruikt dit voor zijn bredere zoektocht.
+  blockedKeys: Set<string>
 }
 
 // De volledige scoring-pijplijn voor één gebruiker: van ruwe favorieten/ratings tot de
@@ -1215,7 +1283,7 @@ export async function computeTasteProfile(
   // beoordelen zonder favorieten toe te voegen ook meetelt. Nu pas leeg als er echt
   // helemaal niets is om op te bouwen.
   if (inputs.favorites.length === 0 && inputs.ratings.length === 0) {
-    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [], userVector: [] }
+    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [], userVector: [], blockedKeys: new Set<string>() }
   }
 
   const { favorites, ratings, watchlist, excludedGenreIds, favoritePeopleList, favoriteDirectorsList } = inputs
@@ -1235,6 +1303,7 @@ export async function computeTasteProfile(
   const sourceFavorites = [...favorites].sort(newestFirst).slice(0, MAX_FAVORITE_SOURCES)
   const lovedItems = ratings.filter((r) => r.rating === 'love').sort(newestFirst).slice(0, MAX_LOVE_SOURCES)
   const okItems = ratings.filter((r) => r.rating === 'ok').sort(newestFirst).slice(0, MAX_OK_SOURCES)
+  const dislikedItems = ratings.filter((r) => r.rating === 'dislike').sort(newestFirst).slice(0, MAX_DISLIKE_SOURCES)
 
   // "core" = het smaakprofiel van favorieten + "echt leuk"; "ok" telt pas mee
   // als aanbevelingsbron vanaf de "balanced"-modus (zie MODE_CONFIG).
@@ -1249,25 +1318,32 @@ export async function computeTasteProfile(
   // daar dus nooit in mee, alleen in de directe titel-aanbevelingen (okScore) hierboven.
   const coreSources = profileSources.filter((s) => s.tier === 'core')
 
-  const [sourceDetails, recommendationPagesByKey] = await Promise.all([
+  const [detailsBundle, recommendationPagesByKey] = await Promise.all([
     getCachedDetailsBulk(
       supabase,
-      coreSources.map((source) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id }))
-    ).then((detailsByKey) =>
-      coreSources.map(
+      [...coreSources, ...dislikedItems].map((source) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id }))
+    ).then((detailsByKey) => ({
+      sourceDetails: coreSources.map(
         (source): SourceDetail => ({
           ...source,
           ...(detailsByKey.get(`${source.media_type}-${source.tmdb_id}`) ?? EMPTY_DETAILS),
         })
-      )
-    ),
+      ),
+      dislikeDetails: dislikedItems.map((d) => ({
+        media_type: d.media_type,
+        tmdb_id: d.tmdb_id,
+        title: d.title,
+        ...(detailsByKey.get(`${d.media_type}-${d.tmdb_id}`) ?? EMPTY_DETAILS),
+      })),
+    })),
     getRecommendationPagesBulk(
       supabase,
-      profileSources.flatMap((source) =>
+      [...profileSources, ...dislikedItems].flatMap((source) =>
         RECOMMENDATION_PAGES.map((page) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id, page }))
       )
     ),
   ])
+  const { sourceDetails, dislikeDetails } = detailsBundle
   const genreCounts: Record<MediaType, Map<number, { name: string; count: number }>> = {
     movie: new Map(),
     tv: new Map(),
@@ -1300,7 +1376,13 @@ export async function computeTasteProfile(
     }
   }
 
-  const [movieGenreResults, tvGenreResults, collectionResults] = await Promise.all([
+  // Franchises waarvan je iets afkeurde (zie de blokkade hieronder).
+  const dislikedCollectionIds = new Set<number>()
+  for (const d of dislikeDetails) {
+    if (d.media_type === 'movie' && d.collectionId) dislikedCollectionIds.add(d.collectionId)
+  }
+
+  const [movieGenreResults, tvGenreResults, collectionResults, dislikedCollectionParts] = await Promise.all([
     discoverByGenres(supabase, 'movie', movieGenres),
     discoverByGenres(supabase, 'tv', tvGenres),
     Promise.all(
@@ -1309,7 +1391,25 @@ export async function computeTasteProfile(
         return { results: parts, label: `Onderdeel van ${collectionName}` }
       })
     ),
+    Promise.all(Array.from(dislikedCollectionIds).map((collectionId) => getCachedCollectionParts(supabase, collectionId))),
   ])
+
+  // Keurde je (meer) delen van een franchise af dan je er leuk vond, dan komt de rest van die franchise niet
+  // meer terug (bv. na drie keer "niet voor mij" bij The Hobbit geen vervolg of spin-off). Vond je er ook
+  // delen leuk, dan blokkeren we niets: dan is het juist een gemengde franchise (bv. Harry Potter 1-6 leuk, 7 niet).
+  const keyOfItem = (x: { media_type: MediaType; tmdb_id: number }) => `${x.media_type}-${x.tmdb_id}`
+  const likedKeys = new Set([...favorites.map(keyOfItem), ...ratings.filter((r) => r.rating !== 'dislike').map(keyOfItem)])
+  const dislikedKeys = new Set(ratings.filter((r) => r.rating === 'dislike').map(keyOfItem))
+  const blockedKeys = new Set<string>()
+  for (const parts of dislikedCollectionParts) {
+    const keys = parts.map((p) => `${p.media_type}-${p.id}`)
+    const dislikes = keys.filter((k) => dislikedKeys.has(k)).length
+    const likes = keys.filter((k) => likedKeys.has(k)).length
+    if (dislikes >= 1 && dislikes > likes) {
+      for (const k of keys) if (!likedKeys.has(k) && !dislikedKeys.has(k)) blockedKeys.add(k)
+    }
+  }
+  blockedKeys.forEach((k) => excludeIds.add(k))
 
   const scoreMap = new Map<string, ScoredCandidate>()
 
@@ -1325,6 +1425,8 @@ export async function computeTasteProfile(
         embeddingBonus: 0,
         actorScore: 0,
         directorScore: 0,
+        dislikeScore: 0,
+        dislikeHits: 0,
         basedOn: new Set<string>(),
       })
     }
@@ -1401,6 +1503,49 @@ export async function computeTasteProfile(
 
   const candidates = Array.from(scoreMap.values())
 
+  // "Niet voor mij" als negatief signaal: staat een kandidaat in de "lijkt hierop"-lijst van een afgekeurde titel,
+  // dan gaat zijn score omlaag (met dezelfde afnemende opbrengst per extra afgekeurde bron als bij het positieve signaal).
+  const dislikeSourcesByCandidate = new Map<string, Set<string>>()
+  for (const source of dislikedItems) {
+    const sourceKey = `${source.media_type}-${source.tmdb_id}`
+    for (const page of RECOMMENDATION_PAGES) {
+      for (const item of recommendationPagesByKey.get(`${source.media_type}-${source.tmdb_id}-${page}`) || []) {
+        const candidateKey = `${item.media_type}-${item.id}`
+        if (!scoreMap.has(candidateKey)) continue
+        let sources = dislikeSourcesByCandidate.get(candidateKey)
+        if (!sources) {
+          sources = new Set()
+          dislikeSourcesByCandidate.set(candidateKey, sources)
+        }
+        sources.add(sourceKey)
+      }
+    }
+  }
+  // Genre-patroon: alleen bij duidelijk veel afkeuringen in een genre t.o.v. wat je er leuk vindt (zie GENRE_DISLIKE_*).
+  const dislikeGenreCounts: Record<MediaType, Map<number, number>> = { movie: new Map(), tv: new Map() }
+  for (const d of dislikeDetails) {
+    for (const genre of d.genres) dislikeGenreCounts[d.media_type].set(genre.id, (dislikeGenreCounts[d.media_type].get(genre.id) || 0) + 1)
+  }
+  for (const candidate of candidates) {
+    const hits = dislikeSourcesByCandidate.get(`${candidate.media_type}-${candidate.id}`)?.size ?? 0
+    // Een vervolgdeel (of ander deel van dezelfde collectie) van iets wat je leuk vond krijgt geen straf: de band met
+    // die film is sterker bewijs dan een toevallige koppeling met iets afgekeurds in dezelfde hoek.
+    if (collectionKeys.has(`${candidate.media_type}-${candidate.id}`)) continue
+    let evidence = 0
+    for (let i = 0; i < hits; i++) evidence += DISLIKE_SOURCE_WEIGHT * Math.pow(CORE_SOURCE_DECAY, i)
+    let penalty = Math.max(0, evidence - DISLIKE_VS_POSITIVE * candidate.coreScore)
+    for (const genreId of candidate.genre_ids) {
+      const dislikeCount = dislikeGenreCounts[candidate.media_type].get(genreId) ?? 0
+      if (dislikeCount < GENRE_DISLIKE_MIN) continue
+      const dislikeMass = dislikeCount * 2 // een afkeuring weegt even zwaar als een "zeker leuk"
+      const likeMass = genreCounts[candidate.media_type].get(genreId)?.count ?? 0
+      const rate = dislikeMass / (dislikeMass + likeMass)
+      if (rate > GENRE_DISLIKE_RATE_FLOOR) penalty += (rate - GENRE_DISLIKE_RATE_FLOOR) * GENRE_DISLIKE_PENALTY
+    }
+    candidate.dislikeScore = Math.min(DISLIKE_PENALTY_CAP, penalty)
+    candidate.dislikeHits = hits
+  }
+
   const sourceEmbeddingItems = sourceDetails
     .filter((s) => s.overview)
     .map((s) => ({ media_type: s.media_type, tmdb_id: s.tmdb_id, text: `${s.title}. ${s.overview}`, weight: s.weight }))
@@ -1434,6 +1579,44 @@ export async function computeTasteProfile(
       const similarity = sims[0]
       candidate.embeddingBonus = similarity
       if (similarity > 0.5) candidate.basedOn.add('vergelijkbare verhaallijn')
+    }
+  }
+
+  // Verhaal-buren: lijkt het verhaal van een kandidaat sterk op specifieke afgekeurde titels (en minder op favorieten),
+  // dan komt daar een extra straf bij. Vervolgdelen van iets wat je leuk vond blijven buiten schot, net als hierboven.
+  if (userVector.length > 0 && dislikedItems.length > 0) {
+    const dislikedWithText = dislikeDetails.filter((d) => d.overview)
+    await ensureEmbeddingsExist(
+      supabase,
+      dislikedWithText.map((d) => ({ media_type: d.media_type, tmdb_id: d.tmdb_id, text: `${d.title}. ${d.overview}` }))
+    )
+    const rated = [
+      ...sourceEmbeddingItems.map((s) => ({ media_type: s.media_type, tmdb_id: s.tmdb_id, verdict: 'love' as const })),
+      ...dislikedWithText.map((d) => ({ media_type: d.media_type, tmdb_id: d.tmdb_id, verdict: 'dislike' as const })),
+    ]
+    const preScore = (c: ScoredCandidate) =>
+      c.coreScore + c.okScore + c.discoverScore + c.collectionScore + c.embeddingBonus * EMBEDDING_BONUS_WEIGHT + c.actorScore + c.directorScore - c.dislikeScore
+    const pool = candidates
+      .filter((c) => c.overview && !collectionKeys.has(`${c.media_type}-${c.id}`))
+      .sort((a, b) => preScore(b) - preScore(a))
+      .slice(0, MAX_NEIGHBOR_CANDIDATES)
+    const neighborsByKey = await computeTasteNeighbors(
+      supabase,
+      rated,
+      pool.map((c) => ({ media_type: c.media_type, tmdb_id: c.id }))
+    )
+    for (const candidate of pool) {
+      const neighbors = neighborsByKey.get(`${candidate.media_type}-${candidate.id}`)
+      if (!neighbors) continue
+      let dislikeSim = 0
+      let likeSim = 0
+      for (const n of neighbors) {
+        const closeness = Math.max(0, n.s - NEIGHBOR_BASE_SIM)
+        if (n.v === 'dislike') dislikeSim += closeness
+        else likeSim += closeness
+      }
+      const extra = Math.max(0, dislikeSim - DISLIKE_VS_POSITIVE * likeSim) * NEIGHBOR_WEIGHT
+      if (extra > 0) candidate.dislikeScore = Math.min(DISLIKE_PENALTY_CAP, candidate.dislikeScore + extra)
     }
   }
 
@@ -1486,7 +1669,8 @@ export async function computeTasteProfile(
         item.collectionScore +
         item.embeddingBonus * EMBEDDING_BONUS_WEIGHT +
         item.actorScore +
-        item.directorScore
+        item.directorScore -
+        item.dislikeScore
       return {
         ...item,
         score: Math.pow(Math.log2(1 + Math.max(0, rawScore)), modeConfig.dampingFactor),
@@ -1584,5 +1768,6 @@ export async function computeTasteProfile(
     movieGenres,
     tvGenres,
     userVector,
+    blockedKeys,
   }
 }

@@ -351,7 +351,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      'v10-upcoming',
+      'v11-dislikes',
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -396,7 +396,16 @@ export async function GET(request: NextRequest) {
     const mapA = keyByTitle(tasteA.allCandidates)
     const mapB = keyByTitle(tasteB.allCandidates)
 
-    const intersectionKeys = Array.from(mapA.keys()).filter((key) => mapB.has(key) && !coupleRatedKeys.has(key))
+    // Wijst het afkeur-bewijs van één van jullie duidelijk tegen een titel (zie dislikeScore in de motor), dan komt hij niet
+    // in Samen, ook al past hij op papier bij de ander: 'niet voor mij' van één van jullie beiden weegt zwaar mee.
+    const DISLIKE_SCORE_DROP = 3
+    const intersectionKeys = Array.from(mapA.keys()).filter(
+      (key) =>
+        mapB.has(key) &&
+        !coupleRatedKeys.has(key) &&
+        (mapA.get(key)?.dislikeScore ?? 0) < DISLIKE_SCORE_DROP &&
+        (mapB.get(key)?.dislikeScore ?? 0) < DISLIKE_SCORE_DROP
+    )
 
     // Uitsluitingen voor de bredere zoektocht (fallback en aanvulling): alles wat een van
     // jullie al kent, op de watchlist heeft staan of samen al beoordeeld heeft.
@@ -408,6 +417,9 @@ export async function GET(request: NextRequest) {
       ...inputsB.ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
       ...inputsB.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
       ...coupleRatedKeys,
+      // Franchises die een van jullie afkeurde (zie blockedKeys in computeTasteProfile).
+      ...tasteA.blockedKeys,
+      ...tasteB.blockedKeys,
     ])
 
     // Unie van beide uitsluitlijsten: als één van jullie beiden een genre uitsluit,

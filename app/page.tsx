@@ -16,6 +16,7 @@ import WeeklyTip from './components/WeeklyTip'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon } from './components/Icons'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
+import { useBackToClose } from './components/useBackToClose'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
 
 type Movie = {
@@ -214,6 +215,7 @@ export default function Home() {
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [trueStoryTitles, setTrueStoryTitles] = useState<Set<string>>(new Set())
   const [soundtrackTitles, setSoundtrackTitles] = useState<Set<string>>(new Set())
+  useBackToClose(selected !== null, () => setSelected(null))
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [tipSkips, setTipSkips] = useState(0)
   const [togetherComputing, setTogetherComputing] = useState(false)

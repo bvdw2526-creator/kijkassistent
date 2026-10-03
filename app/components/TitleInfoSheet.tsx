@@ -6,6 +6,7 @@ import { authFetch } from '@/lib/supabase'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
 import { btnGhost } from './ui'
+import { useBackToClose } from './useBackToClose'
 import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
@@ -40,6 +41,7 @@ export default function TitleInfoSheet({
   // Een functie krijgt de opgehaalde info (bv. poster en waar te kijken) zodra die er is.
   children?: React.ReactNode | ((info: TitleInfo | null) => React.ReactNode)
 }) {
+  useBackToClose(true, onClose)
   const [info, setInfo] = useState<TitleInfo | null>(null)
   const [failed, setFailed] = useState(false)
   const [hasSoundtrack, setHasSoundtrack] = useState(false)

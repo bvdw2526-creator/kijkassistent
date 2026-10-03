@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { authFetch } from '@/lib/supabase'
 import { btnGhost } from './ui'
+import { useBackToClose } from './useBackToClose'
 import { CloseIcon } from './Icons'
 
 export type PersonInfoItem = { id: number; name: string; profile_path?: string | null }
@@ -53,6 +54,7 @@ export default function PersonInfoSheet({
   onClose: () => void
   children?: React.ReactNode
 }) {
+  useBackToClose(true, onClose)
   const [info, setInfo] = useState<Info | null>(null)
   const [failed, setFailed] = useState(false)
   const [bioExpanded, setBioExpanded] = useState(false)
