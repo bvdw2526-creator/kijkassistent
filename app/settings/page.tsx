@@ -8,6 +8,7 @@ import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import ExcludeChip from '../components/ExcludeChip'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
+import { WhatsNewSheet } from '../components/WhatsNew'
 import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, TrashIcon, UsersIcon } from '../components/Icons'
 
@@ -89,6 +90,7 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [onboardingComplete, setOnboardingComplete] = useState(true)
+  const [showWhatsNew, setShowWhatsNew] = useState(false)
 
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
@@ -487,6 +489,14 @@ export default function Settings() {
           </span>
         </Link>
 
+        <button
+          onClick={() => setShowWhatsNew(true)}
+          className="w-full text-left rounded-xl border border-[#2A3644] px-4 py-3.5 mt-8 hover:border-[#3d4c60] transition-colors touch-manipulation"
+        >
+          <span className="block text-sm font-medium">Wat is er nieuw</span>
+          <span className="block text-xs text-[#93A3B5] mt-0.5">De laatste verbeteringen aan Kijkassistent</span>
+        </button>
+
         {isAdmin && (
           <Link
             href="/beheer"
@@ -501,6 +511,8 @@ export default function Settings() {
 
         <LegalLinks className="mt-10" />
       </main>
+
+      {showWhatsNew && <WhatsNewSheet all onClose={() => setShowWhatsNew(false)} />}
 
       <BottomNav />
     </>

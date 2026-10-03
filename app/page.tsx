@@ -13,6 +13,7 @@ import PartnerRated from './components/PartnerRated'
 import DateNight from './components/DateNight'
 import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
+import WhatsNew from './components/WhatsNew'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon } from './components/Icons'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
@@ -95,6 +96,33 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
   } catch {
     // Privénavigatie of volle quota — dan cachen we gewoon niet, geen probleem.
   }
+}
+
+// Alles wat je al beoordeeld, als favoriet gemarkeerd of op je kijklijst gezet hebt. De opgeslagen lijst op je telefoon
+// (zie loadCachedRecommendations) kan nog titels bevatten die je intussen hebt afgehandeld, bv. via Zoeken of de kijklijst,
+// of vlak voordat je de pagina ververste: die halen we er direct uit, in plaats van te wachten tot de server klaar is
+// met herberekenen (dat kan even duren).
+async function fetchKnownKeys(userId: string): Promise<Set<string>> {
+  try {
+    const [favorites, ratings, watchlist] = await Promise.all([
+      supabase.from('favorite_movies').select('tmdb_id, media_type').eq('user_id', userId),
+      supabase.from('ratings').select('tmdb_id, media_type').eq('user_id', userId),
+      supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', userId),
+    ])
+    return new Set([...(favorites.data || []), ...(ratings.data || []), ...(watchlist.data || [])].map((r) => `${r.media_type}-${r.tmdb_id}`))
+  } catch {
+    return new Set()
+  }
+}
+
+function dropKnown<T extends Partial<Record<RecommendationMode, Movie[]>>>(lists: T, known: Set<string>): T {
+  if (known.size === 0) return lists
+  const out = { ...lists }
+  for (const mode of ['focused', 'balanced', 'explore'] as const) {
+    const list = lists[mode]
+    if (list) out[mode] = list.filter((m) => !known.has(`${m.media_type}-${m.id}`)) as T[typeof mode]
+  }
+  return out
 }
 
 type TasteMatch = {
@@ -254,6 +282,15 @@ export default function Home() {
         if (cached) {
           setByMode(cached)
           setLoading(false)
+          // Meteen daarna: titels die je intussen afhandelde eruit halen (en de opgeslagen lijst bijwerken).
+          fetchKnownKeys(currentUser.id).then((known) => {
+            if (known.size === 0) return
+            setByMode((current) => {
+              const next = dropKnown(current, known)
+              saveCachedRecommendations(currentUser.id, next)
+              return next
+            })
+          })
         }
         const snapshot = togetherSnapshot && togetherSnapshot.userId === currentUser.id ? togetherSnapshot : null
         if (snapshot) {
@@ -320,11 +357,17 @@ export default function Home() {
       return
     }
     setRefreshError(null)
-    const fresh = {
-      focused: data.focused || [],
-      balanced: data.balanced || [],
-      explore: data.explore || [],
-    }
+    // Ook het verse antwoord langs wat je intussen afhandelde (bv. tijdens het wachten op de server).
+    const known = await fetchKnownKeys(userId)
+    if (requestId !== requestIdRef.current) return
+    const fresh = dropKnown(
+      {
+        focused: (data.focused || []) as Movie[],
+        balanced: (data.balanced || []) as Movie[],
+        explore: (data.explore || []) as Movie[],
+      },
+      known
+    )
     setLoading(false)
     // "Samen" (fresh.samen ontbreekt hier bewust) mag niet worden overschreven met een
     // lege lijst — behoud wat loadTogetherRecommendations daar eventueel al in zette.
@@ -440,12 +483,18 @@ export default function Home() {
   }
 
   function removeEverywhere(movieKey: (m: Movie) => boolean) {
-    setByMode((current) => ({
-      focused: current.focused.filter((m) => !movieKey(m)),
-      balanced: current.balanced.filter((m) => !movieKey(m)),
-      explore: current.explore.filter((m) => !movieKey(m)),
-      samen: current.samen.filter((m) => !movieKey(m)),
-    }))
+    setByMode((current) => {
+      const next = {
+        focused: current.focused.filter((m) => !movieKey(m)),
+        balanced: current.balanced.filter((m) => !movieKey(m)),
+        explore: current.explore.filter((m) => !movieKey(m)),
+        samen: current.samen.filter((m) => !movieKey(m)),
+      }
+      // Ook de opgeslagen kopie op je telefoon bijwerken: anders staat de titel er na het verversen van de pagina
+      // (bv. naar beneden slepen op Android) weer tussen, tot de server klaar is met herberekenen.
+      if (user) saveCachedRecommendations(user.id, next)
+      return next
+    })
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
   }
 
@@ -653,6 +702,8 @@ export default function Home() {
             <LogoutIcon className="w-4 h-4" />
           </button>
         </header>
+
+        {user && <WhatsNew userId={user.id} createdAt={user.created_at} />}
 
         {DATENIGHT_ENABLED && user && <DateNight showIdle={mode === 'samen'} />}
 

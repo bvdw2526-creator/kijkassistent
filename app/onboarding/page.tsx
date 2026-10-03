@@ -33,6 +33,9 @@ const SEGMENTS = [
   { id: 'regisseurs', label: 'Regisseurs' },
 ] as const
 
+// Zoveel nog niet beoordeelde titels willen we minstens zien voordat we stoppen met bijladen (zie loadBooks).
+const MIN_VISIBLE_BOOKS = 10
+
 export default function Onboarding() {
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]['id']>('titels')
   const [query, setQuery] = useState('')
@@ -54,11 +57,18 @@ export default function Onboarding() {
   const [bookActiveQuery, setBookActiveQuery] = useState('')
   const [bookLoading, setBookLoading] = useState(false)
   const [bookError, setBookError] = useState<string | null>(null)
+  // Standaard staan in de Boeken-lijst alleen titels die je nog niet hebt afgehandeld (beoordeeld, favoriet of op je
+  // kijklijst). Met deze schakelaar zie je ze er weer bij.
+  const [bookShowKnown, setBookShowKnown] = useState(false)
+  // Actuele waarden voor loadBooks, dat soms op een verouderde render doorloopt (zie het bijladen hieronder).
+  const knownKeysRef = useRef<Set<string>>(new Set())
+  const bookShowKnownRef = useRef(false)
+  const bookResultsRef = useRef<Movie[]>([])
   // Voorkomt dat een trager, ouder antwoord (bv. na snel wisselen tussen films/series)
   // het nieuwere resultaat overschrijft.
   const bookRequestRef = useRef(0)
 
-  async function loadBooks(type: 'movie' | 'tv', mineOnly: boolean, page: number, q = bookActiveQuery) {
+  async function loadBooks(type: 'movie' | 'tv', mineOnly: boolean, page: number, q = bookActiveQuery, carried?: Movie[]) {
     const requestId = ++bookRequestRef.current
     setBookLoading(true)
     setBookError(null)
@@ -73,9 +83,19 @@ export default function Onboarding() {
         setBookLoading(false)
         return
       }
-      setBookResults((current) => (page === 1 ? data.results : [...current, ...data.results]))
+      const merged: Movie[] = page === 1 ? data.results : [...(carried ?? bookResultsRef.current), ...data.results]
+      setBookResults(merged)
       setBookPage(data.page)
       setBookTotalPages(data.totalPages)
+      // Staat er na het wegfilteren van wat je al kent bijna niets meer, dan halen we de volgende pagina er direct bij,
+      // zodat je niet op "Meer laden" hoeft te drukken voor een lijst die op het eerste gezicht leeg lijkt.
+      if (!q && !bookShowKnownRef.current && data.page < data.totalPages) {
+        const visible = merged.filter((m) => !knownKeysRef.current.has(`${m.media_type}-${m.id}`)).length
+        if (visible < MIN_VISIBLE_BOOKS) {
+          loadBooks(type, mineOnly, data.page + 1, q, merged)
+          return
+        }
+      }
     } catch (err) {
       if (requestId !== bookRequestRef.current) return
       setBookError(err instanceof Error ? err.message : 'Boekverfilmingen laden mislukt')
@@ -116,6 +136,18 @@ export default function Onboarding() {
   // lijst (voor het beheer-overzicht) en de snelle lookup (bij zoekresultaten) nooit
   // uit elkaar lopen.
   const ratings = new Map(ratedMovies.map((r) => [ratingKey(r), r.rating]))
+
+  // Wat je al hebt afgehandeld: favoriet, beoordeeld of op je kijklijst.
+  const knownKeys = new Set([...favorites.map(ratingKey), ...ratedMovies.map(ratingKey), ...watchlistKeys])
+  useEffect(() => {
+    knownKeysRef.current = knownKeys
+    bookShowKnownRef.current = bookShowKnown
+    bookResultsRef.current = bookResults
+  })
+  // Bij een zoekopdracht tonen we alles (zoek je een titel die je al beoordeeld hebt, dan wil je die gewoon zien).
+  const hideKnownBooks = !bookShowKnown && !bookActiveQuery
+  const visibleBooks = hideKnownBooks ? bookResults.filter((m) => !knownKeys.has(ratingKey(m))) : bookResults
+  const hiddenBookCount = bookResults.length - visibleBooks.length
 
   async function loadFavorites() {
     const user = await getCurrentUser()
@@ -370,8 +402,9 @@ export default function Onboarding() {
         {segment === 'boeken' && (
           <div className="mb-6">
             <p className="text-[#93A3B5] text-sm mb-4 leading-relaxed">
-              Films en series die op een boek gebaseerd zijn, de populairste eerst. Gebaseerd op TMDB-trefwoorden,
-              dus een enkele verfilming kan ontbreken.
+              Films en series die op een boek gebaseerd zijn, de populairste eerst. Wat je al beoordeeld, favoriet gemaakt of
+              op je kijklijst gezet hebt, staat hier niet tussen. Gebaseerd op TMDB-trefwoorden, dus een enkele verfilming
+              kan ontbreken.
             </p>
             <div className="flex gap-2 mb-4">
               <div className="relative flex-1">
@@ -405,9 +438,21 @@ export default function Onboarding() {
               <button onClick={toggleBookMine} className={chip(bookMineOnly, 'teal', 'sm')}>
                 Alleen op mijn diensten
               </button>
+              {!bookActiveQuery && (hiddenBookCount > 0 || bookShowKnown) && (
+                <button onClick={() => setBookShowKnown((v) => !v)} className={chip(bookShowKnown, 'teal', 'sm')}>
+                  {bookShowKnown ? 'Ook al beoordeeld tonen' : `Ook al beoordeeld tonen (${hiddenBookCount})`}
+                </button>
+              )}
             </div>
             {bookError && <p className="text-sm text-[#C97064] mt-3">{bookError}</p>}
-            {bookLoading && bookResults.length === 0 && <p className="text-[#93A3B5] text-sm mt-4">Laden...</p>}
+            {bookLoading && visibleBooks.length === 0 && <p className="text-[#93A3B5] text-sm mt-4">Laden...</p>}
+            {!bookLoading && !bookError && bookResults.length > 0 && visibleBooks.length === 0 && (
+              <p className="text-[#93A3B5] text-sm mt-4">
+                {bookPage < bookTotalPages
+                  ? 'Alles op deze pagina heb je al afgehandeld. Laad meer, of zet "Ook al beoordeeld tonen" aan.'
+                  : 'Je hebt alles in deze lijst al afgehandeld. Zet "Ook al beoordeeld tonen" aan om ze terug te zien.'}
+              </p>
+            )}
             {!bookLoading && !bookError && bookResults.length === 0 && (
               <p className="text-[#93A3B5] text-sm mt-4">
                 {bookActiveQuery
@@ -418,9 +463,9 @@ export default function Onboarding() {
           </div>
         )}
 
-        {(segment === 'titels' ? results : bookResults).length > 0 && (
+        {(segment === 'titels' ? results : visibleBooks).length > 0 && (
           <div className="flex flex-col gap-2 mb-10">
-            {(segment === 'titels' ? results : bookResults).map((movie) => {
+            {(segment === 'titels' ? results : visibleBooks).map((movie) => {
               const added = favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)
               const currentRating = ratings.get(ratingKey(movie))
               return (
@@ -477,7 +522,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {segment === 'boeken' && bookPage < bookTotalPages && bookResults.length > 0 && (
+        {segment === 'boeken' && bookPage < bookTotalPages && bookResults.length > 0 && !bookActiveQuery && (
           <button onClick={() => loadBooks(bookType, bookMineOnly, bookPage + 1)} disabled={bookLoading} className={`${btnSecondary} w-full mb-6`}>
             {bookLoading ? 'Laden...' : 'Meer laden'}
           </button>
