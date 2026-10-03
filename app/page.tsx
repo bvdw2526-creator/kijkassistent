@@ -17,6 +17,7 @@ import WhatsNew from './components/WhatsNew'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon } from './components/Icons'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
+import TrailerLink from './components/TrailerLink'
 import { useBackToClose } from './components/useBackToClose'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
 
@@ -1028,6 +1029,8 @@ export default function Home() {
                   )}
                 </div>
               </div>
+
+              <TrailerLink mediaType={selected.media_type} id={selected.id} />
 
               {selected.overview && (
                 <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-4">{selected.overview}</p>

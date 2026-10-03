@@ -7,6 +7,7 @@ import { spotifySoundtrackUrl } from '@/lib/spotify'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
 import { btnGhost } from './ui'
 import { useBackToClose } from './useBackToClose'
+import TrailerLink from './TrailerLink'
 import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
@@ -154,6 +155,8 @@ export default function TitleInfoSheet({
               )}
             </div>
           )}
+
+          <TrailerLink mediaType={item.media_type} id={item.id} />
 
           {typeof children === 'function' ? children(info) : children}
 
