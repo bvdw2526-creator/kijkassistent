@@ -119,7 +119,14 @@ export function monetizationTypesFor(providerIds: number[]): string {
   return rentOnly ? 'flatrate|free|ads|rent|buy' : 'flatrate|free|ads'
 }
 
-const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 24
+// Waar een titel te zien is verandert niet per uur; 3 dagen houdt de gedeelde cache vrijwel altijd warm.
+const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 72
+// Zoveel titels per tabblad (de beste eerst) controleren we op beschikbaarheid bij de diensten van de gebruiker,
+// voordat de lijst per genre wordt samengesteld. Zie computeTasteProfile.
+const AVAILABILITY_POOL_PER_MODE = 600
+// Van die titels halen we er maximaal zoveel live bij TMDB op als ze niet (vers) in de cache staan. De rest wordt
+// alleen uit de cache gelezen; een volgende berekening vult het aan.
+const AVAILABILITY_LIVE_LIMIT = 150
 const TMDB_DETAILS_CACHE_MAX_AGE_HOURS = 24 * 7
 // Een "lijkt hierop"-lijst van TMDB verandert nauwelijks; 24 uur betekende dat elke dag voor elke
 // bron alles opnieuw werd opgehaald. Nieuwe uitgaves komen via de discover-stap binnen, niet hier.
@@ -304,7 +311,8 @@ export async function getWatchProvidersBulk(
   supabase: SupabaseClient,
   items: { mediaType: MediaType; tmdbId: number }[],
   // cacheOnly: geen live TMDB-calls meer (bv. omdat de tijd bijna op is); wat niet in de cache staat blijft leeg.
-  options: { cacheOnly?: boolean } = {}
+  // maxLive: hooguit zoveel titels (in de volgorde van `items`) live ophalen; de rest komt uit de cache.
+  options: { cacheOnly?: boolean; maxLive?: number } = {}
 ): Promise<Map<string, WatchProviderSource[]>> {
   const result = new Map<string, WatchProviderSource[]>()
   const staleFallback = new Map<string, WatchProviderSource[]>()
@@ -337,7 +345,8 @@ export async function getWatchProvidersBulk(
     const key = `${i.mediaType}-${i.tmdbId}`
     if (!result.has(key)) missingByKey.set(key, i)
   }
-  const missing = Array.from(missingByKey.values())
+  const missingAll = Array.from(missingByKey.values())
+  const missing = options.maxLive === undefined ? missingAll : missingAll.slice(0, options.maxLive)
 
   if (options.cacheOnly) {
     for (const key of missingByKey.keys()) result.set(key, staleFallback.get(key) ?? [])
@@ -381,7 +390,7 @@ export async function resolveWatchInfo(
   supabase: SupabaseClient,
   items: { media_type: MediaType; id: number }[],
   userSourceIds: Set<number>,
-  options: { cacheOnly?: boolean } = {}
+  options: { cacheOnly?: boolean; maxLive?: number } = {}
 ): Promise<Map<string, { watchOn: string; watchUrl: string } | null>> {
   const providersByKey = await getWatchProvidersBulk(
     supabase,
@@ -1283,7 +1292,10 @@ export interface TasteProfile {
 // keer aanroept (één keer per partner) om daarna te combineren.
 export async function computeTasteProfile(
   supabase: SupabaseClient,
-  inputs: ProfileInputs
+  inputs: ProfileInputs,
+  // availableOnSourceIds: alleen titels die op (een van) deze diensten te zien zijn komen in de tabbladen. De
+  // controle gebeurt vóór het samenstellen per genre, zodat die plekken niet naar titels gaan die toch wegvallen.
+  options: { availableOnSourceIds?: Set<number> } = {}
 ): Promise<TasteProfile> {
   // Vroeger gaf dit al bij nul favorieten meteen niets terug, ook niet als iemand wél
   // al beoordelingen had gegeven — terwijl de onboarding-pagina expliciet zegt dat
@@ -1661,12 +1673,17 @@ export async function computeTasteProfile(
   const movieGenreIds = movieGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
   const tvGenreIds = tvGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
 
+  // Gevuld na de beschikbaarheidscontrole hieronder; tot die tijd (en zonder diensten) geldt geen filter.
+  let watchableKeys: Set<string> | null = null
+
   function scoreCandidates(mode: RecommendationMode, excludeKeys: Set<string>): RankedCandidate[] {
     const modeConfig = MODE_CONFIG[mode]
 
     // Titels die al in een smaller/eerder tabblad staan, komen hier niet nog eens in
     // — anders zie je "zeker leuk" ook terug bij "oké" en "verras me".
-    const availableCandidates = candidates.filter((item) => !excludeKeys.has(`${item.media_type}-${item.id}`))
+    const availableCandidates = candidates.filter(
+      (item) => !excludeKeys.has(`${item.media_type}-${item.id}`) && (!watchableKeys || watchableKeys.has(`${item.media_type}-${item.id}`))
+    )
 
     return availableCandidates.map((item) => {
       const rawScore =
@@ -1738,6 +1755,30 @@ export async function computeTasteProfile(
     ]
   }
 
+  // De hele pool, nog zonder beschikbaarheidsfilter: de maatstaf voor het matchpercentage (zie addMatchPercent) en
+  // allCandidates (voor Samen).
+  const scoredPool = scoreCandidates('explore', new Set())
+
+  // Eerst controleren wat de gebruiker ook echt kan kijken, dán per genre kiezen. Anders valt na het kiezen het
+  // grootste deel weg (bij een actie-fan op alleen abonnementen ruim 80%) en blijven er maar een paar titels over.
+  const sourceIds = options.availableOnSourceIds
+  if (sourceIds && sourceIds.size > 0) {
+    const bestRank = new Map<string, { item: RankedCandidate; rank: number }>()
+    for (const mode of MODES) {
+      scoreCandidates(mode, new Set())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, AVAILABILITY_POOL_PER_MODE)
+        .forEach((item, rank) => {
+          const key = `${item.media_type}-${item.id}`
+          const known = bestRank.get(key)
+          if (!known || rank < known.rank) bestRank.set(key, { item, rank })
+        })
+    }
+    const pool = Array.from(bestRank.values()).sort((a, b) => a.rank - b.rank).map((x) => x.item)
+    const watchInfo = await resolveWatchInfo(supabase, pool, sourceIds, { maxLive: AVAILABILITY_LIVE_LIMIT })
+    watchableKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`).filter((key) => watchInfo.get(key)))
+  }
+
   // Volgorde smal -> breed: elke volgende modus sluit de titels van de vorige(n) uit.
   const focusedResults = buildModeResults('focused', new Set())
   const focusedKeys = new Set(focusedResults.map((m) => `${m.media_type}-${m.id}`))
@@ -1746,10 +1787,6 @@ export async function computeTasteProfile(
   const balancedKeys = new Set(balancedResults.map((m) => `${m.media_type}-${m.id}`))
 
   const exploreResults = buildModeResults('explore', new Set([...focusedKeys, ...balancedKeys]))
-
-  // Bredest mogelijke weging ("explore") over de hele kandidatenpool, zonder de
-  // per-genre round-robin/long-tail-inperking van sortedByMode — zie TasteProfile.
-  const scoredPool = scoreCandidates('explore', new Set())
 
   // Eén vaste maatstaf voor alle tabbladen (zie MATCH_PERCENT_METHOD): hoeveel bewijs er voor deze titel is,
   // zonder de tabblad-specifieke weging (geen "oké"-bronnen, discover telt zoals bij "Puur mijn smaak").

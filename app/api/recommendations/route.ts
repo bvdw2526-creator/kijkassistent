@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
   // De methode zit in de handtekening: wisselen van berekening maakt opgeslagen lijsten vanzelf ongeldig.
-  const profileSignature = `u3|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs)
+  const profileSignature = `u4|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs)
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')
@@ -78,7 +78,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const taste = await computeTasteProfile(supabase, inputs)
+  const userSourceIds = new Set(inputs.streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
+
+  // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
+  const taste = await computeTasteProfile(supabase, inputs, { availableOnSourceIds: userSourceIds })
   const { sortedByMode } = taste
 
   // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts).
@@ -93,8 +96,6 @@ export async function GET(request: NextRequest) {
       ),
     }
   )
-
-  const userSourceIds = new Set(inputs.streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
   if (userSourceIds.size === 0) {
     const plain = {
