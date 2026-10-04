@@ -300,12 +300,12 @@ export default function Settings() {
         </Link>
 
         <Link
-          href="/profiel"
+          href="/verborgen"
           className="flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mb-6 hover:border-[#3d4c60] transition-colors"
         >
           <span>
-            <span className="block text-sm font-medium">Jouw kijkprofiel</span>
-            <span className="block text-xs text-[#93A3B5] mt-0.5">Statistieken over je favorieten en beoordelingen</span>
+            <span className="block text-sm font-medium">Verborgen films of series beheren</span>
+            <span className="block text-xs text-[#93A3B5] mt-0.5">Bekijk wat je hebt verborgen en zet het terug</span>
           </span>
         </Link>
 

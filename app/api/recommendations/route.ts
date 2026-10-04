@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   if (!guard.ok) return guard.response
   const { supabase, user } = guard
 
-  const inputs = await fetchProfileInputs(supabase, user.id)
+  const inputs = await fetchProfileInputs(supabase, user.id, { includeHidden: true })
 
   const emptyResponse = { focused: [], balanced: [], explore: [] }
   if (inputs.favorites.length === 0 && inputs.ratings.length === 0) {
@@ -59,7 +59,8 @@ export async function GET(request: NextRequest) {
 
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
   // De methode zit in de handtekening: wisselen van berekening maakt opgeslagen lijsten vanzelf ongeldig.
-  const profileSignature = `u4|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs)
+  const hiddenKeys = (inputs.hidden ?? []).map((h) => `${h.media_type}-${h.tmdb_id}`).sort()
+  const profileSignature = `u4|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',')
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest) {
     {
       excludedGenreIds: inputs.excludedGenreIds,
       seenKeys: new Set(
-        [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist].map((x) => `${x.media_type}-${x.tmdb_id}`)
+        [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist, ...(inputs.hidden ?? [])].map((x) => `${x.media_type}-${x.tmdb_id}`)
       ),
     }
   )

@@ -10,6 +10,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-04',
+    date: '4 oktober 2026',
+    items: [
+      'Bij Puur mijn smaak staan nu veel meer films en series. We kijken eerst wat er op jouw streamingdiensten te zien is.',
+      'Op de kaart staat nu het jaartal van de film of serie.',
+      'Je kunt de trailer bekijken: je vindt hem in de popup onder de kijkinfo.',
+      'Wil je een titel niet zien (bijvoorbeeld omdat de film te oud is)? Kies Verbergen. Bij Verbergen wordt er geen beoordeling gekoppeld. Het beheren van verborgen titels kan via Instellingen.',
+    ],
+  },
+  {
     id: '2026-10-03',
     date: '3 oktober 2026',
     items: [

@@ -6,6 +6,7 @@ type MovieCardMovie = {
   poster_path: string | null
   matchPercent?: number
   watchOn?: string | null
+  release_date?: string
 }
 
 export default function MovieCard({
@@ -65,6 +66,9 @@ export default function MovieCard({
 
         <div className="absolute inset-x-0 bottom-0 p-2.5">
           <p className="text-[13px] font-semibold leading-tight text-white line-clamp-2">{movie.title}</p>
+          {!upcomingLabel && movie.release_date && (
+            <p className="mt-0.5 text-[11px] font-medium text-white/65">{movie.release_date.slice(0, 4)}</p>
+          )}
           {movie.watchOn && (
             <p className="mt-0.5 text-[11px] font-medium text-[#E8A33D]/90 truncate">{movie.watchOn}</p>
           )}

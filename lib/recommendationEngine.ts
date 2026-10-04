@@ -19,6 +19,8 @@ interface RawTmdbItem {
   vote_average: number
   overview?: string
   genre_ids?: number[]
+  release_date?: string
+  first_air_date?: string
 }
 
 export interface TmdbItem {
@@ -29,6 +31,8 @@ export interface TmdbItem {
   overview: string
   media_type: MediaType
   genre_ids: number[]
+  // Uitkomstdatum (films) of eerste uitzending (series), voor het jaartal op de kaart. Ontbreekt bij oudere opgeslagen lijsten.
+  release_date?: string
 }
 
 export interface WatchProviderSource {
@@ -715,6 +719,7 @@ function mapTmdbResults(results: RawTmdbItem[], mediaType: MediaType): TmdbItem[
     overview: item.overview || '',
     media_type: mediaType,
     genre_ids: item.genre_ids || [],
+    release_date: item.release_date || item.first_air_date || undefined,
   }))
 }
 
@@ -1205,6 +1210,9 @@ export interface ProfileInputs {
   favorites: { tmdb_id: number; title: string; media_type: MediaType; added_at?: string }[]
   ratings: { tmdb_id: number; title: string; rating: string; media_type: MediaType; rated_at?: string }[]
   watchlist: { tmdb_id: number; media_type: MediaType }[]
+  // Titels die de gebruiker heeft verborgen (zie hidden_titles). Alleen gevuld voor de eigen aanbevelingen; Samen leest
+  // ze bewust niet, zodat verbergen daar niets verandert.
+  hidden?: { tmdb_id: number; media_type: MediaType }[]
   streamingServices: string[]
   excludedGenreIds: Set<number>
   favoritePeopleList: { person_id: number; name: string }[]
@@ -1217,7 +1225,11 @@ export interface ProfileInputs {
 // de "samen"-route (voor beide partners): die laatste kan dit gewoon twee keer aanroepen
 // met een ander userId, zolang de RLS-policies geaccepteerde partners leestoegang geven
 // (zie de partner_connections-migratie).
-export async function fetchProfileInputs(supabase: SupabaseClient, userId: string): Promise<ProfileInputs> {
+export async function fetchProfileInputs(
+  supabase: SupabaseClient,
+  userId: string,
+  options: { includeHidden?: boolean } = {}
+): Promise<ProfileInputs> {
   const [
     { data: favorites },
     { data: ratings },
@@ -1233,11 +1245,15 @@ export async function fetchProfileInputs(supabase: SupabaseClient, userId: strin
     supabase.from('favorite_people').select('person_id, name').eq('user_id', userId),
     supabase.from('favorite_directors').select('person_id, name').eq('user_id', userId),
   ])
+  const hidden = options.includeHidden
+    ? ((await supabase.from('hidden_titles').select('tmdb_id, media_type').eq('user_id', userId)).data ?? [])
+    : undefined
 
   return {
     favorites: favorites || [],
     ratings: ratings || [],
     watchlist: watchlist || [],
+    ...(hidden ? { hidden: hidden as { tmdb_id: number; media_type: MediaType }[] } : {}),
     streamingServices: profile?.streaming_services || [],
     excludedGenreIds: new Set<number>(Array.isArray(profile?.excluded_genres) ? profile.excluded_genres : []),
     favoritePeopleList: favoritePeople || [],
@@ -1313,6 +1329,7 @@ export async function computeTasteProfile(
     ...favorites.map((f) => `${f.media_type}-${f.tmdb_id}`),
     ...ratings.map((r) => `${r.media_type}-${r.tmdb_id}`),
     ...watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`),
+    ...(inputs.hidden ?? []).map((h) => `${h.media_type}-${h.tmdb_id}`),
   ])
 
   // Alleen de recentste titels tellen als bron voor de smaak (zie MAX_*_SOURCES); excludeIds

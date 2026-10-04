@@ -15,7 +15,8 @@ import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
-import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon } from './components/Icons'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon } from './components/Icons'
+import HideTitleConfirm from './components/HideTitleConfirm'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
 import { useBackToClose } from './components/useBackToClose'
@@ -105,12 +106,15 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
 // met herberekenen (dat kan even duren).
 async function fetchKnownKeys(userId: string): Promise<Set<string>> {
   try {
-    const [favorites, ratings, watchlist] = await Promise.all([
+    const [favorites, ratings, watchlist, hidden] = await Promise.all([
       supabase.from('favorite_movies').select('tmdb_id, media_type').eq('user_id', userId),
       supabase.from('ratings').select('tmdb_id, media_type').eq('user_id', userId),
       supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', userId),
+      supabase.from('hidden_titles').select('tmdb_id, media_type').eq('user_id', userId),
     ])
-    return new Set([...(favorites.data || []), ...(ratings.data || []), ...(watchlist.data || [])].map((r) => `${r.media_type}-${r.tmdb_id}`))
+    return new Set(
+      [...(favorites.data || []), ...(ratings.data || []), ...(watchlist.data || []), ...(hidden.data || [])].map((r) => `${r.media_type}-${r.tmdb_id}`)
+    )
   } catch {
     return new Set()
   }
@@ -241,6 +245,8 @@ export default function Home() {
   const [togetherError, setTogetherError] = useState<string | null>(null)
   const [togetherConnectionId, setTogetherConnectionId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Titel waarvoor de bevestiging van "Verbergen" openstaat.
+  const [hideTarget, setHideTarget] = useState<Movie | null>(null)
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [trueStoryTitles, setTrueStoryTitles] = useState<Set<string>>(new Set())
   const [soundtrackTitles, setSoundtrackTitles] = useState<Set<string>>(new Set())
@@ -499,6 +505,20 @@ export default function Home() {
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
   }
 
+  // Alleen uit de eigen lijsten (Voor jou), niet uit Samen: verbergen geldt niet voor Samen.
+  function removeFromPersonal(movieKey: (m: Movie) => boolean) {
+    setByMode((current) => {
+      const next = {
+        ...current,
+        focused: current.focused.filter((m) => !movieKey(m)),
+        balanced: current.balanced.filter((m) => !movieKey(m)),
+        explore: current.explore.filter((m) => !movieKey(m)),
+      }
+      if (user) saveCachedRecommendations(user.id, next)
+      return next
+    })
+  }
+
   function removeFromSamen(movieKey: (m: Movie) => boolean) {
     setByMode((current) => ({ ...current, samen: current.samen.filter((m) => !movieKey(m)) }))
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
@@ -625,6 +645,24 @@ export default function Home() {
     // titel verdwijnt al direct uit de lijst (hieronder); voor bijgewerkte aanbevelingen
     // die je nieuwste smaak meewegen is er de handmatige "Vernieuwen"-knop.
     removeEverywhere(movieKey)
+    setSelected(null)
+  }
+
+  // Verbergen is geen beoordeling: de titel gaat in hidden_titles en telt nergens mee voor de smaak.
+  async function handleHide(movie: Movie) {
+    if (!user) return
+    setActionError(null)
+    const { error } = await supabase.from('hidden_titles').upsert(
+      { user_id: user.id, tmdb_id: movie.id, media_type: movie.media_type, title: movie.title },
+      { onConflict: 'user_id,tmdb_id,media_type' }
+    )
+    setHideTarget(null)
+    if (error) {
+      console.error('Verbergen mislukt:', error)
+      setActionError(`Kon de titel niet verbergen: ${error.message}`)
+      return
+    }
+    removeFromPersonal((m) => m.id === movie.id && m.media_type === movie.media_type)
     setSelected(null)
   }
 
@@ -1121,16 +1159,25 @@ export default function Home() {
                 </a>
               )}
 
-              <button
-                onClick={() => setSelected(null)}
-                className={`${btnGhost} w-full mt-3`}
-              >
-                <CloseIcon className="w-4 h-4" />
-                Sluiten
-              </button>
+              <div className={`grid gap-2 mt-3 ${mode === 'samen' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {mode !== 'samen' && (
+                  <button onClick={() => setHideTarget(selected)} className={btnGhost}>
+                    <EyeOffIcon className="w-4 h-4" />
+                    Verbergen
+                  </button>
+                )}
+                <button onClick={() => setSelected(null)} className={btnGhost}>
+                  <CloseIcon className="w-4 h-4" />
+                  Sluiten
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {selected && hideTarget && (
+        <HideTitleConfirm title={hideTarget.title} onCancel={() => setHideTarget(null)} onConfirm={() => handleHide(hideTarget)} />
       )}
     </>
   )

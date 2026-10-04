@@ -174,3 +174,14 @@ export function PlayIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function EyeOffIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.1A9.7 9.7 0 0 1 12 5c5 0 8.5 4.2 9.5 7a11 11 0 0 1-2.6 3.9" />
+      <path d="M6.3 6.4A11.2 11.2 0 0 0 2.5 12c1 2.8 4.5 7 9.5 7 1.6 0 3-.4 4.2-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  )
+}
