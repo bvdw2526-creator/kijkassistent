@@ -35,6 +35,8 @@ export interface UpcomingFilter {
 
 export type UpcomingItem = RecommendationItem & { upcoming: true; release_date: string }
 
+// TMDB-genres Reality (10764), Talk (10767) en News (10763): zelden wat iemand zoekt bij "Binnenkort".
+const LOW_INTEREST_GENRES = new Set([10764, 10767, 10763])
 const MONTHS_AHEAD = 6
 const MOVIE_PAGES = [1, 2, 3]
 const TV_PAGES = [1, 2]
@@ -147,8 +149,13 @@ export async function scoreUpcoming(
   taste: UpcomingTaste,
   filter: UpcomingFilter
 ): Promise<Map<string, number>> {
+  // Reality, talkshows en nieuws komen alleen mee als dat genre al bij je smaak hoort.
+  const likedGenres = new Set([...taste.movieGenres, ...taste.tvGenres].map((g) => g.id))
   const usable = candidates.filter(
-    (c) => !filter.seenKeys.has(`${c.media_type}-${c.id}`) && !c.genre_ids.some((g) => filter.excludedGenreIds.has(g))
+    (c) =>
+      !filter.seenKeys.has(`${c.media_type}-${c.id}`) &&
+      !c.genre_ids.some((g) => filter.excludedGenreIds.has(g)) &&
+      !c.genre_ids.some((g) => LOW_INTEREST_GENRES.has(g) && !likedGenres.has(g))
   )
   const fits = new Map<string, number>()
   if (usable.length === 0) return fits

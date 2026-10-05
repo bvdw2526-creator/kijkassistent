@@ -14,6 +14,7 @@ import {
   type RecommendationItem,
 } from '@/lib/recommendationEngine'
 import { upcomingForModes } from '@/lib/upcomingTitles'
+import { withLatinTitles } from '@/lib/titleFallback'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort voor
 // deze route bij een koude cache: veel losse TMDB-calls (aanbevelingen/cast/details per
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
   // De methode zit in de handtekening: wisselen van berekening maakt opgeslagen lijsten vanzelf ongeldig.
   const hiddenKeys = (inputs.hidden ?? []).map((h) => `${h.media_type}-${h.tmdb_id}`).sort()
-  const profileSignature = `u4|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',')
+  const profileSignature = `u5|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',')
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')
@@ -104,8 +105,13 @@ export async function GET(request: NextRequest) {
       balanced: [...sortedByMode.balanced, ...upcoming.balanced],
       explore: [...sortedByMode.explore, ...upcoming.explore],
     }
-    await cacheRecommendationsResult(supabase, user.id, profileSignature, plain)
-    return NextResponse.json(plain)
+    const plainFixed = {
+      focused: await withLatinTitles(plain.focused),
+      balanced: await withLatinTitles(plain.balanced),
+      explore: await withLatinTitles(plain.explore),
+    }
+    await cacheRecommendationsResult(supabase, user.id, profileSignature, plainFixed)
+    return NextResponse.json(plainFixed)
   }
 
   // Eén candidate kan in meerdere modi voorkomen; beschikbaarheid per streamingdienst
@@ -131,6 +137,9 @@ export async function GET(request: NextRequest) {
     // Titels die nog niet uit zijn hebben nog geen kijkinfo; ze komen er los bij.
     result[mode] = [...result[mode], ...upcoming[mode]]
   }
+
+  // Titels in Koreaans, Japans enzovoort vervangen door de Engelse titel.
+  for (const mode of MODES) result[mode] = await withLatinTitles(result[mode])
 
   await cacheRecommendationsResult(supabase, user.id, profileSignature, result)
   return NextResponse.json(result)

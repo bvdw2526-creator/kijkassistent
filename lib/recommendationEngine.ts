@@ -1096,7 +1096,14 @@ function pickByGenreRoundRobin<T extends { id: number; score: number; genre_ids:
   return result
 }
 
-function pickLongTail<T extends { basedOn: string[] }>(
+// Minimale TMDB-waardering voor een "verrassing": liever een titel die je waarschijnlijk wel waardeert dan een gok.
+const LONG_TAIL_MIN_VOTE = 6.5
+
+// De "verrassing"-plekken: willekeurig (zodat Vernieuwen andere titels geeft), maar alleen uit titels met een
+// redelijke waardering en een score in de bovenste helft van de pool. Vroeger loste dit uit de hele pool, inclusief
+// titels zonder enige link met je smaak (0% match). Zijn er te weinig geschikte titels, dan vullen we aan met de
+// hoogst scorende die over zijn, in plaats van met een gok.
+function pickLongTail<T extends { basedOn: string[]; score: number; vote_average: number }>(
   scoredItems: T[],
   usedKeys: Set<string>,
   keyFn: (i: T) => string,
@@ -1104,12 +1111,24 @@ function pickLongTail<T extends { basedOn: string[] }>(
 ): T[] {
   if (count <= 0) return []
   const pool = scoredItems.filter((i) => !usedKeys.has(keyFn(i)))
-  const shuffled = [...pool]
+  const sortedScores = scoredItems.map((i) => i.score).sort((a, b) => a - b)
+  const median = sortedScores.length > 0 ? sortedScores[Math.floor(sortedScores.length / 2)] : 0
+  const good = pool.filter((i) => i.vote_average >= LONG_TAIL_MIN_VOTE && i.score >= median)
+  const shuffled = [...good]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
-  return shuffled.slice(0, count).map((item) => ({
+  const chosen = shuffled.slice(0, count)
+  if (chosen.length < count) {
+    const taken = new Set(chosen.map(keyFn))
+    const rest = pool
+      .filter((i) => !taken.has(keyFn(i)))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, count - chosen.length)
+    chosen.push(...rest)
+  }
+  return chosen.map((item) => ({
     ...item,
     basedOn: [...item.basedOn, 'verrassing'],
   }))

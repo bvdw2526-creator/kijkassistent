@@ -19,6 +19,7 @@ import {
   type MediaType,
 } from '@/lib/recommendationEngine'
 import { upcomingForCouple } from '@/lib/upcomingTitles'
+import { withLatinTitles } from '@/lib/titleFallback'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort: deze
 // route berekent het volledige smaakprofiel van twee mensen na elkaar/parallel (zie
@@ -56,6 +57,9 @@ const COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 6
 // cijfer, dus daar mag de overeenkomst met jullie smaak veel zwaarder wegen.
 const JOINT_FIT_WEIGHT_INTERSECTION = 0.3
 const JOINT_FIT_WEIGHT_FALLBACK = 0.75
+// Een aanvullende titel moet bij allebei redelijk passen: de zwakste van de twee verhaal-overeenkomsten (cosinus) minstens
+// zoveel. Op echte data is de mediaan van die zwakste waarde ~0,59, dus dit laat grofweg de betere helft over.
+const FALLBACK_MIN_JOINT_FIT = 0.6
 // Minimaal aantal titels per type (films/series) waar Samen naartoe aanvult met de bredere
 // zoektocht als de doorsnede te klein is.
 const MIN_ITEMS_PER_TYPE = 8
@@ -74,7 +78,10 @@ async function applyJointFit(
   items: RankedCandidate[],
   vectorA: number[],
   vectorB: number[],
-  fallbackKeys: Set<string>
+  fallbackKeys: Set<string>,
+  // Aanvullende titels (uit de bredere zoektocht) waarvan de zwakste van de twee verhaal-overeenkomsten hieronder
+  // ligt, vallen af. null = geen drempel (bv. als er geen doorsnede is en alles aanvulling is).
+  minFallbackFit: number | null = null
 ): Promise<RankedCandidate[]> {
   if (items.length === 0 || vectorA.length === 0 || vectorB.length === 0) return items
 
@@ -86,11 +93,19 @@ async function applyJointFit(
       .map((i) => ({ media_type: i.media_type, tmdb_id: i.id, text: `${i.title}. ${i.overview}` }))
   )
 
-  const fits = items.map((item) => {
+  let fits = items.map((item) => {
     const sims = similarities.get(`${item.media_type}-${item.id}`)
     if (!sims || sims.length < 2) return null
     return { a: sims[0], b: sims[1] }
   })
+  if (minFallbackFit !== null) {
+    const keep = items.map((item, i) => {
+      const fit = fits[i]
+      return !(fallbackKeys.has(`${item.media_type}-${item.id}`) && fit !== null && Math.min(fit.a, fit.b) < minFallbackFit)
+    })
+    items = items.filter((_, i) => keep[i])
+    fits = fits.filter((_, i) => keep[i])
+  }
   const jointValues = fits.map((f) => (f ? Math.min(f.a, f.b) : null))
   // Schaal binnen deze lijst: het laagste tiende deel (uitschieters) telt als 0%, de beste als
   // 100%. Zonder schaling liggen alle scores op 75-100% en maakt de weging geen verschil.
@@ -223,12 +238,19 @@ function keyByTitle(items: RankedCandidate[]): Map<string, RankedCandidate> {
   return new Map(items.map((item) => [`${item.media_type}-${item.id}`, item]))
 }
 
+// Elk profiel telt even zwaar: eerst omrekenen naar aandelen (per persoon samen 1), daarna optellen. Zonder dat wint
+// degene met de meeste beoordelingen en bepaalt die vrijwel alleen de gedeelde genres.
 function mergeGenreAffinities(a: GenreAffinity[], b: GenreAffinity[]): GenreAffinity[] {
   const map = new Map<number, GenreAffinity>()
-  for (const g of [...a, ...b]) {
-    const existing = map.get(g.id)
-    if (existing) existing.count += g.count
-    else map.set(g.id, { ...g })
+  for (const list of [a, b]) {
+    const total = list.reduce((sum, g) => sum + g.count, 0)
+    if (total <= 0) continue
+    for (const g of list) {
+      const share = g.count / total
+      const existing = map.get(g.id)
+      if (existing) existing.count += share
+      else map.set(g.id, { ...g, count: share })
+    }
   }
   return Array.from(map.values()).sort((x, y) => y.count - x.count)
 }
@@ -240,7 +262,11 @@ function mergeGenreAffinities(a: GenreAffinity[], b: GenreAffinity[]): GenreAffi
 // kan zijn.
 const COMPUTE_LOCK_SECONDS = 70
 // Zoveel doorsnede-titels (de beste eerst) controleren we op beschikbaarheid bij jullie diensten.
-const AVAILABILITY_CHECK_LIMIT = 50
+// Eerder 50: van een doorsnede van honderden titels bleven er dan vaak maar een paar films over op jullie diensten, en
+// werd er aangevuld met titels die niet bij allebei passen. De controle leest uit de gedeelde cache; hooguit
+// AVAILABILITY_LIVE_LIMIT titels gaan live naar TMDB.
+const AVAILABILITY_CHECK_LIMIT = 300
+const AVAILABILITY_LIVE_LIMIT = 150
 // Zachte tijdslimiet: ruim onder maxDuration (60s), zodat er nog tijd overblijft om het resultaat
 // op te slaan voordat Vercel de functie hard afbreekt. Duurt de berekening langer, dan slaan we
 // de resterende, duurste stappen (aanvulling, tweede beschikbaarheidscheck) over.
@@ -352,7 +378,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      `v11-dislikes-${MATCH_PERCENT_METHOD}`,
+      `v13-samen-${MATCH_PERCENT_METHOD}`,
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -513,7 +539,7 @@ export async function GET(request: NextRequest) {
       // pas daarna terug naar 2 — zonder dat er nog werd aangevuld.
       if (discoverProviderIds.length > 0) {
         const checkable = items.slice(0, AVAILABILITY_CHECK_LIMIT)
-        const watchInfo = await resolveWatchInfo(supabase, checkable, new Set(discoverProviderIds))
+        const watchInfo = await resolveWatchInfo(supabase, checkable, new Set(discoverProviderIds), { maxLive: AVAILABILITY_LIVE_LIMIT })
         items = checkable.filter((i) => watchInfo.get(titleKey(i)))
       }
       // Blijft er niets over, dan is dit feitelijk een fallback zonder echte doorsnede-matches.
@@ -543,7 +569,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verhaal-overeenkomst met beide smaakprofielen (Voyage-embeddings), zie applyJointFit.
-    items = await applyJointFit(supabase, items, tasteA.userVector, tasteB.userVector, fallbackKeys)
+    items = await applyJointFit(supabase, items, tasteA.userVector, tasteB.userVector, fallbackKeys, tier === 'intersection' ? FALLBACK_MIN_JOINT_FIT : null)
 
     // Bijsturing op basis van wat het koppel al samen goed beoordeelde: titels die qua
     // genre aansluiten bij eerdere "zeker leuk"/"was oké"-beoordelingen samen krijgen
@@ -638,6 +664,8 @@ export async function GET(request: NextRequest) {
       })
       resultItems = [...resultItems, ...upcomingSamen]
     }
+
+    resultItems = await withLatinTitles(resultItems)
 
     await cacheCoupleRecommendationsResult(supabase, connection.id, signature, tier, resultItems, match)
 
