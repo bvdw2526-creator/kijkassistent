@@ -15,6 +15,7 @@ export default function MovieCard({
   badge,
   priority,
   upcomingLabel,
+  isNew,
 }: {
   movie: MovieCardMovie
   onClick: () => void
@@ -22,6 +23,8 @@ export default function MovieCard({
   priority?: boolean
   // Titel die nog moet uitkomen: dit label (bv. "Binnenkort · 29 okt.") komt in plaats van het matchpercentage.
   upcomingLabel?: string
+  // Titel die er sinds je vorige bezoek bij is gekomen (zie lib/newTitles.ts).
+  isNew?: boolean
 }) {
   return (
     <button
@@ -56,6 +59,10 @@ export default function MovieCard({
           <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-[#E8A33D] ring-1 ring-white/10">
             {movie.matchPercent}%
           </span>
+        )}
+
+        {isNew && !badge && (
+          <span className="absolute top-2 right-2 rounded-full bg-[#52A9A0]/90 px-2 py-0.5 text-[10px] font-semibold text-[#10151C]">Nieuw</span>
         )}
 
         {badge && (

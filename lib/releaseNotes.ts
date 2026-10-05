@@ -10,6 +10,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-05',
+    date: '5 oktober 2026',
+    items: [
+      'Nieuw bij jouw series: bovenaan Voor jou zie je wanneer een serie die je leuk vindt terugkomt met een nieuw seizoen.',
+      'Titels die er sinds je vorige bezoek bij zijn gekomen, hebben nu het label Nieuw.',
+    ],
+  },
+  {
     id: '2026-10-04',
     date: '4 oktober 2026',
     items: [

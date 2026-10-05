@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
@@ -14,6 +14,8 @@ import DateNight from './components/DateNight'
 import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
+import SeriesUpdates from './components/SeriesUpdates'
+import { findNewKeys, rememberSeen } from '@/lib/newTitles'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon } from './components/Icons'
 import HideTitleConfirm from './components/HideTitleConfirm'
@@ -265,6 +267,16 @@ export default function Home() {
   // popup en landt de tweede op de knop die daar nu staat. Deze guard negeert taps op
   // de actieknoppen vlak na het openen, zodat zo'n ghost-tap niet meteen een actie triggert.
   const GHOST_TAP_GUARD_MS = 400
+
+  // "Nieuw"-label: titels in je lijsten die er sinds je vorige bezoek bij zijn gekomen (zie lib/newTitles.ts).
+  const shownKeys = useMemo(
+    () => [...byMode.focused, ...byMode.balanced, ...byMode.explore].filter((m) => !m.upcoming).map((m) => `${m.media_type}-${m.id}`),
+    [byMode.focused, byMode.balanced, byMode.explore]
+  )
+  const newKeys = useMemo(() => (user ? findNewKeys(user.id, shownKeys) : new Set<string>()), [user, shownKeys])
+  useEffect(() => {
+    if (user) rememberSeen(user.id, shownKeys)
+  }, [user, shownKeys])
 
   useEffect(() => {
     getCurrentUser().then(async (currentUser) => {
@@ -743,6 +755,7 @@ export default function Home() {
         </header>
 
         {user && <WhatsNew userId={user.id} createdAt={user.created_at} />}
+        {user && <SeriesUpdates userId={user.id} />}
 
         {DATENIGHT_ENABLED && user && <DateNight showIdle={mode === 'samen'} />}
 
@@ -988,6 +1001,7 @@ export default function Home() {
                 movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? 'Nieuwe serie' : 'In de bioscoop' } : movie}
                 upcomingLabel={movie.upcoming ? `Binnenkort · ${formatReleaseDate(movie.release_date)}` : undefined}
                 priority={i < 4}
+                isNew={mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
                   setActionError(null)
