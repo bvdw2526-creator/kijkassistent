@@ -72,10 +72,34 @@ export async function GET(request: NextRequest) {
     )
     const likedTitles = watched.filter((w) => !dislikedKeys.has(`${w.media_type}-${w.tmdb_id}`))
 
-    const detailsByKey = await getCachedDetailsBulk(
-      supabase,
-      likedTitles.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
-    )
+    // "Echt leuk" = favorieten + "zeker leuk"-beoordelingen (niet "was oké"). Alleen abonnements-aanbod (type 'sub')
+    // telt: huren/kopen zegt niets over welk abonnement je het best kunt houden.
+    const lovedMap = new Map<string, WatchedTitle>()
+    for (const f of favorites || []) lovedMap.set(`${f.media_type}-${f.tmdb_id}`, f as WatchedTitle)
+    for (const r of ratings || []) {
+      if (r.rating === 'love') lovedMap.set(`${r.media_type}-${r.tmdb_id}`, r as WatchedTitle)
+    }
+    const loved = Array.from(lovedMap.values())
+
+    // De vier opzoekingen hebben niets met elkaar te maken, dus tegelijk: ze lezen uit de cache en halen bij een koude
+    // cache live bij TMDB op, en na elkaar tellen die wachttijden op.
+    const [detailsByKey, creditsByKey, providersByKey, { data: profile }] = await Promise.all([
+      getCachedDetailsBulk(
+        supabase,
+        likedTitles.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
+      ),
+      // Favoriete acteurs/actrices in dit overzicht gaan over wie je toevallig het vaakst tegenkomt in wat je hebt gezien,
+      // dus over alles, ook "niet voor mij"-titels.
+      getCreditsBulk(
+        supabase,
+        watched.map((w) => ({ mediaType: w.media_type, tmdbId: w.tmdb_id }))
+      ),
+      getWatchProvidersBulk(
+        supabase,
+        loved.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
+      ),
+      supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
+    ])
     const genreCounts = new Map<string, number>()
     for (const t of likedTitles) {
       const details = detailsByKey.get(t.media_type + '-' + t.tmdb_id)
@@ -89,13 +113,6 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
 
-    // Favoriete acteurs/actrices in dit overzicht gaan over wie je toevallig het vaakst
-    // tegenkomt in wat je hebt gezien — dus over alles, ook "niet voor mij"-titels, niet
-    // alleen over wat je goed vond.
-    const creditsByKey = await getCreditsBulk(
-      supabase,
-      watched.map((w) => ({ mediaType: w.media_type, tmdbId: w.tmdb_id }))
-    )
     const actorCounts = new Map<string, number>()
     for (const w of watched) {
       const credits = creditsByKey.get(`${w.media_type}-${w.tmdb_id}`)
@@ -111,25 +128,6 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
 
-    // "Echt leuk" = favorieten + "zeker leuk"-beoordelingen (niet "was oké"). Alleen
-    // abonnements-aanbod (type 'sub') telt: huren/kopen zegt niets over welk abonnement
-    // je het best kunt houden.
-    const lovedMap = new Map<string, WatchedTitle>()
-    for (const f of favorites || []) lovedMap.set(`${f.media_type}-${f.tmdb_id}`, f as WatchedTitle)
-    for (const r of ratings || []) {
-      if (r.rating === 'love') lovedMap.set(`${r.media_type}-${r.tmdb_id}`, r as WatchedTitle)
-    }
-    const loved = Array.from(lovedMap.values())
-
-    const providersByKey = await getWatchProvidersBulk(
-      supabase,
-      loved.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
-    )
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('streaming_services')
-      .eq('id', user.id)
-      .single()
     const ownedServices = new Set<string>(profile?.streaming_services || [])
 
     // Huuraanbieders (Pathé Thuis) tellen we niet mee: die zeggen niets over welk abonnement je

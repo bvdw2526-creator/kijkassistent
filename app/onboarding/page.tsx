@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import PeopleFavorites from '../components/PeopleFavorites'
@@ -354,6 +355,17 @@ export default function Onboarding() {
         <p className="text-[#93A3B5] mb-5 leading-relaxed">
           Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
         </p>
+
+        <Link
+          href="/top-100"
+          className={`${card} flex items-center justify-between gap-3 px-4 py-3 mb-5 hover:border-[#3d4c60] transition-colors`}
+        >
+          <span>
+            <span className="block text-sm font-medium">De beste films en series</span>
+            <span className="block text-xs text-[#93A3B5] mt-0.5">Top 100, ook per streamingdienst</span>
+          </span>
+          <span aria-hidden className="text-[#93A3B5] text-lg">›</span>
+        </Link>
 
         <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-6">
           {SEGMENTS.map((s) => (

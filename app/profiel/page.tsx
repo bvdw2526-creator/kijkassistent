@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { supabase, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card } from '../components/ui'
 import { HeartIcon, OkIcon, DislikeIcon, UsersIcon } from '../components/Icons'
@@ -31,6 +31,8 @@ export default function Profiel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
+  // Hoeveel van de Top 100 je gezien hebt; mislukt dit, dan blijft het blok gewoon weg.
+  const [topProgress, setTopProgress] = useState<{ films: { seen: number; total: number }; series: { seen: number; total: number } } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -39,23 +41,71 @@ export default function Profiel() {
         setLoading(false)
         return
       }
+      // De laatst bekende cijfers staan meteen op het scherm; de nieuwe volgen zodra de server klaar is.
+      const cacheKey = `kijkassistent:stats:${session.user.id}`
+      let hadCache = false
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) {
+          setStats(JSON.parse(cached))
+          setLoading(false)
+          hadCache = true
+        }
+      } catch {
+        // Geen opslag of een kapotte kopie: dan wachten we gewoon op de server.
+      }
       try {
         const res = await fetch('/api/profile-stats', {
           headers: { Authorization: `Bearer ${session.access_token}` },
         })
         const data = await res.json()
         if (!res.ok || data.error) {
-          setError(data.error || `Onbekende fout (status ${res.status})`)
+          if (!hadCache) setError(data.error || `Onbekende fout (status ${res.status})`)
           setLoading(false)
           return
         }
         setStats(data)
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data))
+        } catch {
+          // Opslaan lukt niet: volgende keer opnieuw laden.
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van je kijkprofiel')
+        if (!hadCache) setError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van je kijkprofiel')
       }
       setLoading(false)
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session || cancelled) return
+      // Ook hier de laatst bekende cijfers meteen tonen.
+      const cacheKey = `kijkassistent:topprogress:${session.user.id}`
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) setTopProgress(JSON.parse(cached))
+      } catch {
+        // Niets bewaard: dan wachten we op de server.
+      }
+      authFetch('/api/top-progress')
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled || !data.films || !data.series) return
+          setTopProgress(data)
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(data))
+          } catch {
+            // Opslaan lukt niet: volgende keer opnieuw laden.
+          }
+        })
+        .catch(() => {})
+    })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const maxGenreCount = stats?.topGenres[0]?.count ?? 0
@@ -92,6 +142,32 @@ export default function Profiel() {
                 {stats.movieCount} {stats.movieCount === 1 ? 'film' : 'films'} · {stats.tvCount} {stats.tvCount === 1 ? 'serie' : 'series'}
               </p>
             </div>
+
+            {/* Voortgang van de Top 100 */}
+            {topProgress && topProgress.films.total > 0 && (
+              <div className={`${card} p-5`}>
+                <p className="text-sm font-medium mb-1">Top 100 gezien</p>
+                <p className="text-xs text-[#5E6D80] mb-4">De best beoordeelde titels, zie ook per streamingdienst</p>
+                <div className="flex flex-col gap-3">
+                  {[
+                    { label: 'Films', href: '/top-100/films', ...topProgress.films },
+                    { label: 'Series', href: '/top-100/series', ...topProgress.series },
+                  ].map(({ label, href, seen, total }) => (
+                    <Link key={label} href={href} className="block group">
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="text-sm">{label}</span>
+                        <span className="text-sm text-[#93A3B5] group-hover:text-[#F2EFE9] transition-colors">
+                          {seen} van {total}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-[#212C3B] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#E8A33D] transition-all" style={{ width: `${total > 0 ? (seen / total) * 100 : 0}%` }} />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Beoordelingsverdeling */}
             <div className={`${card} p-5`}>
