@@ -10,6 +10,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-06',
+    date: '6 oktober 2026',
+    items: ['De aanbevelingen leren nu meer van jouw eigen smaak: hoe meer je beoordeelt en toevoegt, hoe beter ze bij jou passen. Dit geldt ook bij Samen.'],
+  },
+  {
     id: '2026-10-05b',
     date: '5 oktober 2026',
     items: ['De aanbevelingen bij Samen zijn verbeterd: films en series die jullie allebei leuk vinden worden nu beter herkend.'],

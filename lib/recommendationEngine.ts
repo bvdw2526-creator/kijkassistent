@@ -68,6 +68,10 @@ interface ScoredCandidate extends TmdbItem {
   embeddingBonus: number
   actorScore: number
   directorScore: number
+  // Verhaal-overeenkomst met de dichtstbijzijnde titels die je leuk vond: de som van hoeveel ze boven NEIGHBOR_BASE_SIM
+  // liggen, en de hoogste losse overeenkomst. 0 als er niet naar gekeken is.
+  neighborScore: number
+  neighborMax: number
   // Straf door "niet voor mij" (zie MAX_DISLIKE_SOURCES) en het aantal afgekeurde titels waar deze kandidaat op lijkt.
   dislikeScore: number
   dislikeHits: number
@@ -85,6 +89,8 @@ export interface RankedCandidate extends TmdbItem {
   embeddingBonus: number
   actorScore: number
   directorScore: number
+  neighborScore?: number
+  neighborMax?: number
   dislikeScore?: number
   dislikeHits?: number
 }
@@ -204,6 +210,25 @@ const NEIGHBOR_WEIGHT = 10
 // Hoeveel van de best scorende kandidaten we op buren controleren (de rest staat toch te laag om te tonen).
 const MAX_NEIGHBOR_CANDIDATES = 600
 const NEIGHBOR_CHUNK = 250
+
+// "Leert van jou": hoe meer smaakbronnen iemand heeft (favorieten en "zeker leuk" tellen 1, "was oké" 0,5), hoe meer de eigen
+// smaak telt en hoe minder wat andere kijkers samen kijken (TMDB's "kijkers vonden ook leuk", dat op populariteit leunt).
+// Bij LEARN_START_SOURCES of minder is er niets anders om op te leunen en geldt alles zoals het was; bij LEARN_FULL_SOURCES
+// of meer zijn de gewichten volledig verschoven.
+const LEARN_START_SOURCES = 5
+const LEARN_FULL_SOURCES = 40
+// Zoveel wordt het gewicht van wat andere kijkers deden (kijkerslijsten en populair-in-je-genres) bij volledig leren lager.
+const COLLAB_MAX_REDUCTION = 0.5
+// Zoveel extra gewicht krijgt de gemiddelde verhaal-overeenkomst bij volledig leren (boven EMBEDDING_BONUS_WEIGHT).
+const EMBEDDING_EXTRA_AT_FULL = 4
+// Gewicht van de verhaal-overeenkomst met de dichtstbijzijnde titels die je leuk vond, per titel (zie neighborScore).
+const NEIGHBOR_LIKE_WEIGHT = 8
+// Puur mijn smaak: vanaf zoveel "leren" moet een titel ook echt lijken op iets wat je leuk vond (verhaal-overeenkomst van
+// minstens FOCUSED_MIN_NEIGHBOR_SIM met een van je favorieten), of horen bij een reeks/acteur/regisseur die je zelf koos.
+// Blijven er daardoor minder dan FOCUSED_GATE_MIN_POOL titels over, dan laten we de eis vallen.
+const FOCUSED_GATE_MIN_LEARN = 0.5
+const FOCUSED_MIN_NEIGHBOR_SIM = 0.6
+const FOCUSED_GATE_MIN_POOL = 25
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
 // gebruiker die acteur/actrice nog herkent, en het houdt de gecachete payload klein.
 const CAST_TOP_N = 10
@@ -1373,6 +1398,15 @@ export async function computeTasteProfile(
   // daar dus nooit in mee, alleen in de directe titel-aanbevelingen (okScore) hierboven.
   const coreSources = profileSources.filter((s) => s.tier === 'core')
 
+  // Hoeveel de app van jou geleerd heeft (0 = net begonnen, 1 = genoeg om vooral op jouw eigen smaak te rekenen).
+  const learn = Math.min(
+    1,
+    Math.max(0, (coreSources.length + 0.5 * okItems.length - LEARN_START_SOURCES) / (LEARN_FULL_SOURCES - LEARN_START_SOURCES))
+  )
+  const collabFactor = 1 - COLLAB_MAX_REDUCTION * learn
+  const embeddingWeight = EMBEDDING_BONUS_WEIGHT + EMBEDDING_EXTRA_AT_FULL * learn
+  const neighborLikeWeight = NEIGHBOR_LIKE_WEIGHT * learn
+
   const [detailsBundle, recommendationPagesByKey] = await Promise.all([
     getCachedDetailsBulk(
       supabase,
@@ -1480,6 +1514,8 @@ export async function computeTasteProfile(
         embeddingBonus: 0,
         actorScore: 0,
         directorScore: 0,
+        neighborScore: 0,
+        neighborMax: 0,
         dislikeScore: 0,
         dislikeHits: 0,
         basedOn: new Set<string>(),
@@ -1639,7 +1675,7 @@ export async function computeTasteProfile(
 
   // Verhaal-buren: lijkt het verhaal van een kandidaat sterk op specifieke afgekeurde titels (en minder op favorieten),
   // dan komt daar een extra straf bij. Vervolgdelen van iets wat je leuk vond blijven buiten schot, net als hierboven.
-  if (userVector.length > 0 && dislikedItems.length > 0) {
+  if (userVector.length > 0 && (dislikedItems.length > 0 || learn > 0)) {
     const dislikedWithText = dislikeDetails.filter((d) => d.overview)
     await ensureEmbeddingsExist(
       supabase,
@@ -1650,7 +1686,7 @@ export async function computeTasteProfile(
       ...dislikedWithText.map((d) => ({ media_type: d.media_type, tmdb_id: d.tmdb_id, verdict: 'dislike' as const })),
     ]
     const preScore = (c: ScoredCandidate) =>
-      c.coreScore + c.okScore + c.discoverScore + c.collectionScore + c.embeddingBonus * EMBEDDING_BONUS_WEIGHT + c.actorScore + c.directorScore - c.dislikeScore
+      (c.coreScore + c.okScore + c.discoverScore) * collabFactor + c.collectionScore + c.embeddingBonus * embeddingWeight + c.actorScore + c.directorScore - c.dislikeScore
     const pool = candidates
       .filter((c) => c.overview && !collectionKeys.has(`${c.media_type}-${c.id}`))
       .sort((a, b) => preScore(b) - preScore(a))
@@ -1665,11 +1701,17 @@ export async function computeTasteProfile(
       if (!neighbors) continue
       let dislikeSim = 0
       let likeSim = 0
+      let likeMax = 0
       for (const n of neighbors) {
         const closeness = Math.max(0, n.s - NEIGHBOR_BASE_SIM)
         if (n.v === 'dislike') dislikeSim += closeness
-        else likeSim += closeness
+        else {
+          likeSim += closeness
+          likeMax = Math.max(likeMax, n.s)
+        }
       }
+      candidate.neighborScore = likeSim
+      candidate.neighborMax = likeMax
       const extra = Math.max(0, dislikeSim - DISLIKE_VS_POSITIVE * likeSim) * NEIGHBOR_WEIGHT
       if (extra > 0) candidate.dislikeScore = Math.min(DISLIKE_PENALTY_CAP, candidate.dislikeScore + extra)
     }
@@ -1720,14 +1762,23 @@ export async function computeTasteProfile(
     const availableCandidates = candidates.filter(
       (item) => !excludeKeys.has(`${item.media_type}-${item.id}`) && (!watchableKeys || watchableKeys.has(`${item.media_type}-${item.id}`))
     )
+    // Puur mijn smaak: alleen titels die ook echt lijken op iets wat je leuk vond (zie FOCUSED_MIN_NEIGHBOR_SIM).
+    let selectable = availableCandidates
+    if (mode === 'focused' && learn >= FOCUSED_GATE_MIN_LEARN) {
+      const supported = availableCandidates.filter(
+        (i) => i.neighborMax >= FOCUSED_MIN_NEIGHBOR_SIM || i.collectionScore > 0 || i.actorScore > 0 || i.directorScore > 0
+      )
+      if (supported.length >= FOCUSED_GATE_MIN_POOL) selectable = supported
+    }
 
-    return availableCandidates.map((item) => {
+    return selectable.map((item) => {
       const rawScore =
-        item.coreScore +
-        (modeConfig.includeOkAsSource ? item.okScore : 0) +
-        item.discoverScore * modeConfig.discoverWeight +
+        item.coreScore * collabFactor +
+        (modeConfig.includeOkAsSource ? item.okScore * collabFactor : 0) +
+        item.discoverScore * modeConfig.discoverWeight * collabFactor +
         item.collectionScore +
-        item.embeddingBonus * EMBEDDING_BONUS_WEIGHT +
+        item.embeddingBonus * embeddingWeight +
+        item.neighborScore * neighborLikeWeight +
         item.actorScore +
         item.directorScore -
         item.dislikeScore
@@ -1827,7 +1878,14 @@ export async function computeTasteProfile(
   // Eén vaste maatstaf voor alle tabbladen (zie MATCH_PERCENT_METHOD): hoeveel bewijs er voor deze titel is,
   // zonder de tabblad-specifieke weging (geen "oké"-bronnen, discover telt zoals bij "Puur mijn smaak").
   const referenceScore = (c: RankedCandidate) =>
-    c.coreScore + c.collectionScore + c.embeddingBonus * EMBEDDING_BONUS_WEIGHT + c.actorScore + c.directorScore - (c.dislikeScore ?? 0) + c.discoverScore * MODE_CONFIG.focused.discoverWeight
+    c.coreScore * collabFactor +
+    c.collectionScore +
+    c.embeddingBonus * embeddingWeight +
+    (c.neighborScore ?? 0) * neighborLikeWeight +
+    c.actorScore +
+    c.directorScore -
+    (c.dislikeScore ?? 0) +
+    c.discoverScore * MODE_CONFIG.focused.discoverWeight * collabFactor
   const sortedReference = scoredPool.map(referenceScore).sort((a, b) => a - b)
   const percentileOf = (value: number) => {
     if (sortedReference.length < 2) return 0
