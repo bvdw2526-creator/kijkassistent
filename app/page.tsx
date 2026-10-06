@@ -1031,6 +1031,19 @@ export default function Home() {
             </div>
 
             <div className="p-6">
+              <div className={`grid gap-2 mb-4 ${mode === 'samen' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                {mode !== 'samen' && (
+                  <button onClick={() => setHideTarget(selected)} className={btnGhost}>
+                    <EyeOffIcon className="w-4 h-4" />
+                    Verbergen
+                  </button>
+                )}
+                <button onClick={() => setSelected(null)} className={btnGhost}>
+                  <CloseIcon className="w-4 h-4" />
+                  Sluiten
+                </button>
+              </div>
+
               <div className="flex gap-4 mb-4">
                 {selected.poster_path ? (
                   <div className="relative w-24 aspect-[2/3] rounded-xl flex-shrink-0 shadow-lg overflow-hidden">
@@ -1079,10 +1092,21 @@ export default function Home() {
                       {selected.watchOn}
                     </span>
                   )}
+                  {soundtrackTitles.has(`${selected.media_type}-${selected.id}`) && (
+                    <a
+                      href={spotifySoundtrackUrl(selected.title)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#93A3B5] hover:text-[#F2EFE9] transition-colors touch-manipulation"
+                    >
+                      <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
+                      Soundtrack op Spotify
+                    </a>
+                  )}
                 </div>
               </div>
 
-              <TrailerLink mediaType={selected.media_type} id={selected.id} />
+              <TrailerLink mediaType={selected.media_type} id={selected.id} size="base" />
 
               {selected.overview && (
                 <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-4">{selected.overview}</p>
@@ -1149,18 +1173,6 @@ export default function Home() {
               </div>
               )}
 
-              {soundtrackTitles.has(`${selected.media_type}-${selected.id}`) && (
-                <a
-                  href={spotifySoundtrackUrl(selected.title)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${btnGhost} w-full mt-2`}
-                >
-                  <MusicNoteIcon className="w-4 h-4" />
-                  Soundtrack op Spotify
-                </a>
-              )}
-
               {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (
                 <a
                   href={wikipediaSearchUrl(selected.title)}
@@ -1172,19 +1184,6 @@ export default function Home() {
                   Het echte verhaal op Wikipedia
                 </a>
               )}
-
-              <div className={`grid gap-2 mt-3 ${mode === 'samen' ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                {mode !== 'samen' && (
-                  <button onClick={() => setHideTarget(selected)} className={btnGhost}>
-                    <EyeOffIcon className="w-4 h-4" />
-                    Verbergen
-                  </button>
-                )}
-                <button onClick={() => setSelected(null)} className={btnGhost}>
-                  <CloseIcon className="w-4 h-4" />
-                  Sluiten
-                </button>
-              </div>
             </div>
           </div>
         </div>
