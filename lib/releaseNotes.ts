@@ -12,7 +12,7 @@ export const RELEASES: Release[] = [
   {
     id: '2026-10-06',
     date: '6 oktober 2026',
-    items: ['De aanbevelingen leren nu meer van jouw eigen smaak: hoe meer je beoordeelt en toevoegt, hoe beter ze bij jou passen. Dit geldt ook bij Samen.'],
+    items: ['Het aanbevelingsalgoritme is aangepast en sluit nu beter aan bij wat jij kijkt.'],
   },
   {
     id: '2026-10-05b',
