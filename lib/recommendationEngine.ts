@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getFeaturesBulk, buildFeatureTaste, scoreTitleFeatures } from './titleFeatures'
 
 export type MediaType = 'movie' | 'tv'
 export type Tier = 'core' | 'ok'
@@ -72,6 +73,9 @@ interface ScoredCandidate extends TmdbItem {
   // liggen, en de hoogste losse overeenkomst. 0 als er niet naar gekeken is.
   neighborScore: number
   neighborMax: number
+  // Hoe goed trefwoorden, regisseur, tijdperk en taal bij je smaak passen (zie lib/titleFeatures.ts), en de korte redenen.
+  featureScore: number
+  contentLabels: string[]
   // Straf door "niet voor mij" (zie MAX_DISLIKE_SOURCES) en het aantal afgekeurde titels waar deze kandidaat op lijkt.
   dislikeScore: number
   dislikeHits: number
@@ -91,6 +95,7 @@ export interface RankedCandidate extends TmdbItem {
   directorScore: number
   neighborScore?: number
   neighborMax?: number
+  featureScore?: number
   dislikeScore?: number
   dislikeHits?: number
 }
@@ -227,6 +232,12 @@ const NEIGHBOR_LIKE_WEIGHT = 8
 // minstens FOCUSED_MIN_NEIGHBOR_SIM met een van je favorieten), of horen bij een reeks/acteur/regisseur die je zelf koos.
 // Blijven er daardoor minder dan FOCUSED_GATE_MIN_POOL titels over, dan laten we de eis vallen.
 const FOCUSED_GATE_MIN_LEARN = 0.5
+// Kenmerken van de titels zelf (trefwoorden, regisseur, tijdperk, taal; zie lib/titleFeatures.ts). Zoveel kandidaten (de
+// best scorende) krijgen een kenmerkenscore, en per berekening halen we hooguit zoveel titels live bij TMDB op (de rest
+// komt uit de gedeelde cache en wordt bij een volgende berekening aangevuld).
+const MAX_FEATURE_CANDIDATES = 500
+const FEATURE_LIVE_SOURCES = 80
+const FEATURE_LIVE_CANDIDATES = 120
 const FOCUSED_MIN_NEIGHBOR_SIM = 0.6
 const FOCUSED_GATE_MIN_POOL = 25
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
@@ -1516,6 +1527,8 @@ export async function computeTasteProfile(
         directorScore: 0,
         neighborScore: 0,
         neighborMax: 0,
+        featureScore: 0,
+        contentLabels: [],
         dislikeScore: 0,
         dislikeHits: 0,
         basedOn: new Set<string>(),
@@ -1717,6 +1730,36 @@ export async function computeTasteProfile(
     }
   }
 
+  // Kenmerken van de films zelf: trefwoorden/thema's, regisseur, tijdperk en taal van wat je leuk vond tegenover die van
+  // elke kandidaat. Alleen als de app al iets van je geleerd heeft; bij een kale start zijn er te weinig titels om uit te
+  // leren, en bespaart dit TMDB-aanvragen.
+  if (learn > 0) {
+    const featurePre = (c: ScoredCandidate) =>
+      (c.coreScore + c.okScore + c.discoverScore) * collabFactor + c.collectionScore + c.embeddingBonus * embeddingWeight + c.neighborScore * neighborLikeWeight - c.dislikeScore
+    const featurePool = [...candidates].sort((a, b) => featurePre(b) - featurePre(a)).slice(0, MAX_FEATURE_CANDIDATES)
+    const [sourceFeatures, poolFeatures] = await Promise.all([
+      getFeaturesBulk(supabase, coreSources, { maxLive: FEATURE_LIVE_SOURCES }),
+      getFeaturesBulk(
+        supabase,
+        featurePool.map((c) => ({ media_type: c.media_type, tmdb_id: c.id })),
+        { maxLive: FEATURE_LIVE_CANDIDATES }
+      ),
+    ])
+    const sourcesWithFeatures = coreSources
+      .map((s) => ({ features: sourceFeatures.get(`${s.media_type}-${s.tmdb_id}`), weight: s.weight }))
+      .filter((s): s is { features: NonNullable<typeof s.features>; weight: number } => !!s.features)
+    if (sourcesWithFeatures.length >= 3) {
+      const featureTaste = buildFeatureTaste(sourcesWithFeatures, [...sourceFeatures.values(), ...poolFeatures.values()])
+      for (const candidate of featurePool) {
+        const features = poolFeatures.get(`${candidate.media_type}-${candidate.id}`)
+        if (!features) continue
+        const { score, labels } = scoreTitleFeatures(featureTaste, features)
+        candidate.featureScore = score
+        candidate.contentLabels = labels
+      }
+    }
+  }
+
   // Alleen cast/regisseurs opzoeken als er favoriete acteurs/actrices en/of favoriete
   // regisseurs zijn ingesteld — anders kost dit gebruikers zonder die voorkeuren extra
   // TMDB-calls voor niets. Let op: dit kan alleen kandidaten die al via een ander
@@ -1779,6 +1822,7 @@ export async function computeTasteProfile(
         item.collectionScore +
         item.embeddingBonus * embeddingWeight +
         item.neighborScore * neighborLikeWeight +
+        item.featureScore * learn +
         item.actorScore +
         item.directorScore -
         item.dislikeScore
@@ -1789,7 +1833,8 @@ export async function computeTasteProfile(
         // we welke titels daadwerkelijk in dit tabblad belanden, dus wordt dit verderop
         // (zie addMatchPercent) herberekend t.o.v. de sterkste match in die uiteindelijke lijst.
         matchPercent: 0,
-        basedOn: Array.from(item.basedOn).slice(0, 3),
+        // Eén reden uit de kenmerken (regisseur of thema) staat voorop, daarna de titels waar je van hield.
+        basedOn: [...item.contentLabels.slice(0, 1), ...Array.from(item.basedOn)].slice(0, 3),
       }
     })
   }
@@ -1882,6 +1927,7 @@ export async function computeTasteProfile(
     c.collectionScore +
     c.embeddingBonus * embeddingWeight +
     (c.neighborScore ?? 0) * neighborLikeWeight +
+    (c.featureScore ?? 0) * learn +
     c.actorScore +
     c.directorScore -
     (c.dislikeScore ?? 0) +

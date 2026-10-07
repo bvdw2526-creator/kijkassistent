@@ -378,7 +378,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      `v14-leren-${MATCH_PERCENT_METHOD}`,
+      `v15-kenmerken-${MATCH_PERCENT_METHOD}`,
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),

@@ -19,6 +19,21 @@ Naarmate `learn` stijgt:
   `FOCUSED_MIN_NEIGHBOR_SIM` met een favoriet) of horen bij een reeks, acteur of regisseur die je zelf koos. Blijven er te
   weinig titels over (`FOCUSED_GATE_MIN_POOL`), dan vervalt die eis.
 
+## Kenmerken van de films zelf
+
+Naast het verhaal leert de app van wat een titel *is*, in `lib/titleFeatures.ts`:
+- **Trefwoorden/thema's** van TMDB (bv. dystopie, stripverhalen): hoe vaak ze voorkomen bij wat je leuk vond, gewogen naar
+  hoe onderscheidend ze zijn (een trefwoord dat bijna elke titel heeft, zegt weinig). Productietrefwoorden zoals "sequel" en
+  "aftercreditsstinger" tellen niet mee.
+- **Regisseur** (bij series de bedenker): van wie je twee "zeker leuk" hebt, telt volledig.
+- **Tijdperk** (decennium) en **oorspronkelijke taal**: klein gewicht.
+
+De score (maximaal `FEATURE_SCORE_CAP`) wordt vermenigvuldigd met `learn`, dus bij een kale start doet dit niets en worden er ook
+geen extra TMDB-aanvragen gedaan. De kenmerken staan in de gedeelde cache `tmdb_features_cache` (30 dagen). Per berekening
+worden hooguit 80 bronnen en 120 kandidaten live opgehaald (`FEATURE_LIVE_SOURCES` en `FEATURE_LIVE_CANDIDATES`, met 12 seconden als
+limiet); de rest komt uit de cache en wordt bij een volgende berekening aangevuld. Bij een titel staat soms als eerste reden
+de regisseur of het thema.
+
 ## Terugzetten naar het oude gedrag
 
 Zet in `lib/recommendationEngine.ts` deze constanten op:
@@ -30,7 +45,9 @@ const NEIGHBOR_LIKE_WEIGHT = 0
 const FOCUSED_GATE_MIN_LEARN = 2   // de poort gaat dan nooit aan
 ```
 
-Verhoog daarna het voorvoegsel van de opgeslagen lijsten (`u6` in `app/api/recommendations/route.ts` en `v14` in
+Voor alleen de kenmerken (trefwoorden, regisseur, tijdperk, taal): zet `FEATURE_SCORE_CAP` in `lib/titleFeatures.ts` op 0.
+
+Verhoog daarna het voorvoegsel van de opgeslagen lijsten (`u7` in `app/api/recommendations/route.ts` en `v15` in
 `app/api/recommendations-together/route.ts`), zodat alles opnieuw wordt berekend.
 
 ## Gemeten
