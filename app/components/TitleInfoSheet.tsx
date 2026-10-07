@@ -89,6 +89,11 @@ export default function TitleInfoSheet({
         </div>
 
         <div className="p-6">
+          <button onClick={onClose} className={`${btnGhost} w-full mb-4`}>
+            <CloseIcon className="w-4 h-4" />
+            Sluiten
+          </button>
+
           <div className="flex gap-4 mb-4">
             {poster ? (
               <div className="relative w-24 aspect-[2/3] rounded-xl flex-shrink-0 shadow-lg overflow-hidden">
@@ -126,8 +131,21 @@ export default function TitleInfoSheet({
                   </span>
                 )}
               </div>
+              {hasSoundtrack && (
+                <a
+                  href={spotifySoundtrackUrl(item.title)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#93A3B5] hover:text-[#F2EFE9] transition-colors touch-manipulation"
+                >
+                  <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
+                  Soundtrack op Spotify
+                </a>
+              )}
             </div>
           </div>
+
+          <TrailerLink mediaType={item.media_type} id={item.id} size="base" />
 
           {!info && !failed && <div className="h-16 rounded-xl bg-[#212C3B] animate-skeleton mb-4" />}
           {failed && <p className="text-sm text-[#93A3B5] mb-4">Kon de details niet laden.</p>}
@@ -156,21 +174,7 @@ export default function TitleInfoSheet({
             </div>
           )}
 
-          <TrailerLink mediaType={item.media_type} id={item.id} />
-
           {typeof children === 'function' ? children(info) : children}
-
-          {hasSoundtrack && (
-            <a
-              href={spotifySoundtrackUrl(item.title)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${btnGhost} w-full mt-2`}
-            >
-              <MusicNoteIcon className="w-4 h-4" />
-              Soundtrack op Spotify
-            </a>
-          )}
 
           {info?.isTrueStory && (
             <a
@@ -183,11 +187,6 @@ export default function TitleInfoSheet({
               Het echte verhaal op Wikipedia
             </a>
           )}
-
-          <button onClick={onClose} className={`${btnGhost} w-full mt-3`}>
-            <CloseIcon className="w-4 h-4" />
-            Sluiten
-          </button>
         </div>
       </div>
     </div>
