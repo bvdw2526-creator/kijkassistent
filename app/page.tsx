@@ -40,6 +40,18 @@ type Movie = {
   // Titel die nog moet uitkomen: staat tussen de aanbevelingen met een "Binnenkort"-label.
   upcoming?: boolean
   release_date?: string
+  // Onderdelen van de score, zoals de server ze meestuurt; alleen gebruikt om bij een beoordeling vast te leggen waarom de titel
+  // werd aanbevolen (zie sourceInfoFor).
+  coreScore?: number
+  okScore?: number
+  discoverScore?: number
+  collectionScore?: number
+  embeddingBonus?: number
+  neighborScore?: number
+  featureScore?: number
+  actorScore?: number
+  directorScore?: number
+  dislikeScore?: number
 }
 
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
@@ -106,6 +118,30 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
 // (zie loadCachedRecommendations) kan nog titels bevatten die je intussen hebt afgehandeld, bv. via Zoeken of de kijklijst,
 // of vlak voordat je de pagina ververste: die halen we er direct uit, in plaats van te wachten tot de server klaar is
 // met herberekenen (dat kan even duren).
+// Wat we bij een beoordeling vanaf Voor jou bewaren: in welk tabblad de titel stond, het percentage, de redenen en de scores,
+// zodat we achteraf kunnen uitleggen waarom hij werd aanbevolen (bv. bij "niet voor mij" in Puur mijn smaak). Zie de kolom
+// ratings.source_info.
+function sourceInfoFor(movie: Movie, mode: RecommendationMode) {
+  const round = (n: number | undefined) => (typeof n === 'number' ? Math.round(n * 100) / 100 : 0)
+  return {
+    mode,
+    match: movie.matchPercent,
+    basedOn: movie.basedOn ?? [],
+    scores: {
+      core: round(movie.coreScore),
+      ok: round(movie.okScore),
+      discover: round(movie.discoverScore),
+      collection: round(movie.collectionScore),
+      embedding: round(movie.embeddingBonus),
+      neighbor: round(movie.neighborScore),
+      feature: round(movie.featureScore),
+      actor: round(movie.actorScore),
+      director: round(movie.directorScore),
+      dislike: round(movie.dislikeScore),
+    },
+  }
+}
+
 async function fetchKnownKeys(userId: string): Promise<Set<string>> {
   try {
     const [favorites, ratings, watchlist, hidden] = await Promise.all([
@@ -641,6 +677,7 @@ export default function Home() {
         title: movie.title,
         rating,
         media_type: movie.media_type,
+        source_info: sourceInfoFor(movie, mode),
       },
       { onConflict: 'user_id,tmdb_id,media_type' }
     )

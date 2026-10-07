@@ -9,7 +9,7 @@ export default function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 26 september 2026</p>
+      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 7 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -24,6 +24,10 @@ export default function Privacy() {
           <li>Je e-mailadres en wachtwoord (het wachtwoord wordt versleuteld opgeslagen en is voor ons niet leesbaar).</li>
           <li>Je streamingdiensten en de genres die je hebt uitgesloten.</li>
           <li>Je favoriete films, series, acteurs en regisseurs, je beoordelingen en je kijklijst.</li>
+          <li>
+            Bij een beoordeling vanaf het tabblad &quot;Voor jou&quot; bewaren we ook in welk tabblad je de titel zag en waarom hij
+            werd aanbevolen. Zo kunnen we de aanbevelingen verbeteren. Dit zien alleen wij, zonder je naam of e-mailadres.
+          </li>
           <li>
             Als je een partner koppelt: de koppeling zelf (jouw partner ziet jouw e-mailadres in de uitnodiging) en de
             gezamenlijke beoordelingen voor &quot;Samen&quot;.
