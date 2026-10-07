@@ -973,7 +973,9 @@ export async function getEmbeddingsForItems(
       .filter((u) => u.embedding && u.embedding.length > 0)
 
     if (upserts.length > 0) {
-      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      // Bestaande titels overslaan (ON CONFLICT DO NOTHING): de tabel staat alleen toevoegen toe, en een titel die al bestaat
+      // (bv. door twee berekeningen tegelijk) liet anders het hele groepje met een 403 mislukken.
+      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
     }
     upserts.forEach((u) => result.set(`${u.media_type}-${u.tmdb_id}`, u.embedding))
   }
@@ -1017,7 +1019,7 @@ async function ensureEmbeddingsExist(
       .map((item, i) => ({ media_type: item.media_type, tmdb_id: item.tmdb_id, embedding: vectors[i] }))
       .filter((u) => u.embedding && u.embedding.length > 0)
     if (upserts.length > 0) {
-      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
       upserts.forEach((u) => available.add(`${u.media_type}-${u.tmdb_id}`))
     }
   }
