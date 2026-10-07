@@ -41,6 +41,8 @@ export default function Onboarding() {
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]['id']>('titels')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
+  // Uitleg bij de resultaten als het geen gewone treffers zijn ("Bedoelde je misschien…").
+  const [searchNote, setSearchNote] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<Movie[]>([])
   const [ratedMovies, setRatedMovies] = useState<RatedMovie[]>([])
   const [loading, setLoading] = useState(false)
@@ -232,6 +234,7 @@ export default function Onboarding() {
     const data = await res.json()
     if (!res.ok) setRatingError(data.error || 'Zoeken mislukt')
     setResults(data.results || [])
+    setSearchNote(data.note ?? null)
     setLoading(false)
   }
 
@@ -474,6 +477,8 @@ export default function Onboarding() {
             )}
           </div>
         )}
+
+        {segment === 'titels' && searchNote && <p className="text-sm text-[#93A3B5] mb-3">{searchNote}</p>}
 
         {(segment === 'titels' ? results : visibleBooks).length > 0 && (
           <div className="flex flex-col gap-2 mb-10">

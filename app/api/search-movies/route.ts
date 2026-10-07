@@ -1,38 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { searchTitles } from '@/lib/titleSearch'
 
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'search', LIMITS.search)
   if (!guard.ok) return guard.response
 
-  const query = request.nextUrl.searchParams.get('query')
+  const query = request.nextUrl.searchParams.get('query')?.slice(0, 200)
 
   if (!query) {
-    return NextResponse.json({ results: [] })
+    return NextResponse.json({ results: [], note: null })
   }
 
-  const response = await fetch(
-    `https://api.themoviedb.org/3/search/multi?query=${encodeURIComponent(query)}&language=nl-NL`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.TMDB_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-    }
-  )
-
-  const data = await response.json()
-
-  // Alleen films en series overhouden (multi search geeft ook acteurs/mensen terug)
-  const results = (data.results || [])
-    .filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv')
-    .map((item: any) => ({
-      id: item.id,
-      title: item.title || item.name,
-      release_date: item.release_date || item.first_air_date,
-      poster_path: item.poster_path,
-      media_type: item.media_type,
-    }))
-
-  return NextResponse.json({ results })
+  // Films en series (multi search geeft ook acteurs terug, die laten we weg); bij geen goede treffer de beste gelijkenissen,
+  // met een korte uitleg in `note`. Zie lib/titleSearch.ts.
+  const { results, note } = await searchTitles(query)
+  return NextResponse.json({ results, note })
 }

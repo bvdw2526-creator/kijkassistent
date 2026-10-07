@@ -94,6 +94,8 @@ export default function Wizard() {
   // Stap 2
   const [movieQuery, setMovieQuery] = useState('')
   const [movieResults, setMovieResults] = useState<MovieResult[]>([])
+  // Uitleg bij de resultaten als het geen gewone treffers zijn ("Bedoelde je misschien…").
+  const [movieSearchNote, setMovieSearchNote] = useState<string | null>(null)
   const [movieSearchLoading, setMovieSearchLoading] = useState(false)
   const [favorites, setFavorites] = useState<FavoriteMovie[]>([])
 
@@ -194,6 +196,7 @@ export default function Wizard() {
     const data = await res.json()
     if (!res.ok) setError(data.error || 'Zoeken mislukt')
     setMovieResults(data.results || [])
+    setMovieSearchNote(data.note ?? null)
     setMovieSearchLoading(false)
   }
 
@@ -407,6 +410,8 @@ export default function Wizard() {
             </div>
             <button onClick={handleMovieSearch} disabled={movieSearchLoading} className={btnPrimary}>Zoeken</button>
           </div>
+
+          {movieSearchNote && <p className="text-sm text-[#93A3B5] mb-3">{movieSearchNote}</p>}
 
           {movieResults.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-6">
