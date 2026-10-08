@@ -169,9 +169,15 @@ const EMBEDDING_BONUS_WEIGHT = 2
 // te zetten.
 //  - 'percentile': hoeveel procent van alle titels die we voor je overwogen minder bewijs heeft dan deze titel.
 //    Eén schaal voor alle tabbladen, dus 80% bij "Puur mijn smaak" en bij "Verras me" betekent hetzelfde.
+//  - 'strength': hoe sterk het bewijs voor deze titel is, ten opzichte van de allersterkste titels die we voor je
+//    vonden (zie MATCH_STRENGTH_TOP_QUANTILE). Een matige match krijgt daardoor ook een matig percentage, ook als hij
+//    bij de bovenste paar procent van de pool hoort.
 //  - 'relative' (de oude berekening): score gedeeld door de beste score in hetzelfde tabblad; de beste is altijd 100%.
-export type MatchPercentMethod = 'percentile' | 'relative'
-export const MATCH_PERCENT_METHOD: MatchPercentMethod = 'percentile'
+export type MatchPercentMethod = 'strength' | 'percentile' | 'relative'
+export const MATCH_PERCENT_METHOD: MatchPercentMethod = 'strength'
+// Bij 'strength' is 100% de sterkte van de titel op dit pool-quantiel (0,995 = de sterkste ~0,5%). Niet het maximum zelf,
+// zodat één uitschieter (bv. een forse collectie- of acteurbonus) niet alle anderen omlaag trekt.
+const MATCH_STRENGTH_TOP_QUANTILE = 0.995
 const COLLECTION_WEIGHT = 3
 const TMDB_CREDITS_CACHE_MAX_AGE_HOURS = 24 * 7
 // Favoriete acteurs/actrices moeten "zwaar meetellen" — hoger dan een collectie-match
@@ -1954,6 +1960,12 @@ export async function computeTasteProfile(
     }
     return Math.round((lo / (sortedReference.length - 1)) * 100)
   }
+  // 'strength': de sterkte van deze titel gedeeld door die van de allersterkste titels in de pool.
+  const strengthTop = sortedReference.length > 0
+    ? sortedReference[Math.min(sortedReference.length - 1, Math.ceil(MATCH_STRENGTH_TOP_QUANTILE * (sortedReference.length - 1)))]
+    : 0
+  const strengthOf = (value: number) =>
+    strengthTop > 0 ? Math.max(0, Math.min(100, Math.round((value / strengthTop) * 100))) : 0
 
   function addMatchPercent(items: RankedCandidate[]): RankedCandidate[] {
     if (items.length === 0) return items
@@ -1968,7 +1980,8 @@ export async function computeTasteProfile(
     // het tabblad: de hoogste percentages gaan naar de hoogste scores.
     const key = (c: RankedCandidate) => `${c.media_type}-${c.id}`
     const byScore = [...items].sort((a, b) => b.score - a.score)
-    const percents = byScore.map((c) => percentileOf(referenceScore(c))).sort((a, b) => b - a)
+    const percentOf = MATCH_PERCENT_METHOD === 'strength' ? strengthOf : percentileOf
+    const percents = byScore.map((c) => percentOf(referenceScore(c))).sort((a, b) => b - a)
     const percentByKey = new Map(byScore.map((c, i) => [key(c), percents[i]]))
     return items.map((item) => ({ ...item, matchPercent: percentByKey.get(key(item)) ?? 0 }))
   }

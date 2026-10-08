@@ -4,6 +4,21 @@ Het percentage op een kaart ("87% match") wordt berekend in `computeTasteProfile
 `lib/recommendationEngine.ts` (functie `addMatchPercent`). Welke berekening actief is, staat in de constante
 `MATCH_PERCENT_METHOD` bovenin dat bestand.
 
+## Actief: `'strength'` (sterkte van het bewijs)
+
+Reden: bij `'percentile'` zit "Puur mijn smaak" bijna helemaal op 90% of hoger (mediaan 97%), ook voor randgevallen. Het
+getal las als "dit vind je zeker leuk".
+
+- Zelfde maatstaf als bij `'percentile'` (`referenceScore`: kernscore, embedding, buren, kenmerken, acteur, regisseur, min
+  afkeer), maar het percentage is nu `maatstaf / maatstaf van de allersterkste titels in de pool * 100` (max 100).
+- "De allersterkste" is het pool-quantiel `MATCH_STRENGTH_TOP_QUANTILE` (0,995), niet het maximum zelf, zodat één
+  uitschieter de rest niet omlaag trekt.
+- Dezelfde schaal in alle tabbladen en in Samen (`allCandidates`). Een matige match krijgt een matig percentage.
+  Verwacht lagere getallen bij "Mijn smaak breder" en vooral "Verras me" dan bij `'percentile'`.
+- De volgorde binnen een tabblad blijft die van de eigen score van het tabblad.
+- Terugzetten: `MATCH_PERCENT_METHOD = 'percentile'` (of `'relative'`). De methode zit in de handtekening van de
+  opgeslagen lijsten, dus ze worden dan één keer opnieuw berekend.
+
 ## Terugzetten naar de oude berekening
 
 Zet in `lib/recommendationEngine.ts`:
