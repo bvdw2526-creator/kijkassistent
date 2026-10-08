@@ -215,6 +215,8 @@ const NEIGHBOR_WEIGHT = 10
 // Hoeveel van de best scorende kandidaten we op buren controleren (de rest staat toch te laag om te tonen).
 const MAX_NEIGHBOR_CANDIDATES = 600
 const NEIGHBOR_CHUNK = 250
+// Zoveel porties van de verhaal-vergelijking (embedding_similarities) tegelijk naar de database.
+const SIMILARITY_PARALLEL = 2
 
 // "Leert van jou": hoe meer smaakbronnen iemand heeft (favorieten en "zeker leuk" tellen 1, "was oké" 0,5), hoe meer de eigen
 // smaak telt en hoe minder wat andere kijkers samen kijken (TMDB's "kijkers vonden ook leuk", dat op populariteit leunt).
@@ -1041,21 +1043,26 @@ export async function computeEmbeddingSimilarities(
   const usable = candidates.filter((c) => available.has(`${c.media_type}-${c.tmdb_id}`))
   if (usable.length === 0) return result
 
-  await Promise.all(
-    chunked(usable, CACHE_READ_CHUNK).map(async (part) => {
-      const { data, error } = await supabase.rpc('embedding_similarities', {
-        p_vectors: queryVectors,
-        p_candidates: part.map((c) => ({ media_type: c.media_type, tmdb_id: c.tmdb_id })),
+  // Hooguit SIMILARITY_PARALLEL tegelijk: alle porties tegelijk (bij een Samen-berekening tweemaal zoveel) liet de database
+  // vollopen, met een statement timeout en geen vrije verbindingen tot gevolg.
+  const parts = chunked(usable, CACHE_READ_CHUNK)
+  for (let i = 0; i < parts.length; i += SIMILARITY_PARALLEL) {
+    await Promise.all(
+      parts.slice(i, i + SIMILARITY_PARALLEL).map(async (part) => {
+        const { data, error } = await supabase.rpc('embedding_similarities', {
+          p_vectors: queryVectors,
+          p_candidates: part.map((c) => ({ media_type: c.media_type, tmdb_id: c.tmdb_id })),
+        })
+        if (error) {
+          console.error('embedding_similarities RPC mislukt:', error)
+          return
+        }
+        for (const row of (data || []) as { media_type: MediaType; tmdb_id: number; similarities: number[] }[]) {
+          result.set(`${row.media_type}-${row.tmdb_id}`, row.similarities)
+        }
       })
-      if (error) {
-        console.error('embedding_similarities RPC mislukt:', error)
-        return
-      }
-      for (const row of (data || []) as { media_type: MediaType; tmdb_id: number; similarities: number[] }[]) {
-        result.set(`${row.media_type}-${row.tmdb_id}`, row.similarities)
-      }
-    })
-  )
+    )
+  }
   return result
 }
 
