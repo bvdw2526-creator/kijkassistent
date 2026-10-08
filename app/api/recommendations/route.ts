@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
   // De methode zit in de handtekening: wisselen van berekening maakt opgeslagen lijsten vanzelf ongeldig.
   const hiddenKeys = (inputs.hidden ?? []).map((h) => `${h.media_type}-${h.tmdb_id}`).sort()
-  const profileSignature = `u7|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',')
+  const profileSignature = `u12|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',')
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')

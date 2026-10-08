@@ -57,6 +57,7 @@ interface ProfileSource {
   media_type: MediaType
   weight: number
   tier: Tier
+  favorite: boolean
 }
 
 interface SourceDetail extends ProfileSource, TitleDetails {}
@@ -137,8 +138,11 @@ export function monetizationTypesFor(providerIds: number[]): string {
 // Waar een titel te zien is verandert niet per uur; 3 dagen houdt de gedeelde cache vrijwel altijd warm.
 const WATCH_PROVIDERS_CACHE_MAX_AGE_HOURS = 72
 // Zoveel titels per tabblad (de beste eerst) controleren we op beschikbaarheid bij de diensten van de gebruiker,
-// voordat de lijst per genre wordt samengesteld. Zie computeTasteProfile.
-const AVAILABILITY_POOL_PER_MODE = 600
+// voordat de lijst per genre wordt samengesteld. Zie computeTasteProfile. Was 600, maar ongeveer driekwart van de
+// kandidaten staat niet op iemands diensten: bij een groot profiel (8 okt 2026, ~2.600 kandidaten, waarvan ~560 te zien)
+// bleven er zo maar ~170 over, en kreeg Verras me alleen de restjes van Puur en Breder (geen enkele verrassing). De
+// beschikbaarheid staat meestal al in de cache, dus dit kost vooral wat extra lezen; live blijft begrensd hieronder.
+const AVAILABILITY_POOL_PER_MODE = 2000
 // Van die titels halen we er maximaal zoveel live bij TMDB op als ze niet (vers) in de cache staan. De rest wordt
 // alleen uit de cache gelezen; een volgende berekening vult het aan.
 const AVAILABILITY_LIVE_LIMIT = 150
@@ -164,7 +168,17 @@ const CACHE_READ_CHUNK = 200
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
+// Gewicht van de verhaal-score (embeddingBonus): hoeveel meer het verhaal van een kandidaat lijkt op wat je leuk vond dan op
+// wat je afkeurde, ten opzichte van een gemiddelde kandidaat. Tot 8 okt 2026 was dit de ruwe overeenkomst met het gemiddelde
+// van wat je leuk vond (rond 0,6-0,7 voor vrijwel alles), waardoor iedere titel zo'n 4 punten "gratis" kreeg en elke titel
+// het label "vergelijkbare verhaallijn" haalde. Gemeten (twee echte profielen, steeds één titel weglaten, samen met de
+// verhaal-buren): "zeker leuk" boven "niet voor mij" van 77,6% naar 79,4% en van 67,7% naar 67,8%.
 const EMBEDDING_BONUS_WEIGHT = 2
+// Pas vanaf zoveel afgekeurde titels (met een verhaal) telt de tegenstelling mee; daaronder alleen wat je leuk vond.
+export const STORY_DISLIKE_MIN = 3
+// Het label "vergelijkbare verhaallijn" alleen bij de titels waarvan het verhaal beter past dan bij driekwart van alle
+// overwogen titels.
+export const STORY_LABEL_QUANTILE = 0.75
 // Hoe het matchpercentage op een kaart wordt berekend. Zie docs/matchpercentage.md voor de uitleg en om terug
 // te zetten.
 //  - 'percentile': hoeveel procent van alle titels die we voor je overwogen minder bewijs heeft dan deze titel.
@@ -194,6 +208,15 @@ const DIRECTOR_MATCH_WEIGHT = 5
 // wel duidelijk hoger scoort dan eentje met 1-2 bronnen, maar niet meer lineair blijft
 // oplopen tot een score die alles overstemt.
 const CORE_SOURCE_DECAY = 0.75
+
+// Gewicht per soort smaakbron. Een favoriet is je absolute topfilm en weegt daarom het zwaarst, "zeker leuk" daarna en
+// "was oké" (alleen bij Mijn smaak breder en Verras me) het lichtst. Het gewicht telt door in de titel-aanbevelingen,
+// de genre-voorkeur, de gemiddelde smaakvector, de verhaal-buren en de kenmerken. Gemeten op echte profielen (8 okt 2026):
+// favoriet 3 in plaats van 1 voorspelt je andere beoordelingen even goed (verhaal-buren 77,0% -> 78,0%, smaakvector
+// 66,6% -> 65,6%), dus het kost niets en volgt wat een favoriet betekent.
+const FAVORITE_SOURCE_WEIGHT = 3
+const LOVE_SOURCE_WEIGHT = 2
+const OK_SOURCE_WEIGHT = 0.5
 
 // "Niet voor mij" telt mee als negatief signaal (niet alleen als "deze ene titel niet meer tonen").
 // Dezelfde TMDB-verwantschapslijsten als bij "zeker leuk", maar omgekeerd: staat een kandidaat in de
@@ -242,9 +265,10 @@ const NEIGHBOR_LIKE_WEIGHT = 8
 const FOCUSED_GATE_MIN_LEARN = 0.5
 // Kenmerken van de titels zelf (trefwoorden, regisseur, tijdperk, taal; zie lib/titleFeatures.ts). Zoveel kandidaten (de
 // best scorende) krijgen een kenmerkenscore, en per berekening halen we hooguit zoveel titels live bij TMDB op (de rest
-// komt uit de gedeelde cache en wordt bij een volgende berekening aangevuld).
+// komt uit de gedeelde cache en wordt bij een volgende berekening aangevuld). De bronnen zijn ook je afkeuringen en "oké",
+// vandaar de ruimere grens daar.
 const MAX_FEATURE_CANDIDATES = 500
-const FEATURE_LIVE_SOURCES = 80
+const FEATURE_LIVE_SOURCES = 120
 const FEATURE_LIVE_CANDIDATES = 120
 const FOCUSED_MIN_NEIGHBOR_SIM = 0.6
 const FOCUSED_GATE_MIN_POOL = 25
@@ -258,6 +282,8 @@ const DISCOVER_GENRE_LIMIT = 5
 // laat exploderen — dat is de belangrijkste oorzaak van een trage eerste keer laden.
 const ROUND_ROBIN_GENRE_LIMIT = 10
 const DISCOVER_PAGES = [1, 2]
+// Gefilterd op iemands diensten valt er niets meer af, dus mag de zoektocht iets dieper: 60 titels per soort.
+const DISCOVER_PAGES_ON_SERVICES = [1, 2, 3]
 // 2 pagina's i.p.v. 3: pagina 3 van TMDB's per-titel-aanbevelingen voegt weinig relevantie
 // toe, maar bij veel favorieten/ratings (elk 3 losse TMDB-calls) telt dat wel flink op.
 const RECOMMENDATION_PAGES = [1, 2]
@@ -265,22 +291,25 @@ const RECOMMENDATION_PAGES = [1, 2]
 export const MODES: RecommendationMode[] = ['focused', 'balanced', 'explore']
 
 // "focused" telt alleen scores op van favorieten/"echt leuk"; "OK"-getagde titels
-// tellen pas mee als aanbevelingsbron vanaf "balanced". "explore" haalt daarnaast
-// bewust een bredere discover-pool op (zie DISCOVER_GENRE_LIMIT/DISCOVER_PAGES) en
+// tellen pas mee als aanbevelingsbron vanaf "balanced". "explore" laat de bredere
+// zoektocht (populair in je genres, zie discoverByGenres) het zwaarst meetellen en
 // dempt de scores sterker, zodat de long tail niet wordt overstemd door de bekende titels.
 // De modi worden na elkaar opgebouwd (focused -> balanced -> explore) en sluiten
 // elkaars titels uit, zodat dezelfde film niet in meerdere tabbladen opduikt.
 // maxPerGenre/longTailSlots lopen op per modus, zodat "explore" ook echt breder is.
+// maxPerType: hooguit zoveel films en zoveel series in het tabblad (null = geen maximum). Verras me heeft genoeg aan 30
+// per soort, inclusief de verrassingen (longTailSlots, verdeeld over films en series).
 const MODE_CONFIG: Record<RecommendationMode, {
   includeOkAsSource: boolean
   discoverWeight: number
   dampingFactor: number
   maxPerGenre: number
   longTailSlots: number
+  maxPerType: number | null
 }> = {
-  focused:  { includeOkAsSource: false, discoverWeight: 0.4,  dampingFactor: 1.0, maxPerGenre: 3, longTailSlots: 0 },
-  balanced: { includeOkAsSource: true,  discoverWeight: 0.75, dampingFactor: 1.0, maxPerGenre: 5, longTailSlots: 3 },
-  explore:  { includeOkAsSource: true,  discoverWeight: 1.5,  dampingFactor: 0.6, maxPerGenre: 8, longTailSlots: 12 },
+  focused:  { includeOkAsSource: false, discoverWeight: 0.4,  dampingFactor: 1.0, maxPerGenre: 3, longTailSlots: 0,  maxPerType: null },
+  balanced: { includeOkAsSource: true,  discoverWeight: 0.75, dampingFactor: 1.0, maxPerGenre: 5, longTailSlots: 3,  maxPerType: null },
+  explore:  { includeOkAsSource: true,  discoverWeight: 1.5,  dampingFactor: 0.6, maxPerGenre: 8, longTailSlots: 12, maxPerType: 30 },
 }
 
 type CacheRow<T> = Record<string, T> & { fetched_at: string }
@@ -649,6 +678,12 @@ export async function getCachedDetails(supabase: SupabaseClient, mediaType: Medi
     { onConflict: 'media_type,tmdb_id' }
   )
   return details
+}
+
+// Waarde op het gegeven quantiel (0-1) van een oplopend gesorteerde lijst.
+export function quantileOf(sorted: number[], q: number): number {
+  if (sorted.length === 0) return 0
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))]
 }
 
 function chunked<T>(items: T[], size: number): T[][] {
@@ -1077,7 +1112,8 @@ export async function computeEmbeddingSimilarities(
 // een paar getallen terug.
 async function computeTasteNeighbors(
   supabase: SupabaseClient,
-  rated: { media_type: MediaType; tmdb_id: number; verdict: 'love' | 'dislike' }[],
+  // "favorite" en "love" zijn allebei iets wat je leuk vond; de database geeft het soort alleen terug bij elke buur.
+  rated: { media_type: MediaType; tmdb_id: number; verdict: 'favorite' | 'love' | 'dislike' }[],
   candidates: { media_type: MediaType; tmdb_id: number }[]
 ): Promise<Map<string, { v: string; s: number }[]>> {
   const result = new Map<string, { v: string; s: number }[]>()
@@ -1367,6 +1403,9 @@ export interface TasteProfile {
   // (leeg als er geen embeddings zijn). De "samen"-route meet hiermee hoe goed een titel
   // bij elk van beide partners past.
   userVector: number[]
+  // Gemiddelde verhaal-embedding van wat iemand afkeurde (leeg bij minder dan STORY_DISLIKE_MIN afkeuringen). Samen en
+  // Binnenkort meten er net als de eigen tabbladen een tegenstelling mee: lijkt het meer op wat je leuk vond dan hierop?
+  dislikeVector: number[]
   // Titels die door "niet voor mij" volledig zijn uitgesloten (de rest van een franchise waarvan je
   // meerdere delen afkeurde). De "samen"-route gebruikt dit voor zijn bredere zoektocht.
   blockedKeys: Set<string>
@@ -1388,7 +1427,7 @@ export async function computeTasteProfile(
   // beoordelen zonder favorieten toe te voegen ook meetelt. Nu pas leeg als er echt
   // helemaal niets is om op te bouwen.
   if (inputs.favorites.length === 0 && inputs.ratings.length === 0) {
-    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [], userVector: [], blockedKeys: new Set<string>() }
+    return { sortedByMode: EMPTY_SORTED_BY_MODE, allCandidates: [], movieGenres: [], tvGenres: [], userVector: [], dislikeVector: [], blockedKeys: new Set<string>() }
   }
 
   const { favorites, ratings, watchlist, excludedGenreIds, favoritePeopleList, favoriteDirectorsList } = inputs
@@ -1407,16 +1446,20 @@ export async function computeTasteProfile(
   const newestFirst = (a: { added_at?: string; rated_at?: string }, b: { added_at?: string; rated_at?: string }) =>
     (b.rated_at ?? b.added_at ?? '').localeCompare(a.rated_at ?? a.added_at ?? '')
   const sourceFavorites = [...favorites].sort(newestFirst).slice(0, MAX_FAVORITE_SOURCES)
-  const lovedItems = ratings.filter((r) => r.rating === 'love').sort(newestFirst).slice(0, MAX_LOVE_SOURCES)
-  const okItems = ratings.filter((r) => r.rating === 'ok').sort(newestFirst).slice(0, MAX_OK_SOURCES)
+  // Een favoriet die je ook beoordeelde telt één keer, als favoriet. Anders telde hij dubbel mee, en bij de
+  // titel-aanbevelingen zelfs met het lagere gewicht.
+  const favoriteKeys = new Set(favorites.map((f) => `${f.media_type}-${f.tmdb_id}`))
+  const notFavorite = (r: { media_type: MediaType; tmdb_id: number }) => !favoriteKeys.has(`${r.media_type}-${r.tmdb_id}`)
+  const lovedItems = ratings.filter((r) => r.rating === 'love' && notFavorite(r)).sort(newestFirst).slice(0, MAX_LOVE_SOURCES)
+  const okItems = ratings.filter((r) => r.rating === 'ok' && notFavorite(r)).sort(newestFirst).slice(0, MAX_OK_SOURCES)
   const dislikedItems = ratings.filter((r) => r.rating === 'dislike').sort(newestFirst).slice(0, MAX_DISLIKE_SOURCES)
 
   // "core" = het smaakprofiel van favorieten + "echt leuk"; "ok" telt pas mee
   // als aanbevelingsbron vanaf de "balanced"-modus (zie MODE_CONFIG).
   const profileSources: ProfileSource[] = [
-    ...sourceFavorites.map((f): ProfileSource => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: 1, tier: 'core' })),
-    ...lovedItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 2, tier: 'core' })),
-    ...okItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: 0.5, tier: 'ok' })),
+    ...sourceFavorites.map((f): ProfileSource => ({ tmdb_id: f.tmdb_id, title: f.title, media_type: f.media_type, weight: FAVORITE_SOURCE_WEIGHT, tier: 'core', favorite: true })),
+    ...lovedItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: LOVE_SOURCE_WEIGHT, tier: 'core', favorite: false })),
+    ...okItems.map((r): ProfileSource => ({ tmdb_id: r.tmdb_id, title: r.title, media_type: r.media_type, weight: OK_SOURCE_WEIGHT, tier: 'ok', favorite: false })),
   ]
 
   // Genre-affiniteit, vervolgdelen en het smaak-embedding (hieronder) blijven altijd
@@ -1497,9 +1540,16 @@ export async function computeTasteProfile(
     if (d.media_type === 'movie' && d.collectionId) dislikedCollectionIds.add(d.collectionId)
   }
 
+  // De bredere zoektocht (populair in je genres; telt het zwaarst bij Verras me). Met bekende diensten alleen titels die
+  // daar te zien zijn en zonder je uitgesloten genres: zonder dat filter viel vrijwel alles af bij de
+  // beschikbaarheidscontrole, en kwam er in Verras me niets uit deze hoek. Samen geeft geen diensten mee en blijft zoals het was.
+  const discoverOptions =
+    options.availableOnSourceIds && options.availableOnSourceIds.size > 0
+      ? { providerIds: [...options.availableOnSourceIds], pages: DISCOVER_PAGES_ON_SERVICES, excludeGenreIds: [...excludedGenreIds] }
+      : undefined
   const [movieGenreResults, tvGenreResults, collectionResults, dislikedCollectionParts] = await Promise.all([
-    discoverByGenres(supabase, 'movie', movieGenres),
-    discoverByGenres(supabase, 'tv', tvGenres),
+    discoverByGenres(supabase, 'movie', movieGenres, discoverOptions),
+    discoverByGenres(supabase, 'tv', tvGenres, discoverOptions),
     Promise.all(
       Array.from(uniqueCollections.entries()).map(async ([collectionId, collectionName]) => {
         const parts = await getCachedCollectionParts(supabase, collectionId)
@@ -1667,37 +1717,70 @@ export async function computeTasteProfile(
 
   const sourceEmbeddingItems = sourceDetails
     .filter((s) => s.overview)
-    .map((s) => ({ media_type: s.media_type, tmdb_id: s.tmdb_id, text: `${s.title}. ${s.overview}`, weight: s.weight }))
+    .map((s) => ({ media_type: s.media_type, tmdb_id: s.tmdb_id, text: `${s.title}. ${s.overview}`, weight: s.weight, favorite: s.favorite }))
 
-  const sourceEmbeddings = await getEmbeddingsForItems(
-    supabase,
-    sourceEmbeddingItems.map(({ media_type, tmdb_id, text }) => ({ media_type, tmdb_id, text }))
-  )
+  const dislikeEmbeddingItems = dislikeDetails
+    .filter((d) => d.overview)
+    .map((d) => ({ media_type: d.media_type, tmdb_id: d.tmdb_id, text: `${d.title}. ${d.overview}` }))
 
-  let userVector: number[] = []
-  let totalWeight = 0
-  for (const item of sourceEmbeddingItems) {
-    const vec = sourceEmbeddings.get(`${item.media_type}-${item.tmdb_id}`)
-    if (!vec || vec.length === 0) continue
-    if (userVector.length === 0) userVector = vec.map((v) => v * item.weight)
-    else userVector = userVector.map((v, i) => v + vec[i] * item.weight)
-    totalWeight += item.weight
+  const sourceEmbeddings = await getEmbeddingsForItems(supabase, [
+    ...sourceEmbeddingItems.map(({ media_type, tmdb_id, text }) => ({ media_type, tmdb_id, text })),
+    ...dislikeEmbeddingItems,
+  ])
+
+  // Gewogen gemiddelde van de verhaal-vingerafdrukken van wat je leuk vond (Samen en Binnenkort gebruiken dit ook), en
+  // het gemiddelde van wat je afkeurde.
+  const averageVector = (items: { media_type: MediaType; tmdb_id: number; weight: number }[]) => {
+    let sum: number[] = []
+    let total = 0
+    let count = 0
+    for (const item of items) {
+      const vec = sourceEmbeddings.get(`${item.media_type}-${item.tmdb_id}`)
+      if (!vec || vec.length === 0) continue
+      if (sum.length === 0) sum = vec.map((v) => v * item.weight)
+      else sum = sum.map((v, i) => v + vec[i] * item.weight)
+      total += item.weight
+      count++
+    }
+    return { vector: total > 0 ? sum.map((v) => v / total) : [], count }
   }
-  if (totalWeight > 0) userVector = userVector.map((v) => v / totalWeight)
+  const userVector = averageVector(sourceEmbeddingItems).vector
+  const disliked = averageVector(dislikeEmbeddingItems.map((d) => ({ ...d, weight: 1 })))
+  const dislikeVector = disliked.count >= STORY_DISLIKE_MIN ? disliked.vector : []
 
   if (userVector.length > 0) {
     const candidateEmbeddingItems = candidates
       .filter((c) => c.overview)
       .map((c) => ({ media_type: c.media_type, tmdb_id: c.id, text: `${c.title}. ${c.overview}` }))
 
-    const similarities = await computeEmbeddingSimilarities(supabase, [userVector], candidateEmbeddingItems)
+    const similarities = await computeEmbeddingSimilarities(
+      supabase,
+      dislikeVector.length > 0 ? [userVector, dislikeVector] : [userVector],
+      candidateEmbeddingItems
+    )
 
+    // De verhaal-score: hoeveel meer het verhaal lijkt op wat je leuk vond dan op wat je afkeurde (zonder genoeg
+    // afkeuringen: alleen op wat je leuk vond). Zie STORY_LABEL_QUANTILE en de uitleg in docs/leren-van-smaak.md.
+    const story: { candidate: ScoredCandidate; like: number; contrast: number }[] = []
     for (const candidate of candidates) {
       const sims = similarities.get(`${candidate.media_type}-${candidate.id}`)
       if (!sims || sims.length === 0) continue
-      const similarity = sims[0]
-      candidate.embeddingBonus = similarity
-      if (similarity > 0.5) candidate.basedOn.add('vergelijkbare verhaallijn')
+      story.push({ candidate, like: sims[0], contrast: sims.length > 1 ? sims[0] - sims[1] : sims[0] })
+    }
+    if (story.length > 0) {
+      const likes = story.map((s) => s.like).sort((a, b) => a - b)
+      const contrasts = story.map((s) => s.contrast).sort((a, b) => a - b)
+      const spread = (sorted: number[]) => quantileOf(sorted, 0.75) - quantileOf(sorted, 0.25)
+      // Een gemiddelde kandidaat krijgt 0 (vroeger kreeg iedere titel zo'n 4 punten "gratis"), en de score krijgt dezelfde
+      // spreiding als de oude, zodat EMBEDDING_BONUS_WEIGHT en EMBEDDING_EXTRA_AT_FULL hun betekenis houden. De
+      // tegenstelling is ongeveer 2,5 keer zo smal; gemeten gaf juist die verhouding de beste uitkomst.
+      const scale = spread(contrasts) > 0 ? spread(likes) / spread(contrasts) : 1
+      const middle = quantileOf(contrasts, 0.5)
+      const labelFrom = quantileOf(contrasts, STORY_LABEL_QUANTILE)
+      for (const s of story) {
+        s.candidate.embeddingBonus = (s.contrast - middle) * scale
+        if (s.contrast >= labelFrom) s.candidate.basedOn.add('vergelijkbare verhaallijn')
+      }
     }
   }
 
@@ -1710,7 +1793,7 @@ export async function computeTasteProfile(
       dislikedWithText.map((d) => ({ media_type: d.media_type, tmdb_id: d.tmdb_id, text: `${d.title}. ${d.overview}` }))
     )
     const rated = [
-      ...sourceEmbeddingItems.map((s) => ({ media_type: s.media_type, tmdb_id: s.tmdb_id, verdict: 'love' as const })),
+      ...sourceEmbeddingItems.map((s) => ({ media_type: s.media_type, tmdb_id: s.tmdb_id, verdict: s.favorite ? ('favorite' as const) : ('love' as const) })),
       ...dislikedWithText.map((d) => ({ media_type: d.media_type, tmdb_id: d.tmdb_id, verdict: 'dislike' as const })),
     ]
     const preScore = (c: ScoredCandidate) =>
@@ -1734,7 +1817,8 @@ export async function computeTasteProfile(
         const closeness = Math.max(0, n.s - NEIGHBOR_BASE_SIM)
         if (n.v === 'dislike') dislikeSim += closeness
         else {
-          likeSim += closeness
+          // Lijken op een favoriet telt zwaarder dan lijken op een "zeker leuk", in dezelfde verhouding als de gewichten.
+          likeSim += n.v === 'favorite' ? closeness * (FAVORITE_SOURCE_WEIGHT / LOVE_SOURCE_WEIGHT) : closeness
           likeMax = Math.max(likeMax, n.s)
         }
       }
@@ -1745,15 +1829,16 @@ export async function computeTasteProfile(
     }
   }
 
-  // Kenmerken van de films zelf: trefwoorden/thema's, regisseur, tijdperk en taal van wat je leuk vond tegenover die van
-  // elke kandidaat. Alleen als de app al iets van je geleerd heeft; bij een kale start zijn er te weinig titels om uit te
-  // leren, en bespaart dit TMDB-aanvragen.
+  // Kenmerken van de films zelf: trefwoorden/thema's, regisseur, tijdperk en taal van wat je leuk vond, afgezet tegen die
+  // van wat je afkeurde en "oké" vond, tegenover die van elke kandidaat. Alleen als de app al iets van je geleerd heeft;
+  // bij een kale start zijn er te weinig titels om uit te leren, en bespaart dit TMDB-aanvragen.
   if (learn > 0) {
     const featurePre = (c: ScoredCandidate) =>
       (c.coreScore + c.okScore + c.discoverScore) * collabFactor + c.collectionScore + c.embeddingBonus * embeddingWeight + c.neighborScore * neighborLikeWeight - c.dislikeScore
     const featurePool = [...candidates].sort((a, b) => featurePre(b) - featurePre(a)).slice(0, MAX_FEATURE_CANDIDATES)
+    // Volgorde = voorrang bij het live ophalen: eerst wat je leuk vond, dan je afkeuringen, dan "oké".
     const [sourceFeatures, poolFeatures] = await Promise.all([
-      getFeaturesBulk(supabase, coreSources, { maxLive: FEATURE_LIVE_SOURCES }),
+      getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES }),
       getFeaturesBulk(
         supabase,
         featurePool.map((c) => ({ media_type: c.media_type, tmdb_id: c.id })),
@@ -1764,7 +1849,13 @@ export async function computeTasteProfile(
       .map((s) => ({ features: sourceFeatures.get(`${s.media_type}-${s.tmdb_id}`), weight: s.weight }))
       .filter((s): s is { features: NonNullable<typeof s.features>; weight: number } => !!s.features)
     if (sourcesWithFeatures.length >= 3) {
-      const featureTaste = buildFeatureTaste(sourcesWithFeatures, [...sourceFeatures.values(), ...poolFeatures.values()])
+      const featuresOf = (items: { media_type: MediaType; tmdb_id: number }[]) =>
+        items.flatMap((i) => sourceFeatures.get(`${i.media_type}-${i.tmdb_id}`) ?? [])
+      const featureTaste = buildFeatureTaste(
+        sourcesWithFeatures,
+        { disliked: featuresOf(dislikedItems), ok: featuresOf(okItems) },
+        [...sourceFeatures.values(), ...poolFeatures.values()]
+      )
       for (const candidate of featurePool) {
         const features = poolFeatures.get(`${candidate.media_type}-${candidate.id}`)
         if (!features) continue
@@ -1876,30 +1967,36 @@ export async function computeTasteProfile(
       modeConfig.maxPerGenre
     )
 
+    const longTailMovieSlots = Math.ceil(modeConfig.longTailSlots / 2)
+    const longTailTvSlots = Math.floor(modeConfig.longTailSlots / 2)
+    // Met een maximum per soort (Verras me) blijven alleen de eerste titels uit de genre-ronde over: per ronde de beste
+    // van elk genre, dus de best passende titels met afwisseling in genres. Wat afvalt, kan nog als verrassing terugkomen.
+    const capped = <T,>(forced: T[], picked: T[], longTailSlots: number) => {
+      if (modeConfig.maxPerType === null) return [...forced, ...picked]
+      return [...forced, ...picked].slice(0, Math.max(0, modeConfig.maxPerType - longTailSlots))
+    }
+    const chosenMovies = capped(forcedMovies, roundRobinMovies, longTailMovieSlots)
+    const chosenTv = capped(forcedTv, roundRobinTv, longTailTvSlots)
+
     const usedKeys = new Set<string>([
-      ...forcedMovies.map((m) => `movie-${m.id}`),
-      ...roundRobinMovies.map((m) => `movie-${m.id}`),
-      ...forcedTv.map((m) => `tv-${m.id}`),
-      ...roundRobinTv.map((m) => `tv-${m.id}`),
+      ...chosenMovies.map((m) => `movie-${m.id}`),
+      ...chosenTv.map((m) => `tv-${m.id}`),
     ])
 
     const longTailMovies = pickLongTail(
       allScored.filter((m) => m.media_type === 'movie'),
       usedKeys,
       (m) => `movie-${m.id}`,
-      Math.ceil(modeConfig.longTailSlots / 2)
+      longTailMovieSlots
     )
     const longTailTv = pickLongTail(
       allScored.filter((m) => m.media_type === 'tv'),
       usedKeys,
       (m) => `tv-${m.id}`,
-      Math.floor(modeConfig.longTailSlots / 2)
+      longTailTvSlots
     )
 
-    return [
-      ...forcedMovies, ...roundRobinMovies, ...longTailMovies,
-      ...forcedTv, ...roundRobinTv, ...longTailTv,
-    ]
+    return [...chosenMovies, ...longTailMovies, ...chosenTv, ...longTailTv]
   }
 
   // De hele pool, nog zonder beschikbaarheidsfilter: de maatstaf voor het matchpercentage (zie addMatchPercent) en
@@ -1998,6 +2095,7 @@ export async function computeTasteProfile(
     movieGenres,
     tvGenres,
     userVector,
+    dislikeVector,
     blockedKeys,
   }
 }

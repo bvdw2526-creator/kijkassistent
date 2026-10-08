@@ -18,6 +18,7 @@ export default function MovieCard({
   upcomingLabel,
   isNew,
   alsoSamen,
+  hideMatch,
 }: {
   movie: MovieCardMovie
   onClick: () => void
@@ -29,6 +30,9 @@ export default function MovieCard({
   isNew?: boolean
   // Dezelfde titel staat ook in jullie Samen-lijst: dan kun je kiezen of je hem alleen of samen kijkt.
   alsoSamen?: boolean
+  // Geen matchpercentage tonen (bij Verras me: daar gaat het om ontdekken, en het percentage zou er laag en ontmoedigend
+  // uitvallen).
+  hideMatch?: boolean
 }) {
   return (
     <button
@@ -59,7 +63,7 @@ export default function MovieCard({
           </span>
         )}
 
-        {!upcomingLabel && typeof movie.matchPercent === 'number' && (
+        {!upcomingLabel && !hideMatch && typeof movie.matchPercent === 'number' && (
           <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-[#E8A33D] ring-1 ring-white/10">
             {movie.matchPercent}%
           </span>

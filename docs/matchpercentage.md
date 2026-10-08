@@ -16,6 +16,12 @@ getal las als "dit vind je zeker leuk".
 - Dezelfde schaal in alle tabbladen en in Samen (`allCandidates`). Een matige match krijgt een matig percentage.
   Verwacht lagere getallen bij "Mijn smaak breder" en vooral "Verras me" dan bij `'percentile'`.
 - De volgorde binnen een tabblad blijft die van de eigen score van het tabblad.
+- Sinds 8 oktober 2026 zit in de maatstaf de verhaal-score rond 0 (zie "Verhaal-score" in `docs/leren-van-smaak.md`) in
+  plaats van de ruwe overeenkomst, die iedere titel zo'n 4 punten gaf. Geschat op een echt profiel: gemiddeld Puur mijn
+  smaak 77% naar ongeveer 71% (laagste 37% naar 22%), Mijn smaak breder 62% naar 53%, Verras me 45% naar 31%.
+- Bij Verras me staat sinds 8 oktober 2026 geen percentage op de kaart en in de popup (`hideMatch` in
+  `app/components/MovieCard.tsx`): daar gaat het om ontdekken, en het hoogste percentage lag rond 43%. Het percentage
+  wordt nog wel berekend en bepaalt de volgorde en wat er bij een beoordeling wordt bewaard.
 - Terugzetten: `MATCH_PERCENT_METHOD = 'percentile'` (of `'relative'`). De methode zit in de handtekening van de
   opgeslagen lijsten, dus ze worden dan één keer opnieuw berekend.
 

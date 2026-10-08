@@ -11,7 +11,11 @@ import {
   resolveWatchInfo,
   getCachedDetails,
   computeEmbeddingSimilarities,
+  getEmbeddingsForItems,
   cosineSimilarity,
+  quantileOf,
+  STORY_DISLIKE_MIN,
+  STORY_LABEL_QUANTILE,
   type RankedCandidate,
   type RecommendationItem,
   type GenreAffinity,
@@ -57,37 +61,51 @@ const COUPLE_RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 6
 // cijfer, dus daar mag de overeenkomst met jullie smaak veel zwaarder wegen.
 const JOINT_FIT_WEIGHT_INTERSECTION = 0.3
 const JOINT_FIT_WEIGHT_FALLBACK = 0.75
-// Een aanvullende titel moet bij allebei redelijk passen: de zwakste van de twee verhaal-overeenkomsten (cosinus) minstens
-// zoveel. Op echte data is de mediaan van die zwakste waarde ~0,59, dus dit laat grofweg de betere helft over.
-const FALLBACK_MIN_JOINT_FIT = 0.6
 // Minimaal aantal titels per type (films/series) waar Samen naartoe aanvult met de bredere
 // zoektocht als de doorsnede te klein is.
 const MIN_ITEMS_PER_TYPE = 8
-// Verhaal-overeenkomsten liggen bij deze embeddings dicht bij elkaar (op echte data: mediaan
-// ~0,55, top ~0,72), dus de drempel van de gewone engine (0,5) zou bijna alles labelen. Dit
-// is ongeveer de bovenste 10% van de kandidaten.
-const STORY_MATCH_THRESHOLD = 0.62
 const STORY_MATCH_LABEL = 'verhaal dat bij jullie allebei past'
+// Hoe zwaar "lijkt op wat jullie samen afkeurden" meetelt naast de verhaal-score per persoon. Voorheen deed Samen niets
+// met een gezamenlijke afkeuring behalve die ene titel weglaten. Gemeten op een echt stel (8 okt 2026, 14 samen
+// beoordeelde titels, steeds de titel zelf weggelaten): de zwakste van beiden (oud) 69%, met ieders eigen tegenstelling
+// 73%, en met daarbij half meetellen wat jullie samen afkeurden 78% (volledig meetellen: 71%). Klein, maar dezelfde kant
+// op als bij de eigen tabbladen.
+const COUPLE_DISLIKE_STORY_WEIGHT = 0.5
 
-// Meet per titel hoe goed het verhaal past bij elk van beide partners (cosinus-overeenkomst met
-// ieders smaakvector) en neemt de LAAGSTE van de twee: alleen een titel die bij allebei past
-// scoort hoog. Bewust niet de twee vectoren middelen: bij twee verschillende smaken landt het
-// gemiddelde in het midden, bij titels die geen van beiden echt aanspreken.
+interface StoryTaste {
+  // Gemiddelde verhaal-embedding van wat iemand leuk vond en van wat diegene afkeurde (leeg bij te weinig afkeuringen).
+  like: number[]
+  dislike: number[]
+}
+
+// Meet per titel hoe goed het verhaal past bij elk van beide partners en neemt de LAAGSTE van de twee: alleen een titel
+// die bij allebei past scoort hoog. Bewust niet de twee smaken middelen: bij twee verschillende smaken landt het gemiddelde
+// in het midden, bij titels die geen van beiden echt aanspreken. Per persoon is het, net als in de eigen tabbladen, een
+// tegenstelling: lijkt het verhaal meer op wat diegene leuk vond dan op wat diegene afkeurde. Daarvan gaat af hoeveel
+// het lijkt op wat jullie samen afkeurden (zie COUPLE_DISLIKE_STORY_WEIGHT).
 async function applyJointFit(
   supabase: SupabaseClient,
   items: RankedCandidate[],
-  vectorA: number[],
-  vectorB: number[],
+  tasteA: StoryTaste,
+  tasteB: StoryTaste,
+  // Gemiddelde verhaal-embedding van wat jullie samen afkeurden (leeg bij te weinig).
+  coupleDislikeVector: number[],
   fallbackKeys: Set<string>,
-  // Aanvullende titels (uit de bredere zoektocht) waarvan de zwakste van de twee verhaal-overeenkomsten hieronder
-  // ligt, vallen af. null = geen drempel (bv. als er geen doorsnede is en alles aanvulling is).
-  minFallbackFit: number | null = null
+  // true: aanvullende titels (uit de bredere zoektocht) die minder goed bij jullie allebei passen dan de helft van de
+  // lijst vallen af (vroeger een vaste drempel op de ruwe overeenkomst, die grofweg hetzelfde deed). false: alles
+  // houden (bv. als er geen doorsnede is en alles aanvulling is).
+  dropWeakFallback: boolean
 ): Promise<RankedCandidate[]> {
-  if (items.length === 0 || vectorA.length === 0 || vectorB.length === 0) return items
+  if (items.length === 0 || tasteA.like.length === 0 || tasteB.like.length === 0) return items
 
+  const vectors = [tasteA.like, tasteB.like]
+  const addVector = (v: number[]) => (v.length > 0 ? vectors.push(v) - 1 : -1)
+  const dislikeIndexA = addVector(tasteA.dislike)
+  const dislikeIndexB = addVector(tasteB.dislike)
+  const coupleIndex = addVector(coupleDislikeVector)
   const similarities = await computeEmbeddingSimilarities(
     supabase,
-    [vectorA, vectorB],
+    vectors,
     items
       .filter((i) => i.overview)
       .map((i) => ({ media_type: i.media_type, tmdb_id: i.id, text: `${i.title}. ${i.overview}` }))
@@ -95,21 +113,46 @@ async function applyJointFit(
 
   let fits = items.map((item) => {
     const sims = similarities.get(`${item.media_type}-${item.id}`)
-    if (!sims || sims.length < 2) return null
-    return { a: sims[0], b: sims[1] }
+    if (!sims || sims.length < vectors.length) return null
+    return {
+      a: sims[0] - (dislikeIndexA >= 0 ? sims[dislikeIndexA] : 0),
+      b: sims[1] - (dislikeIndexB >= 0 ? sims[dislikeIndexB] : 0),
+      couple: coupleIndex >= 0 ? sims[coupleIndex] : null,
+    }
   })
-  if (minFallbackFit !== null) {
+  // Op één schaal: per persoon (en voor wat jullie samen afkeurden) rond het midden van deze lijst, gedeeld door de
+  // spreiding. Zo is de zwakste van de twee eerlijk te kiezen, ook als maar één van jullie iets afkeurde.
+  const sortedOf = (values: (number | null | undefined)[]) =>
+    values.filter((v): v is number => typeof v === 'number').sort((x, y) => x - y)
+  const standardizer = (values: (number | null | undefined)[]) => {
+    const sorted = sortedOf(values)
+    const middle = quantileOf(sorted, 0.5)
+    const spread = quantileOf(sorted, 0.75) - quantileOf(sorted, 0.25)
+    return (v: number) => (v - middle) / (spread > 0 ? spread : 1)
+  }
+  const zA = standardizer(fits.map((f) => f?.a))
+  const zB = standardizer(fits.map((f) => f?.b))
+  const zCouple = standardizer(fits.map((f) => f?.couple))
+  // Het label alleen als het verhaal voor allebei beter past dan bij driekwart van de lijst.
+  const labelFromA = quantileOf(sortedOf(fits.map((f) => f?.a)), STORY_LABEL_QUANTILE)
+  const labelFromB = quantileOf(sortedOf(fits.map((f) => f?.b)), STORY_LABEL_QUANTILE)
+  let jointValues = fits.map((f) =>
+    f ? Math.min(zA(f.a), zB(f.b)) - (f.couple !== null ? COUPLE_DISLIKE_STORY_WEIGHT * zCouple(f.couple) : 0) : null
+  )
+
+  if (dropWeakFallback) {
+    const middle = quantileOf(sortedOf(jointValues), 0.5)
     const keep = items.map((item, i) => {
-      const fit = fits[i]
-      return !(fallbackKeys.has(`${item.media_type}-${item.id}`) && fit !== null && Math.min(fit.a, fit.b) < minFallbackFit)
+      const joint = jointValues[i]
+      return !(fallbackKeys.has(`${item.media_type}-${item.id}`) && joint !== null && joint < middle)
     })
     items = items.filter((_, i) => keep[i])
     fits = fits.filter((_, i) => keep[i])
+    jointValues = jointValues.filter((_, i) => keep[i])
   }
-  const jointValues = fits.map((f) => (f ? Math.min(f.a, f.b) : null))
   // Schaal binnen deze lijst: het laagste tiende deel (uitschieters) telt als 0%, de beste als
   // 100%. Zonder schaling liggen alle scores op 75-100% en maakt de weging geen verschil.
-  const sorted = jointValues.filter((v): v is number => v !== null).sort((x, y) => x - y)
+  const sorted = sortedOf(jointValues)
   if (sorted.length < 2) return items
   const low = sorted[Math.floor(sorted.length * 0.1)]
   const high = sorted[sorted.length - 1]
@@ -123,7 +166,7 @@ async function applyJointFit(
       const weight = fallbackKeys.has(`${item.media_type}-${item.id}`) ? JOINT_FIT_WEIGHT_FALLBACK : JOINT_FIT_WEIGHT_INTERSECTION
       const jointPercent = Math.round(Math.min(1, Math.max(0, (joint - low) / (high - low))) * 100)
       const matchPercent = Math.round((1 - weight) * item.matchPercent + weight * jointPercent)
-      const bothMatch = fit.a > STORY_MATCH_THRESHOLD && fit.b > STORY_MATCH_THRESHOLD
+      const bothMatch = fit.a >= labelFromA && fit.b >= labelFromB
       return {
         ...item,
         matchPercent,
@@ -378,7 +421,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      `v15-kenmerken-${MATCH_PERCENT_METHOD}`,
+      `v19-samen-verhaal-${MATCH_PERCENT_METHOD}`,
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -568,8 +611,29 @@ export async function GET(request: NextRequest) {
       items.forEach((e) => fallbackKeys.add(titleKey(e)))
     }
 
+    // Wat jullie samen afkeurden, als gemiddelde verhaal-vingerafdruk (pas vanaf een paar afkeuringen). Die titels zijn
+    // eerder aanbevolen, dus hun vingerafdruk staat al in de database; er wordt hier niets nieuws berekend.
+    const coupleDisliked = coupleRatings.filter((r) => r.rating === 'dislike')
+    let coupleDislikeVector: number[] = []
+    if (coupleDisliked.length >= STORY_DISLIKE_MIN) {
+      const embeddings = await getEmbeddingsForItems(
+        supabase,
+        coupleDisliked.map((r) => ({ media_type: r.media_type as MediaType, tmdb_id: r.tmdb_id, text: '' }))
+      )
+      const vecs = Array.from(embeddings.values()).filter((v) => v.length > 0)
+      if (vecs.length >= STORY_DISLIKE_MIN) coupleDislikeVector = vecs[0].map((_, d) => vecs.reduce((sum, v) => sum + v[d], 0) / vecs.length)
+    }
+
     // Verhaal-overeenkomst met beide smaakprofielen (Voyage-embeddings), zie applyJointFit.
-    items = await applyJointFit(supabase, items, tasteA.userVector, tasteB.userVector, fallbackKeys, tier === 'intersection' ? FALLBACK_MIN_JOINT_FIT : null)
+    items = await applyJointFit(
+      supabase,
+      items,
+      { like: tasteA.userVector, dislike: tasteA.dislikeVector },
+      { like: tasteB.userVector, dislike: tasteB.dislikeVector },
+      coupleDislikeVector,
+      fallbackKeys,
+      tier === 'intersection'
+    )
 
     // Bijsturing op basis van wat het koppel al samen goed beoordeelde: titels die qua
     // genre aansluiten bij eerdere "zeker leuk"/"was oké"-beoordelingen samen krijgen

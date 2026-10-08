@@ -23,6 +23,8 @@ export interface UpcomingCandidate {
 // Wat we van iemands smaak nodig hebben (een deel van TasteProfile).
 export interface UpcomingTaste {
   userVector: number[]
+  // Leeg bij te weinig afkeuringen; dan telt alleen de overeenkomst met wat je leuk vond.
+  dislikeVector: number[]
   movieGenres: GenreAffinity[]
   tvGenres: GenreAffinity[]
 }
@@ -141,8 +143,9 @@ function percentiles(values: (number | null)[]): number[] {
 }
 
 // Geeft per titel een score van 0 tot 1 voor hoe goed hij bij iemands smaak past: de helft genres
-// (overlap met de favoriete genres) en de helft verhaal (lijkt de samenvatting op wat je leuk vindt).
-// Relatief binnen de kandidaten, want een absolute drempel zegt bij zulke cijfers weinig.
+// (overlap met de favoriete genres) en de helft verhaal: lijkt de samenvatting meer op wat je leuk vindt dan op wat je
+// afkeurde (zoals de verhaal-score van de eigen tabbladen, zie embeddingBonus in de motor). Relatief binnen de
+// kandidaten, want een absolute drempel zegt bij zulke cijfers weinig.
 export async function scoreUpcoming(
   supabase: SupabaseClient,
   candidates: UpcomingCandidate[],
@@ -163,7 +166,7 @@ export async function scoreUpcoming(
   const similarities = taste.userVector.length
     ? await computeEmbeddingSimilarities(
         supabase,
-        [taste.userVector],
+        taste.dislikeVector.length ? [taste.userVector, taste.dislikeVector] : [taste.userVector],
         usable.filter((c) => c.overview).map((c) => ({ media_type: c.media_type, tmdb_id: c.id, text: `${c.title}. ${c.overview}` }))
       )
     : new Map<string, number[]>()
@@ -180,7 +183,8 @@ export async function scoreUpcoming(
     )
     const storyFit = ofType.map((c) => {
       const sims = similarities.get(`${c.media_type}-${c.id}`)
-      return sims && sims.length ? sims[0] : null
+      if (!sims || sims.length === 0) return null
+      return sims.length > 1 ? sims[0] - sims[1] : sims[0]
     })
     const genrePct = percentiles(genreFit)
     const storyPct = percentiles(storyFit)

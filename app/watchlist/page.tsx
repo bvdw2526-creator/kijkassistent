@@ -18,6 +18,10 @@ type WatchlistItem = {
   watchOn: string | null
   watchUrl: string | null
   sourceMode: RecommendationMode | null
+  // Waarom de titel werd aanbevolen toen hij vanaf Voor jou op de lijst kwam (tabblad, percentage, redenen, scores), en
+  // wanneer. Gaat bij beoordelen of favoriet maken mee, zodat te meten is of de aanbeveling raak was (zie outcomeInfo).
+  sourceInfo: Record<string, unknown> | null
+  addedAt: string | null
   // Alleen bij de gezamenlijke lijst: wie de titel toevoegde.
   addedByYou?: boolean
 }
@@ -57,7 +61,7 @@ export default function Watchlist() {
       setConnectionId(connId)
       const { data: shared } = await supabase
         .from('couple_watchlist')
-        .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, added_by')
+        .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, added_by, added_at, source_info')
         .eq('connection_id', connId)
         .order('added_at', { ascending: false })
       setSharedItems(
@@ -69,6 +73,8 @@ export default function Watchlist() {
           watchOn: w.watch_on,
           watchUrl: w.watch_url,
           sourceMode: null,
+          sourceInfo: w.source_info,
+          addedAt: w.added_at,
           addedByYou: w.added_by === user.id,
         }))
       )
@@ -76,7 +82,7 @@ export default function Watchlist() {
 
     const { data } = await supabase
       .from('watchlist')
-      .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, source_mode')
+      .select('tmdb_id, title, poster_path, media_type, watch_on, watch_url, source_mode, added_at, source_info')
       .eq('user_id', user.id)
       .order('added_at', { ascending: false })
 
@@ -90,6 +96,8 @@ export default function Watchlist() {
           watchOn: w.watch_on,
           watchUrl: w.watch_url,
           sourceMode: w.source_mode as RecommendationMode | null,
+          sourceInfo: w.source_info,
+          addedAt: w.added_at,
         }))
       )
     }
@@ -99,6 +107,18 @@ export default function Watchlist() {
   useEffect(() => {
     loadWatchlist()
   }, [])
+
+  // Waarom de titel ooit werd aanbevolen, voor bij de beoordeling of favoriet: zo is te meten hoe vaak een aanbeveling die
+  // je echt ging kijken raak was. Oudere titels hebben alleen het tabblad; titels die niet via Voor jou op de lijst kwamen
+  // (Zoeken, Top 100, tip van de week) niets.
+  function outcomeInfo(item: WatchlistItem): Record<string, unknown> | null {
+    if (!item.sourceInfo && !item.sourceMode) return null
+    return {
+      ...(item.sourceInfo ?? { mode: item.sourceMode }),
+      via: scope === 'shared' ? 'onze lijst' : 'kijklijst',
+      addedAt: item.addedAt,
+    }
+  }
 
   async function handleRate(item: WatchlistItem, rating: 'dislike' | 'ok' | 'love') {
     const user = await getCurrentUser()
@@ -123,6 +143,7 @@ export default function Watchlist() {
       if (coupleError) console.error('Samen-markering opslaan mislukt:', coupleError)
     }
 
+    const info = outcomeInfo(item)
     const { data: ratingRow, error: ratingError } = await supabase
       .from('ratings')
       .upsert(
@@ -132,6 +153,7 @@ export default function Watchlist() {
           title: item.title,
           rating,
           media_type: item.media_type,
+          ...(info ? { source_info: info } : {}),
         },
         { onConflict: 'user_id,tmdb_id,media_type' }
       )
@@ -204,11 +226,13 @@ export default function Watchlist() {
     if (!user) return
     setError(null)
 
+    const info = outcomeInfo(item)
     const { error: favoriteError } = await supabase.from('favorite_movies').insert({
       user_id: user.id,
       tmdb_id: item.id,
       title: item.title,
       media_type: item.media_type,
+      ...(info ? { source_info: info } : {}),
     })
     // 23505 = staat al bij je favorieten: dan is het doel al bereikt.
     if (favoriteError && favoriteError.code !== '23505') {

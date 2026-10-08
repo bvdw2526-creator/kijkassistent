@@ -118,9 +118,10 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
 // (zie loadCachedRecommendations) kan nog titels bevatten die je intussen hebt afgehandeld, bv. via Zoeken of de kijklijst,
 // of vlak voordat je de pagina ververste: die halen we er direct uit, in plaats van te wachten tot de server klaar is
 // met herberekenen (dat kan even duren).
-// Wat we bij een beoordeling vanaf Voor jou bewaren: in welk tabblad de titel stond, het percentage, de redenen en de scores,
-// zodat we achteraf kunnen uitleggen waarom hij werd aanbevolen (bv. bij "niet voor mij" in Puur mijn smaak). Zie de kolom
-// ratings.source_info.
+// Wat we bij een beoordeling, favoriet of kijklijst-toevoeging vanaf Voor jou bewaren: in welk tabblad de titel stond, het
+// percentage, de redenen en de scores, zodat we achteraf kunnen uitleggen waarom hij werd aanbevolen (bv. bij "niet voor mij"
+// in Puur mijn smaak) en kunnen meten hoe vaak een aanbeveling raak was. Zie de kolommen source_info in ratings,
+// favorite_movies, watchlist en couple_watchlist; vanaf de kijklijst gaat het mee naar de beoordeling (app/watchlist).
 function sourceInfoFor(movie: Movie, mode: RecommendationMode) {
   const round = (n: number | undefined) => (typeof n === 'number' ? Math.round(n * 100) / 100 : 0)
   return {
@@ -594,6 +595,7 @@ export default function Home() {
         watch_on: movie.watchOn ?? null,
         watch_url: movie.watchUrl ?? null,
         added_by: user.id,
+        source_info: sourceInfoFor(movie, mode),
       })
       // 23505 = staat er al op (bv. door je partner): dan is het doel al bereikt.
       if (sharedError && sharedError.code !== '23505') {
@@ -615,6 +617,7 @@ export default function Home() {
       watch_on: movie.watchOn ?? null,
       watch_url: movie.watchUrl ?? null,
       source_mode: mode,
+      source_info: sourceInfoFor(movie, mode),
     })
     if (error) {
       console.error('Op watchlist zetten mislukt:', error)
@@ -636,6 +639,7 @@ export default function Home() {
       tmdb_id: movie.id,
       title: movie.title,
       media_type: movie.media_type,
+      source_info: sourceInfoFor(movie, mode),
     })
     if (error) {
       console.error('Favoriet toevoegen mislukt:', error)
@@ -1042,6 +1046,7 @@ export default function Home() {
                 priority={i < 4}
                 isNew={mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
                 alsoSamen={mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
+                hideMatch={mode === 'explore'}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
                   setActionError(null)
@@ -1107,7 +1112,8 @@ export default function Home() {
                     <span className="inline-block mt-2 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-semibold px-2.5 py-1">
                       Binnenkort
                     </span>
-                  ) : (
+                  ) : mode === 'explore' ? null : (
+                    // Bij Verras me geen percentage: daar gaat het om ontdekken (zie hideMatch in MovieCard).
                     <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
                       {selected.matchPercent}% match
                     </span>

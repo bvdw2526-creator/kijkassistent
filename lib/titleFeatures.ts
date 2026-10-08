@@ -29,8 +29,20 @@ const KEYWORD_WEIGHT = 1.8
 const DIRECTOR_WEIGHT = 2
 const DECADE_WEIGHT = 1
 const LANGUAGE_WEIGHT = 0.5
-// Eén titel krijgt hooguit zoveel uit de kenmerken, zodat die de rest van de score niet overstemmen.
+// Eén titel krijgt hooguit zoveel uit de kenmerken (erbij of eraf), zodat die de rest van de score niet overstemmen.
 const FEATURE_SCORE_CAP = 4
+
+// De kenmerken leren van twee kanten: wat je leuk vond telt vóór (met het gewicht uit de motor: favoriet 3, "zeker leuk"
+// 2), wat je afkeurde telt ertegen. Zo wordt een trefwoord dat even vaak bij je "oké" en "niet voor mij" voorkomt als bij
+// je "zeker leuk" geen pluspunt meer, en telt een regisseur van wie je iets afkeurde minder of zelfs negatief.
+// "Niet voor mij" telt even zwaar tegen als "zeker leuk" vóór.
+const DISLIKE_AGAINST_WEIGHT = 2
+// "Was oké" betekent "niet echt mijn smaak" en telt voor een kwart van een afkeuring tegen, maar niet tegen de regisseur:
+// van regisseurs van wie je alleen iets "oké" vond, vond je de volgende titel vaak wél zeker leuk.
+// Gemeten (8 okt 2026, twee echte profielen, steeds één titel weglaten): de kans dat een "zeker leuk" hoger scoort dan een
+// "niet voor mij" ging van 78,8% naar 80,7% en van 57,3% naar 73,2%; tegenover een "oké" van 69,8% naar 70,9% en van
+// 58,1% naar 59,3%.
+const OK_AGAINST_WEIGHT = 0.5
 
 // Trefwoorden die over de productie gaan en niet over de inhoud: ze zeggen niets over smaak (een vervolg volgt de reeks al
 // via de collectie). Die tellen niet mee en worden nooit als reden getoond.
@@ -65,7 +77,7 @@ const KEYWORD_NL: Record<string, string> = {
   'new york city': 'New York',
   'hero': 'helden',
 }
-// Zoveel van de best passende trefwoorden telt per titel mee.
+// Zoveel van de best passende trefwoorden telt per titel mee, en ook zoveel van de minst passende.
 const KEYWORD_TOP_N = 5
 
 function chunked<T>(items: T[], size: number): T[][] {
@@ -170,7 +182,9 @@ export async function getFeaturesBulk(
 }
 
 export interface FeatureTaste {
+  // Het totale gewicht van wat je leuk vond; alle kenmerken worden daar tegen afgezet.
   total: number
+  // Per kenmerk: gewicht vóór (wat je leuk vond) min gewicht tegen (wat je afkeurde of "oké" vond). Kan negatief zijn.
   keywordWeight: Map<number, number>
   directorWeight: Map<number, number>
   decadeWeight: Map<number, number>
@@ -181,9 +195,15 @@ export interface FeatureTaste {
 
 const decadeOf = (year: number) => Math.floor(year / 10) * 10
 
-// Bouwt het smaakprofiel uit de kenmerken van de titels die je leuk vond (met hun gewicht). `universe` zijn alle titels
-// waarvan we kenmerken hebben (bronnen en kandidaten); daaruit volgt hoe vaak elk trefwoord voorkomt.
-export function buildFeatureTaste(sources: { features: TitleFeatures; weight: number }[], universe: TitleFeatures[]): FeatureTaste {
+// Bouwt het smaakprofiel uit de kenmerken van de titels die je leuk vond (met hun gewicht), afgezet tegen die van wat je
+// afkeurde en "oké" vond (zie DISLIKE_AGAINST_WEIGHT en OK_AGAINST_WEIGHT). Zonder afkeuringen en "oké" is het precies
+// het oude profiel. `universe` zijn alle titels waarvan we kenmerken hebben (bronnen en kandidaten); daaruit volgt hoe
+// vaak elk trefwoord voorkomt.
+export function buildFeatureTaste(
+  liked: { features: TitleFeatures; weight: number }[],
+  against: { disliked: TitleFeatures[]; ok: TitleFeatures[] },
+  universe: TitleFeatures[]
+): FeatureTaste {
   const taste: FeatureTaste = {
     total: 0,
     keywordWeight: new Map(),
@@ -193,13 +213,18 @@ export function buildFeatureTaste(sources: { features: TitleFeatures; weight: nu
     idf: new Map(),
   }
   const add = <K>(map: Map<K, number>, key: K, weight: number) => map.set(key, (map.get(key) ?? 0) + weight)
-  for (const { features, weight } of sources) {
-    taste.total += weight
+  const count = (features: TitleFeatures, weight: number, directorWeight: number) => {
     for (const k of features.keywords) add(taste.keywordWeight, k.id, weight)
-    for (const d of features.directors) add(taste.directorWeight, d.id, weight)
+    if (directorWeight !== 0) for (const d of features.directors) add(taste.directorWeight, d.id, directorWeight)
     if (features.year) add(taste.decadeWeight, decadeOf(features.year), weight)
     if (features.language) add(taste.languageWeight, features.language, weight)
   }
+  for (const { features, weight } of liked) {
+    taste.total += weight
+    count(features, weight, weight)
+  }
+  for (const features of against.disliked) count(features, -DISLIKE_AGAINST_WEIGHT, -DISLIKE_AGAINST_WEIGHT)
+  for (const features of against.ok) count(features, -OK_AGAINST_WEIGHT, 0)
   const documentFrequency = new Map<number, number>()
   for (const f of universe) for (const k of f.keywords) documentFrequency.set(k.id, (documentFrequency.get(k.id) ?? 0) + 1)
   const n = Math.max(1, universe.length)
@@ -211,19 +236,22 @@ export function buildFeatureTaste(sources: { features: TitleFeatures; weight: nu
 export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { score: number; labels: string[] } {
   if (taste.total <= 0) return { score: 0, labels: [] }
 
-  const matches = f.keywords
+  const values = f.keywords
     .filter((k) => !STRUCTURAL_KEYWORDS.has(k.name.toLowerCase()))
     .map((k) => ({ k, value: ((taste.keywordWeight.get(k.id) ?? 0) / taste.total) * (taste.idf.get(k.id) ?? 0) }))
-    .filter((m) => m.value > 0)
-    .sort((a, b) => b.value - a.value)
-  const keywordScore = matches.slice(0, KEYWORD_TOP_N).reduce((sum, m) => sum + m.value, 0)
+  // De best passende trefwoorden tellen erbij, de minst passende (vooral bij wat je afkeurde) eraf.
+  const matches = values.filter((m) => m.value > 0).sort((a, b) => b.value - a.value)
+  const misses = values.filter((m) => m.value < 0).sort((a, b) => a.value - b.value)
+  const keywordScore = [...matches.slice(0, KEYWORD_TOP_N), ...misses.slice(0, KEYWORD_TOP_N)].reduce((sum, m) => sum + m.value, 0)
 
-  // Een regisseur van wie je twee "zeker leuk" hebt (4 punten) telt volledig; van één titel minder.
+  // Een regisseur van wie je twee "zeker leuk" hebt (4 punten) telt volledig; van één favoriet (3) driekwart, van één
+  // "zeker leuk" de helft. Keurde je iets van hem of haar af, dan gaat dat eraf; twee afkeuringen tellen volledig negatief.
+  // Bij meerdere regisseurs telt degene met het duidelijkste oordeel.
   const directorMatches = f.directors
     .map((d) => ({ d, w: taste.directorWeight.get(d.id) ?? 0 }))
-    .filter((m) => m.w > 0)
-    .sort((a, b) => b.w - a.w)
-  const directorScore = directorMatches.length > 0 ? Math.min(1, directorMatches[0].w / 4) : 0
+    .filter((m) => m.w !== 0)
+    .sort((a, b) => Math.abs(b.w) - Math.abs(a.w))
+  const directorScore = directorMatches.length > 0 ? Math.max(-1, Math.min(1, directorMatches[0].w / 4)) : 0
 
   const decadeScore = f.year ? (taste.decadeWeight.get(decadeOf(f.year)) ?? 0) / taste.total : 0
   const languageScore = f.language ? (taste.languageWeight.get(f.language) ?? 0) / taste.total : 0
@@ -236,11 +264,6 @@ export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { sco
     labels.push(`${KEYWORD_NL[name.toLowerCase()] ?? name}`)
   }
 
-  return {
-    score: Math.min(
-      FEATURE_SCORE_CAP,
-      KEYWORD_WEIGHT * keywordScore + DIRECTOR_WEIGHT * directorScore + DECADE_WEIGHT * decadeScore + LANGUAGE_WEIGHT * languageScore
-    ),
-    labels,
-  }
+  const score = KEYWORD_WEIGHT * keywordScore + DIRECTOR_WEIGHT * directorScore + DECADE_WEIGHT * decadeScore + LANGUAGE_WEIGHT * languageScore
+  return { score: Math.max(-FEATURE_SCORE_CAP, Math.min(FEATURE_SCORE_CAP, score)), labels }
 }

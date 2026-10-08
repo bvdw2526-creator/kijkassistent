@@ -10,6 +10,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-08',
+    date: '8 oktober 2026',
+    items: [
+      'Je favorieten wegen nu het zwaarst mee in je aanbevelingen.',
+      "De app leert nu ook van wat je 'oké' en 'niet voor mij' vond: thema's en regisseurs die je vaak afkeurt, tellen minder mee.",
+      'Het matchpercentage is eerlijker: een titel die maar matig bij je past, krijgt nu ook een lager percentage.',
+    ],
+  },
+  {
     id: '2026-10-06',
     date: '6 oktober 2026',
     items: ['Het aanbevelingsalgoritme is aangepast en sluit nu beter aan bij wat jij kijkt.'],
