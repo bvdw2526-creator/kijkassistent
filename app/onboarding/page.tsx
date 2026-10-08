@@ -19,7 +19,7 @@ type Movie = {
 }
 
 type Rating = 'love' | 'ok' | 'dislike'
-type RatedMovie = { id: number; title: string; media_type: 'movie' | 'tv'; rating: Rating }
+type RatedMovie = { id: number; title: string; media_type: 'movie' | 'tv'; rating: Rating; rated_at?: string }
 
 const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' | 'coral' }[] = [
   { rating: 'love', label: 'Zeker meer zoals dit', tone: 'accent' },
@@ -180,7 +180,7 @@ export default function Onboarding() {
 
     const { data } = await supabase
       .from('ratings')
-      .select('tmdb_id, title, media_type, rating')
+      .select('tmdb_id, title, media_type, rating, rated_at')
       .eq('user_id', user.id)
 
     if (data) {
@@ -190,6 +190,7 @@ export default function Onboarding() {
           title: r.title,
           media_type: r.media_type as 'movie' | 'tv',
           rating: r.rating as Rating,
+          rated_at: r.rated_at ?? undefined,
         }))
       )
     }
@@ -343,7 +344,7 @@ export default function Onboarding() {
     }
 
     setRatedMovies((prev) => [
-      { id: movie.id, title: movie.title, media_type: movie.media_type, rating },
+      { id: movie.id, title: movie.title, media_type: movie.media_type, rating, rated_at: new Date().toISOString() },
       ...prev.filter((r) => ratingKey(r) !== key),
     ])
   }
@@ -603,49 +604,45 @@ export default function Onboarding() {
           <p className="text-[#93A3B5] text-sm mb-6">Nog geen films of series beoordeeld.</p>
         )}
 
-        {RATING_BUTTONS.map(({ rating: groupRating, label: groupLabel }) => {
-          const items = ratedMovies.filter((r) => r.rating === groupRating)
-          if (items.length === 0) return null
-          return (
-            <div key={groupRating} className="mb-6">
-              <h3 className="text-sm text-[#93A3B5] mb-2">{groupLabel} ({items.length})</h3>
-              <div className="flex flex-col gap-1.5">
-                {items.map((movie) => (
-                  <div key={ratingKey(movie)} className={`${card} flex items-center gap-3 flex-wrap px-4 py-2.5`}>
-                    <button
-                      onClick={() => setInfoItem({ id: movie.id, title: movie.title, media_type: movie.media_type })}
-                      className="flex-1 text-sm min-w-[140px] truncate text-left touch-manipulation"
-                    >
-                      {movie.title}{' '}
-                      <span className="text-xs text-[#5E6D80]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
-                    </button>
-                    <div className="flex gap-1.5 flex-wrap items-center">
-                      {RATING_BUTTONS.map(({ rating, label, tone }) => (
-                        <button
-                          key={rating}
-                          onClick={() => rateMovie(movie, rating)}
-                          className={`${chip(movie.rating === rating, tone, "sm")}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
+        {ratedMovies.length > 0 && (
+          <div className="flex flex-col gap-1.5 mb-6">
+            {/* De laatst beoordeelde bovenaan; de gekozen beoordeling staat aangevinkt in elke rij. */}
+            {[...ratedMovies]
+              .sort((a, b) => (b.rated_at ?? '').localeCompare(a.rated_at ?? ''))
+              .map((movie) => (
+                <div key={ratingKey(movie)} className={`${card} flex items-center gap-3 flex-wrap px-4 py-2.5`}>
+                  <button
+                    onClick={() => setInfoItem({ id: movie.id, title: movie.title, media_type: movie.media_type })}
+                    className="flex-1 text-sm min-w-[140px] truncate text-left touch-manipulation"
+                  >
+                    {movie.title}{' '}
+                    <span className="text-xs text-[#5E6D80]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                  </button>
+                  <div className="flex gap-1.5 flex-wrap items-center">
+                    {RATING_BUTTONS.map(({ rating, label, tone }) => (
                       <button
-                        // Zelfde knop nogmaals met de al actieve rating triggert de
-                        // "opheffen"-tak in rateMovie hierboven — geen aparte verwijder-
-                        // aanroep nodig, gewoon een duidelijker knopje voor diezelfde actie.
-                        onClick={() => rateMovie(movie, movie.rating)}
-                        className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
-                        aria-label="Beoordeling verwijderen"
+                        key={rating}
+                        onClick={() => rateMovie(movie, rating)}
+                        className={`${chip(movie.rating === rating, tone, 'sm')}`}
                       >
-                        <TrashIcon className="w-4 h-4" />
+                        {label}
                       </button>
-                    </div>
+                    ))}
+                    <button
+                      // Zelfde knop nogmaals met de al actieve rating triggert de
+                      // "opheffen"-tak in rateMovie hierboven — geen aparte verwijder-
+                      // aanroep nodig, gewoon een duidelijker knopje voor diezelfde actie.
+                      onClick={() => rateMovie(movie, movie.rating)}
+                      className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                      aria-label="Beoordeling verwijderen"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
-          )
-        })}
+                </div>
+              ))}
+          </div>
+        )}
           </>
         )}
           </>

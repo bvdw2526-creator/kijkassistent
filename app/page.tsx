@@ -310,6 +310,8 @@ export default function Home() {
     [byMode.focused, byMode.balanced, byMode.explore]
   )
   const newKeys = useMemo(() => (user ? findNewKeys(user.id, shownKeys) : new Set<string>()), [user, shownKeys])
+  // Titels die ook in jullie Samen-lijst staan: die krijgen op de kaart een "Samen"-label.
+  const samenKeys = useMemo(() => new Set(byMode.samen.map((m) => `${m.media_type}-${m.id}`)), [byMode.samen])
   useEffect(() => {
     if (user) rememberSeen(user.id, shownKeys)
   }, [user, shownKeys])
@@ -1039,6 +1041,7 @@ export default function Home() {
                 upcomingLabel={movie.upcoming ? `Binnenkort · ${formatReleaseDate(movie.release_date)}` : undefined}
                 priority={i < 4}
                 isNew={mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
+                alsoSamen={mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
                   setActionError(null)

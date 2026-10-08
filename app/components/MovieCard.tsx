@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { UsersIcon } from './Icons'
 
 type MovieCardMovie = {
   id: number
@@ -16,6 +17,7 @@ export default function MovieCard({
   priority,
   upcomingLabel,
   isNew,
+  alsoSamen,
 }: {
   movie: MovieCardMovie
   onClick: () => void
@@ -25,6 +27,8 @@ export default function MovieCard({
   upcomingLabel?: string
   // Titel die er sinds je vorige bezoek bij is gekomen (zie lib/newTitles.ts).
   isNew?: boolean
+  // Dezelfde titel staat ook in jullie Samen-lijst: dan kun je kiezen of je hem alleen of samen kijkt.
+  alsoSamen?: boolean
 }) {
   return (
     <button
@@ -61,8 +65,21 @@ export default function MovieCard({
           </span>
         )}
 
-        {isNew && !badge && (
-          <span className="absolute top-2 right-2 rounded-full bg-[#52A9A0]/90 px-2 py-0.5 text-[10px] font-semibold text-[#10151C]">Nieuw</span>
+        {(isNew || alsoSamen) && !badge && (
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+            {isNew && (
+              <span className="rounded-full bg-[#52A9A0]/90 px-2 py-0.5 text-[10px] font-semibold text-[#10151C]">Nieuw</span>
+            )}
+            {alsoSamen && (
+              <span
+                className="flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-[#E8A33D] ring-1 ring-[#E8A33D]/40"
+                title="Staat ook bij Samen"
+              >
+                <UsersIcon className="w-3 h-3" />
+                Samen
+              </span>
+            )}
+          </div>
         )}
 
         {badge && (
