@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Beoordelingen van gebruikers voor de smaaktoets: nooit in het (openbare) project.
+/scripts/smaaktoets/data/
