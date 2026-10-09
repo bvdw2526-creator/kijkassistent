@@ -80,6 +80,52 @@ const KEYWORD_NL: Record<string, string> = {
   'father daughter relationship': 'vader-dochterrelaties',
   'new york city': 'New York',
   'hero': 'helden',
+  ambiguous: 'dubbelzinnigheid',
+  murder: 'moord',
+  'psychological thriller': 'psychologische thrillers',
+  thriller: 'thrillers',
+  suspenseful: 'spanning',
+  detective: 'detectives',
+  spy: 'spionnen',
+  kidnapping: 'ontvoering',
+  'marvel cinematic universe (mcu)': 'het Marvel-universum',
+  friendship: 'vriendschap',
+  absurd: 'absurdisme',
+  psychopath: 'psychopaten',
+  'psychological horror': 'psychologische horror',
+  romantic: 'romantiek',
+  'dark comedy': 'zwarte komedie',
+  biography: 'biografieën',
+  cannibal: 'kannibalen',
+  psychological: 'psychologie',
+  frightened: 'angst',
+  romcom: 'romcoms',
+  magic: 'magie',
+  'teen superhero': 'tiener-superhelden',
+  sports: 'sport',
+  sitcom: 'sitcoms',
+  love: 'liefde',
+  spacecraft: 'ruimteschepen',
+  dark: 'duistere sfeer',
+  prison: 'gevangenis',
+  awestruck: 'ontzag',
+  marriage: 'huwelijk',
+  'manhattan, new york city': 'New York',
+  historical: 'historische verhalen',
+  manipulation: 'manipulatie',
+  supernatural: 'het bovennatuurlijke',
+  gritty: 'rauwe sfeer',
+  bewildered: 'verwarring',
+  family: 'familie',
+  '19th century': 'de 19e eeuw',
+  enthusiastic: 'enthousiasme',
+  'dying and death': 'de dood',
+  obsession: 'obsessie',
+  'police officer': 'politieagenten',
+  'space adventure': 'ruimteavonturen',
+  'superhero teamup': 'superhelden-teams',
+  villain: 'schurken',
+  excited: 'opwinding',
 }
 // Zoveel van de best passende trefwoorden telt per titel mee, en ook zoveel van de minst passende.
 const KEYWORD_TOP_N = 5
@@ -288,7 +334,8 @@ export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { sco
   // Alleen een trefwoord noemen dat echt opvalt: veel van je favorieten hebben het en weinig andere titels.
   if (matches.length > 0 && matches[0].value >= 0.15) {
     const name = matches[0].k.name
-    labels.push(`${KEYWORD_NL[name.toLowerCase()] ?? name}`)
+    // "thema" ervoor, zodat het in de uitleg niet voor een film of serie wordt aangezien.
+    labels.push(`thema ${KEYWORD_NL[name.toLowerCase()] ?? name}`)
   }
 
   const score = KEYWORD_WEIGHT * keywordScore + DIRECTOR_WEIGHT * directorScore + DECADE_WEIGHT * decadeScore + LANGUAGE_WEIGHT * languageScore

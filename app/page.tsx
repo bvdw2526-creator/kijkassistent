@@ -224,8 +224,13 @@ const NON_TITLE_LABELS = new Set(['vergelijkbare verhaallijn', 'verhaal dat bij 
 
 // Vertaalt de "basedOn"-lijst van een Samen-titel (titels die jullie leuk vonden, plus een paar
 // vaste labels) naar één leesbare zin waarom dit de tip is.
+// Redenen die geen titel zijn: een regisseur, een thema of "vergelijkbare verhaallijn". Die staan in de uitleg apart van de
+// films en series waar je van hield, anders lijkt bv. "dubbelzinnigheid" een film die je zelf hebt beoordeeld.
+const TRAIT_LABELS = new Set(['vergelijkbare verhaallijn', 'verrassing'])
+const isTraitLabel = (b: string) => b.startsWith('regisseur ') || b.startsWith('thema ') || TRAIT_LABELS.has(b)
+
 function explainTip(basedOn: string[] = []): string {
-  const likedTitles = basedOn.filter((b) => !NON_TITLE_LABELS.has(b) && !b.startsWith('jullie gedeelde '))
+  const likedTitles = basedOn.filter((b) => !NON_TITLE_LABELS.has(b) && !isTraitLabel(b) && !b.startsWith('jullie gedeelde '))
   const shared = basedOn.find((b) => b.startsWith('jullie gedeelde '))
   const parts: string[] = []
   if (likedTitles.length > 0) parts.push(`Omdat jullie hielden van ${likedTitles.slice(0, 2).join(' en ')}.`)
@@ -1167,11 +1172,25 @@ export default function Home() {
                 </p>
               )}
 
-              {selected.basedOn && selected.basedOn.length > 0 && (
-                <p className="text-sm text-[#93A3B5] mb-6">
-                  Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{selected.basedOn.join(', ')}</span>
-                </p>
-              )}
+              {selected.basedOn && selected.basedOn.length > 0 && (() => {
+                const liked = selected.basedOn.filter((b) => !isTraitLabel(b))
+                const traits = selected.basedOn.filter(isTraitLabel)
+                return (
+                  <div className="text-sm text-[#93A3B5] mb-6 space-y-1">
+                    {liked.length > 0 && (
+                      <p>
+                        Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{liked.join(', ')}</span>
+                      </p>
+                    )}
+                    {traits.length > 0 && (
+                      <p>
+                        {liked.length > 0 ? 'Past ook bij je smaak:' : 'Aanbevolen vanwege:'}{' '}
+                        <span className="text-[#E8A33D]">{traits.join(', ')}</span>
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
 
               {actionError && (
                 <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-3">
