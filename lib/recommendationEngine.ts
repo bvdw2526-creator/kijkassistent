@@ -168,6 +168,17 @@ const CACHE_READ_CHUNK = 200
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
+// Welke verhaal-vingerafdrukken de app gebruikt: 'nl' (titel + Nederlandse samenvatting, tabel title_embeddings) of 'en'
+// (Engelse titel + samenvatting, tabel title_embeddings_en). De Nederlandse bleken te grof: films die niets met elkaar te
+// maken hebben lijken ~0,6 op elkaar. Gemeten op twee echte profielen (9 okt 2026): "zeker leuk" ligt met de Engelse vaker
+// dichter bij iets leuks dan "niet voor mij" (78% -> 81% en 67% -> 79%). Zie docs/leren-van-smaak.md.
+export type EmbeddingVersion = 'nl' | 'en'
+export const EMBEDDING_VERSION: EmbeddingVersion = 'en'
+const EMBEDDING_TABLE: Record<EmbeddingVersion, string> = { nl: 'title_embeddings', en: 'title_embeddings_en' }
+const SIMILARITY_RPC: Record<EmbeddingVersion, string> = { nl: 'embedding_similarities', en: 'embedding_similarities_en' }
+const NEIGHBORS_RPC: Record<EmbeddingVersion, string> = { nl: 'embedding_taste_neighbors', en: 'embedding_taste_neighbors_en' }
+// Bij 'en' komt de Engelse tekst van titels zonder vingerafdruk uit de kenmerken-cache; zoveel halen we per aanroep live op.
+const ENGLISH_TEXT_LIVE_LIMIT = 300
 // Gewicht van de verhaal-score (embeddingBonus): hoeveel meer het verhaal van een kandidaat lijkt op wat je leuk vond dan op
 // wat je afkeurde, ten opzichte van een gemiddelde kandidaat. Tot 8 okt 2026 was dit de ruwe overeenkomst met het gemiddelde
 // van wat je leuk vond (rond 0,6-0,7 voor vrijwel alles), waardoor iedere titel zo'n 4 punten "gratis" kreeg en elke titel
@@ -238,8 +249,11 @@ const DISLIKE_PENALTY_CAP = 6
 // Verhaal-buren: de NEIGHBOR_K dichtstbijzijnde titels uit je smaakset (favorieten/"zeker leuk" en afgekeurd) bepalen een
 // extra straf als die buren vooral afgekeurd zijn. Alleen overeenkomst boven NEIGHBOR_BASE_SIM telt mee (de meeste titels
 // liggen rond 0,5-0,6 bij elkaar). Gemeten op een echte gebruiker: een matig maar bruikbaar signaal, dus bescheiden gewicht.
+// De basis ligt per versie van de vingerafdrukken op dezelfde plek in de verdeling: het 10e percentiel van "lijkt het meest op
+// iets wat je leuk vond" over ~300 kandidaten van een groot profiel (9 okt 2026: nl 0,50, en 0,51).
 const NEIGHBOR_K = 5
-const NEIGHBOR_BASE_SIM = 0.5
+const NEIGHBOR_BASE_SIM_BY_VERSION: Record<EmbeddingVersion, number> = { nl: 0.5, en: 0.51 }
+const NEIGHBOR_BASE_SIM = NEIGHBOR_BASE_SIM_BY_VERSION[EMBEDDING_VERSION]
 const NEIGHBOR_WEIGHT = 10
 // Hoeveel van de best scorende kandidaten we op buren controleren (de rest staat toch te laag om te tonen).
 const MAX_NEIGHBOR_CANDIDATES = 600
@@ -270,7 +284,11 @@ const FOCUSED_GATE_MIN_LEARN = 0.5
 const MAX_FEATURE_CANDIDATES = 500
 const FEATURE_LIVE_SOURCES = 120
 const FEATURE_LIVE_CANDIDATES = 120
-const FOCUSED_MIN_NEIGHBOR_SIM = 0.6
+// Per versie op de mediaan van "lijkt het meest op iets wat je leuk vond" (9 okt 2026: nl 0,60, en 0,625). Met de Engelse
+// vingerafdrukken haalt bijvoorbeeld Secretariat (paardenrennen, 0,51 met The Hurricane en Rocky) dit niet meer, waar de
+// Nederlandse hem 0,68 gaven met Arrow en superheldenfilms.
+const FOCUSED_MIN_NEIGHBOR_SIM_BY_VERSION: Record<EmbeddingVersion, number> = { nl: 0.6, en: 0.625 }
+const FOCUSED_MIN_NEIGHBOR_SIM = FOCUSED_MIN_NEIGHBOR_SIM_BY_VERSION[EMBEDDING_VERSION]
 const FOCUSED_GATE_MIN_POOL = 25
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
 // gebruiker die acteur/actrice nog herkent, en het houdt de gecachete payload klein.
@@ -983,9 +1001,39 @@ function parseStoredEmbedding(raw: unknown): number[] {
   return []
 }
 
+// Maakt vingerafdrukken voor titels die er nog geen hebben en slaat ze op. Bij 'nl' met de meegegeven (Nederlandse) tekst;
+// bij 'en' met de Engelse titel en samenvatting uit de kenmerken-cache (zo nodig live bij TMDB opgehaald, zie
+// ENGLISH_TEXT_LIVE_LIMIT). Titels zonder tekst blijven zonder vingerafdruk.
+async function embedAndStore(
+  supabase: SupabaseClient,
+  missing: { media_type: MediaType; tmdb_id: number; text: string }[],
+  version: EmbeddingVersion
+): Promise<{ media_type: MediaType; tmdb_id: number; embedding: number[] }[]> {
+  let withText = missing.filter((m) => m.text)
+  if (version === 'en') {
+    const features = await getFeaturesBulk(supabase, missing, { maxLive: ENGLISH_TEXT_LIVE_LIMIT, needEnglishText: true })
+    withText = missing.flatMap((m) => {
+      const f = features.get(`${m.media_type}-${m.tmdb_id}`)
+      return f?.overviewEn ? [{ ...m, text: `${f.titleEn ?? ''}. ${f.overviewEn}` }] : []
+    })
+  }
+  if (withText.length === 0) return []
+  const vectors = await embedTexts(withText.map((m) => m.text))
+  const rows = withText
+    .map((item, i) => ({ media_type: item.media_type, tmdb_id: item.tmdb_id, embedding: vectors[i] }))
+    .filter((u) => u.embedding && u.embedding.length > 0)
+  if (rows.length > 0) {
+    // Bestaande titels overslaan (ON CONFLICT DO NOTHING): de tabel staat alleen toevoegen toe, en een titel die al bestaat
+    // (bv. door twee berekeningen tegelijk) liet anders het hele groepje met een 403 mislukken.
+    await supabase.from(EMBEDDING_TABLE[version]).upsert(rows, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
+  }
+  return rows
+}
+
 export async function getEmbeddingsForItems(
   supabase: SupabaseClient,
-  items: { media_type: MediaType; tmdb_id: number; text: string }[]
+  items: { media_type: MediaType; tmdb_id: number; text: string }[],
+  version: EmbeddingVersion = EMBEDDING_VERSION
 ): Promise<Map<string, number[]>> {
   const result = new Map<string, number[]>()
 
@@ -995,7 +1043,7 @@ export async function getEmbeddingsForItems(
   const readRows = async (mediaType: MediaType, ids: number[]) => {
     const parts = await Promise.all(
       chunked([...new Set(ids)], CACHE_READ_CHUNK).map((part) =>
-        supabase.from('title_embeddings').select('tmdb_id, embedding').eq('media_type', mediaType).in('tmdb_id', part)
+        supabase.from(EMBEDDING_TABLE[version]).select('tmdb_id, embedding').eq('media_type', mediaType).in('tmdb_id', part)
       )
     )
     return parts.flatMap((part) =>
@@ -1007,20 +1055,10 @@ export async function getEmbeddingsForItems(
   for (const row of movieRows) result.set(`movie-${row.tmdb_id}`, row.embedding)
   for (const row of tvRows) result.set(`tv-${row.tmdb_id}`, row.embedding)
 
-  const missing = items.filter((i) => i.text && !result.has(`${i.media_type}-${i.tmdb_id}`))
-
+  const missing = items.filter((i) => !result.has(`${i.media_type}-${i.tmdb_id}`))
   if (missing.length > 0) {
-    const vectors = await embedTexts(missing.map((m) => m.text))
-    const upserts = missing
-      .map((item, i) => ({ media_type: item.media_type, tmdb_id: item.tmdb_id, embedding: vectors[i] }))
-      .filter((u) => u.embedding && u.embedding.length > 0)
-
-    if (upserts.length > 0) {
-      // Bestaande titels overslaan (ON CONFLICT DO NOTHING): de tabel staat alleen toevoegen toe, en een titel die al bestaat
-      // (bv. door twee berekeningen tegelijk) liet anders het hele groepje met een 403 mislukken.
-      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
-    }
-    upserts.forEach((u) => result.set(`${u.media_type}-${u.tmdb_id}`, u.embedding))
+    const created = await embedAndStore(supabase, missing, version)
+    created.forEach((u) => result.set(`${u.media_type}-${u.tmdb_id}`, u.embedding))
   }
 
   return result
@@ -1034,9 +1072,10 @@ export async function getEmbeddingsForItems(
 // alleen de uitkomst (een paar matchgetallen). Dat bleek de reden dat "Vernieuwen" bij veel
 // tegelijk lopende aanvragen soms 20-30 seconden kon duren (zie de database-metingen: bij 16
 // gelijktijdige volledige-vectoraanvragen 17-30s, tegen 428ms voor 1 aanvraag met alleen scores).
-async function ensureEmbeddingsExist(
+export async function ensureEmbeddingsExist(
   supabase: SupabaseClient,
-  items: { media_type: MediaType; tmdb_id: number; text: string }[]
+  items: { media_type: MediaType; tmdb_id: number; text: string }[],
+  version: EmbeddingVersion = EMBEDDING_VERSION
 ): Promise<Set<string>> {
   const movieIds = items.filter((i) => i.media_type === 'movie').map((i) => i.tmdb_id)
   const tvIds = items.filter((i) => i.media_type === 'tv').map((i) => i.tmdb_id)
@@ -1044,7 +1083,7 @@ async function ensureEmbeddingsExist(
   const readExistingIds = async (mediaType: MediaType, ids: number[]): Promise<Set<number>> => {
     const parts = await Promise.all(
       chunked([...new Set(ids)], CACHE_READ_CHUNK).map((part) =>
-        supabase.from('title_embeddings').select('tmdb_id').eq('media_type', mediaType).in('tmdb_id', part)
+        supabase.from(EMBEDDING_TABLE[version]).select('tmdb_id').eq('media_type', mediaType).in('tmdb_id', part)
       )
     )
     return new Set(parts.flatMap((part) => (part.data || []).map((r) => r.tmdb_id as number)))
@@ -1055,16 +1094,10 @@ async function ensureEmbeddingsExist(
   for (const id of existingMovie) available.add(`movie-${id}`)
   for (const id of existingTv) available.add(`tv-${id}`)
 
-  const missing = items.filter((i) => i.text && !available.has(`${i.media_type}-${i.tmdb_id}`))
+  const missing = items.filter((i) => !available.has(`${i.media_type}-${i.tmdb_id}`))
   if (missing.length > 0) {
-    const vectors = await embedTexts(missing.map((m) => m.text))
-    const upserts = missing
-      .map((item, i) => ({ media_type: item.media_type, tmdb_id: item.tmdb_id, embedding: vectors[i] }))
-      .filter((u) => u.embedding && u.embedding.length > 0)
-    if (upserts.length > 0) {
-      await supabase.from('title_embeddings').upsert(upserts, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
-      upserts.forEach((u) => available.add(`${u.media_type}-${u.tmdb_id}`))
-    }
+    const created = await embedAndStore(supabase, missing, version)
+    created.forEach((u) => available.add(`${u.media_type}-${u.tmdb_id}`))
   }
   return available
 }
@@ -1090,7 +1123,7 @@ export async function computeEmbeddingSimilarities(
   for (let i = 0; i < parts.length; i += SIMILARITY_PARALLEL) {
     await Promise.all(
       parts.slice(i, i + SIMILARITY_PARALLEL).map(async (part) => {
-        const { data, error } = await supabase.rpc('embedding_similarities', {
+        const { data, error } = await supabase.rpc(SIMILARITY_RPC[EMBEDDING_VERSION], {
           p_vectors: queryVectors,
           p_candidates: part.map((c) => ({ media_type: c.media_type, tmdb_id: c.tmdb_id })),
         })
@@ -1123,7 +1156,7 @@ async function computeTasteNeighbors(
   for (let i = 0; i < parts.length; i += 2) {
     await Promise.all(
       parts.slice(i, i + 2).map(async (part) => {
-        const { data, error } = await supabase.rpc('embedding_taste_neighbors', {
+        const { data, error } = await supabase.rpc(NEIGHBORS_RPC[EMBEDDING_VERSION], {
           p_candidates: part.map((c) => ({ media_type: c.media_type, tmdb_id: c.tmdb_id })),
           p_rated: rated,
           p_k: NEIGHBOR_K,

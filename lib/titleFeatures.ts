@@ -15,6 +15,10 @@ export interface TitleFeatures {
   directors: NamedId[]
   year: number | null
   language: string | null
+  // Engelse titel en samenvatting uit dezelfde TMDB-aanroep, voor de Engelse verhaal-vingerafdruk (zie EMBEDDING_VERSION in
+  // de motor). null bij rijen van vóór 9 okt 2026; '' als TMDB geen Engelse samenvatting heeft.
+  titleEn: string | null
+  overviewEn: string | null
 }
 
 // Trefwoorden, regisseurs, jaar en taal veranderen vrijwel nooit.
@@ -109,6 +113,8 @@ async function fetchFeaturesLive(mediaType: MediaType, tmdbId: number): Promise<
       directors,
       year: Number.isFinite(year) ? year : null,
       language: data.original_language || null,
+      titleEn: data.title || data.name || '',
+      overviewEn: data.overview || '',
     }
   } catch {
     return null
@@ -117,23 +123,34 @@ async function fetchFeaturesLive(mediaType: MediaType, tmdbId: number): Promise<
 
 // Leest de kenmerken uit de gedeelde cache en haalt hooguit `maxLive` ontbrekende (of verouderde) titels live op, in de
 // volgorde van `items`. De rest valt terug op de oude rij of ontbreekt; een volgende berekening vult het aan.
+// needEnglishText: rijen zonder Engelse titel/samenvatting (van vóór 9 okt 2026) gelden als ontbrekend en worden opnieuw
+// opgehaald, voor de Engelse verhaal-vingerafdruk.
 export async function getFeaturesBulk(
   supabase: SupabaseClient,
   items: { media_type: MediaType; tmdb_id: number }[],
-  options: { maxLive: number }
+  options: { maxLive: number; needEnglishText?: boolean }
 ): Promise<Map<string, TitleFeatures>> {
   const result = new Map<string, TitleFeatures>()
   const stale = new Map<string, TitleFeatures>()
   const cutoffMs = Date.now() - FEATURES_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
 
-  type Row = { tmdb_id: number; keywords: NamedId[]; directors: NamedId[]; year: number | null; language: string | null; fetched_at: string }
+  type Row = {
+    tmdb_id: number
+    keywords: NamedId[]
+    directors: NamedId[]
+    year: number | null
+    language: string | null
+    title_en: string | null
+    overview_en: string | null
+    fetched_at: string
+  }
   for (const mediaType of ['movie', 'tv'] as const) {
     const ids = [...new Set(items.filter((i) => i.media_type === mediaType).map((i) => i.tmdb_id))]
     const parts = await Promise.all(
       chunked(ids, CACHE_READ_CHUNK).map((part) =>
         supabase
           .from('tmdb_features_cache')
-          .select('tmdb_id, keywords, directors, year, language, fetched_at')
+          .select('tmdb_id, keywords, directors, year, language, title_en, overview_en, fetched_at')
           .eq('media_type', mediaType)
           .in('tmdb_id', part)
       )
@@ -141,9 +158,17 @@ export async function getFeaturesBulk(
     for (const part of parts) {
       for (const row of (part.data || []) as Row[]) {
         const key = `${mediaType}-${row.tmdb_id}`
-        const features: TitleFeatures = { keywords: row.keywords, directors: row.directors, year: row.year, language: row.language }
+        const features: TitleFeatures = {
+          keywords: row.keywords,
+          directors: row.directors,
+          year: row.year,
+          language: row.language,
+          titleEn: row.title_en,
+          overviewEn: row.overview_en,
+        }
         stale.set(key, features)
-        if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, features)
+        const usable = !options.needEnglishText || row.overview_en !== null
+        if (usable && new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, features)
       }
     }
   }
@@ -170,6 +195,8 @@ export async function getFeaturesBulk(
         directors: d.features!.directors,
         year: d.features!.year,
         language: d.features!.language,
+        title_en: d.features!.titleEn,
+        overview_en: d.features!.overviewEn,
         fetched_at: new Date().toISOString(),
       }))
     if (upserts.length > 0) await supabase.from('tmdb_features_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })

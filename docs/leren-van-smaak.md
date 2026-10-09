@@ -32,6 +32,23 @@ Naarmate `learn` stijgt:
   `FOCUSED_MIN_NEIGHBOR_SIM` met een favoriet) of horen bij een reeks, acteur of regisseur die je zelf koos. Blijven er te
   weinig titels over (`FOCUSED_GATE_MIN_POOL`), dan vervalt die eis.
 
+## Verhaal-vingerafdrukken: Engels (sinds 9 oktober 2026)
+
+De vingerafdrukken (Voyage `voyage-4-lite`) worden gemaakt van de **Engelse** titel en samenvatting (`title_embeddings_en`),
+niet meer van de Nederlandse (`title_embeddings`). De Nederlandse waren te grof: *Secretariat* (paardenrennen) leek het
+meest op *Arrow* en superheldenfilms (0,68) en kwam zo in Puur mijn smaak; met de Engelse lijkt hij op *The Hurricane* en
+*Rocky* (0,51) en haalt hij de drempel niet meer. Gemeten op de echte database (twee grote profielen, steeds de titel zelf
+weggelaten): de kans dat een "zeker leuk" dichter bij iets leuks ligt dan een "niet voor mij" ging van 77,2% naar 80,2% en
+van 67,0% naar 78,4%; tegenover een "oké" van 62,0% naar 66,6% en van 60,7% naar 64,6%.
+
+- De Engelse tekst komt uit dezelfde TMDB-aanroep als de kenmerken (`title_en`, `overview_en` in `tmdb_features_cache`).
+  Ontbreekt een vingerafdruk, dan haalt de app de tekst op (hooguit `ENGLISH_TEXT_LIVE_LIMIT` per aanroep) en maakt hem.
+- De drempels voor de verhaal-buren staan per versie op dezelfde plek in de verdeling (`NEIGHBOR_BASE_SIM_BY_VERSION`,
+  `FOCUSED_MIN_NEIGHBOR_SIM_BY_VERSION`). De smaakmatch tussen partners bleef op dezelfde schaal (mediaan 0,67 tegen 0,65).
+- Opvullen (eenmalig gedaan op 9 oktober, 7.312 van 7.314 titels): `POST /api/admin/backfill-embeddings-en?limit=250` als
+  beheerder, herhalen tot er niets meer over is.
+- Terugzetten: `EMBEDDING_VERSION = 'nl'` in `lib/recommendationEngine.ts` en de voorvoegsels hieronder ophogen.
+
 ## Verhaal-score (tegenstelling)
 
 Van elke titel is er een verhaal-vingerafdruk (embedding van titel + beschrijving). De verhaal-score (`embeddingBonus`) is
@@ -108,7 +125,7 @@ Voor alleen de verhaal-score zonder tegenstelling (wel rond 0): zet `STORY_DISLI
 score (met de ~4 basispunten) komt terug door in `computeTasteProfile` `embeddingBonus` weer op `sims[0]` te zetten en het
 label weer bij `> 0.5`.
 
-Verhoog daarna het voorvoegsel van de opgeslagen lijsten (`u12` in `app/api/recommendations/route.ts` en `v19` in
+Verhoog daarna het voorvoegsel van de opgeslagen lijsten (`u13` in `app/api/recommendations/route.ts` en `v20` in
 `app/api/recommendations-together/route.ts`), zodat alles opnieuw wordt berekend.
 
 ## Gemeten

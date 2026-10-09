@@ -13,6 +13,8 @@ export const LIMITS = {
   // De import van een Letterboxd-export gaat in porties van 25; duizenden films zijn honderd aanroepen.
   importMatch: { max: 400, windowSeconds: 3600 },
   importWarmup: { max: 150, windowSeconds: 3600 },
+  // Alleen voor de beheerder: het opvullen van de Engelse vingerafdrukken gaat in porties (zie app/api/admin).
+  adminBackfill: { max: 200, windowSeconds: 3600 },
 } as const
 
 type Limit = { max: number; windowSeconds: number }
