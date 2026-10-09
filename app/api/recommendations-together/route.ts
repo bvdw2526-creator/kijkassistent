@@ -71,6 +71,10 @@ const STORY_MATCH_LABEL = 'verhaal dat bij jullie allebei past'
 // 73%, en met daarbij half meetellen wat jullie samen afkeurden 78% (volledig meetellen: 71%). Klein, maar dezelfde kant
 // op als bij de eigen tabbladen.
 const COUPLE_DISLIKE_STORY_WEIGHT = 0.5
+// En omgekeerd: hoe zwaar "lijkt op wat jullie samen leuk of oké vonden" meetelt. Voorheen telde dat alleen via de genres.
+// Gemeten op hetzelfde stel (9 okt 2026, Engelse vingerafdrukken, steeds de titel zelf weggelaten): 73% zonder, 94% met
+// (bij 0,5 en bij 1 gelijk). Nog maar één stel, maar een grote stap.
+const COUPLE_LIKE_STORY_WEIGHT = 0.5
 
 interface StoryTaste {
   // Gemiddelde verhaal-embedding van wat iemand leuk vond en van wat diegene afkeurde (leeg bij te weinig afkeuringen).
@@ -81,14 +85,17 @@ interface StoryTaste {
 // Meet per titel hoe goed het verhaal past bij elk van beide partners en neemt de LAAGSTE van de twee: alleen een titel
 // die bij allebei past scoort hoog. Bewust niet de twee smaken middelen: bij twee verschillende smaken landt het gemiddelde
 // in het midden, bij titels die geen van beiden echt aanspreken. Per persoon is het, net als in de eigen tabbladen, een
-// tegenstelling: lijkt het verhaal meer op wat diegene leuk vond dan op wat diegene afkeurde. Daarvan gaat af hoeveel
-// het lijkt op wat jullie samen afkeurden (zie COUPLE_DISLIKE_STORY_WEIGHT).
+// tegenstelling: lijkt het verhaal meer op wat diegene leuk vond dan op wat diegene afkeurde. Daar komt bij hoeveel het
+// lijkt op wat jullie samen leuk of oké vonden, en daar gaat af hoeveel het lijkt op wat jullie samen afkeurden (zie
+// COUPLE_LIKE_STORY_WEIGHT en COUPLE_DISLIKE_STORY_WEIGHT).
 async function applyJointFit(
   supabase: SupabaseClient,
   items: RankedCandidate[],
   tasteA: StoryTaste,
   tasteB: StoryTaste,
-  // Gemiddelde verhaal-embedding van wat jullie samen afkeurden (leeg bij te weinig).
+  // Gemiddelde verhaal-embedding van wat jullie samen leuk of oké vonden, en van wat jullie samen afkeurden (leeg bij te
+  // weinig).
+  coupleLikeVector: number[],
   coupleDislikeVector: number[],
   fallbackKeys: Set<string>,
   // true: aanvullende titels (uit de bredere zoektocht) die minder goed bij jullie allebei passen dan de helft van de
@@ -103,6 +110,7 @@ async function applyJointFit(
   const dislikeIndexA = addVector(tasteA.dislike)
   const dislikeIndexB = addVector(tasteB.dislike)
   const coupleIndex = addVector(coupleDislikeVector)
+  const coupleLikeIndex = addVector(coupleLikeVector)
   const similarities = await computeEmbeddingSimilarities(
     supabase,
     vectors,
@@ -118,6 +126,7 @@ async function applyJointFit(
       a: sims[0] - (dislikeIndexA >= 0 ? sims[dislikeIndexA] : 0),
       b: sims[1] - (dislikeIndexB >= 0 ? sims[dislikeIndexB] : 0),
       couple: coupleIndex >= 0 ? sims[coupleIndex] : null,
+      coupleLike: coupleLikeIndex >= 0 ? sims[coupleLikeIndex] : null,
     }
   })
   // Op één schaal: per persoon (en voor wat jullie samen afkeurden) rond het midden van deze lijst, gedeeld door de
@@ -133,11 +142,16 @@ async function applyJointFit(
   const zA = standardizer(fits.map((f) => f?.a))
   const zB = standardizer(fits.map((f) => f?.b))
   const zCouple = standardizer(fits.map((f) => f?.couple))
+  const zCoupleLike = standardizer(fits.map((f) => f?.coupleLike))
   // Het label alleen als het verhaal voor allebei beter past dan bij driekwart van de lijst.
   const labelFromA = quantileOf(sortedOf(fits.map((f) => f?.a)), STORY_LABEL_QUANTILE)
   const labelFromB = quantileOf(sortedOf(fits.map((f) => f?.b)), STORY_LABEL_QUANTILE)
   let jointValues = fits.map((f) =>
-    f ? Math.min(zA(f.a), zB(f.b)) - (f.couple !== null ? COUPLE_DISLIKE_STORY_WEIGHT * zCouple(f.couple) : 0) : null
+    f
+      ? Math.min(zA(f.a), zB(f.b)) +
+        (f.coupleLike !== null ? COUPLE_LIKE_STORY_WEIGHT * zCoupleLike(f.coupleLike) : 0) -
+        (f.couple !== null ? COUPLE_DISLIKE_STORY_WEIGHT * zCouple(f.couple) : 0)
+      : null
   )
 
   if (dropWeakFallback) {
@@ -421,7 +435,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      `v21-thema-${MATCH_PERCENT_METHOD}`,
+      `v22-samen-leuk-${MATCH_PERCENT_METHOD}`,
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -611,18 +625,22 @@ export async function GET(request: NextRequest) {
       items.forEach((e) => fallbackKeys.add(titleKey(e)))
     }
 
-    // Wat jullie samen afkeurden, als gemiddelde verhaal-vingerafdruk (pas vanaf een paar afkeuringen). Die titels zijn
-    // eerder aanbevolen, dus hun vingerafdruk staat al in de database; er wordt hier niets nieuws berekend.
-    const coupleDisliked = coupleRatings.filter((r) => r.rating === 'dislike')
-    let coupleDislikeVector: number[] = []
-    if (coupleDisliked.length >= STORY_DISLIKE_MIN) {
+    // Wat jullie samen leuk of oké vonden en wat jullie samen afkeurden (ook "niet voor ons"), elk als gemiddelde
+    // verhaal-vingerafdruk, pas vanaf een paar titels. De meeste staan al in de database (ze zijn eerder aanbevolen);
+    // ontbreekt er een, dan wordt die alsnog gemaakt.
+    const averageOfTitles = async (rows: { media_type: string; tmdb_id: number }[]): Promise<number[]> => {
+      if (rows.length < STORY_DISLIKE_MIN) return []
       const embeddings = await getEmbeddingsForItems(
         supabase,
-        coupleDisliked.map((r) => ({ media_type: r.media_type as MediaType, tmdb_id: r.tmdb_id, text: '' }))
+        rows.map((r) => ({ media_type: r.media_type as MediaType, tmdb_id: r.tmdb_id, text: '' }))
       )
       const vecs = Array.from(embeddings.values()).filter((v) => v.length > 0)
-      if (vecs.length >= STORY_DISLIKE_MIN) coupleDislikeVector = vecs[0].map((_, d) => vecs.reduce((sum, v) => sum + v[d], 0) / vecs.length)
+      return vecs.length >= STORY_DISLIKE_MIN ? vecs[0].map((_, d) => vecs.reduce((sum, v) => sum + v[d], 0) / vecs.length) : []
     }
+    const [coupleLikeVector, coupleDislikeVector] = await Promise.all([
+      averageOfTitles(coupleRatings.filter((r) => r.rating === 'love' || r.rating === 'ok')),
+      averageOfTitles(coupleRatings.filter((r) => r.rating === 'dislike')),
+    ])
 
     // Verhaal-overeenkomst met beide smaakprofielen (Voyage-embeddings), zie applyJointFit.
     items = await applyJointFit(
@@ -630,6 +648,7 @@ export async function GET(request: NextRequest) {
       items,
       { like: tasteA.userVector, dislike: tasteA.dislikeVector },
       { like: tasteB.userVector, dislike: tasteB.dislikeVector },
+      coupleLikeVector,
       coupleDislikeVector,
       fallbackKeys,
       tier === 'intersection'

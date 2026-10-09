@@ -60,6 +60,14 @@ bij het vermoeden dat "niet voor mij" bij Samen vaak "niet voor ons" betekent (o
 In de tabel `recommendation_snapshots` (alleen leesbaar voor de beheerder), label `smaak-2026-10-09`: de lijsten van 4
 gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
 
+### Gewijzigd na deze versie
+
+- 9 okt 2026: Samen kreeg "Niet voor ons" en "Samen gezien?" in plaats van persoonlijke beoordelingen, en wat jullie samen
+  leuk of oké vonden telt via het verhaal mee (`COUPLE_LIKE_STORY_WEIGHT`). Samen-toets op het eerste stel: 73% naar 94%.
+  Nieuwe database-onderdelen: kolom `couple_ratings.reason`. Voorvoegsel Samen nu `v22-samen-leuk`. De persoonlijke
+  berekening is ongewijzigd. Terugzetten van alleen dit deel: `app/api/recommendations-together/route.ts`,
+  `app/page.tsx` en `app/components/PartnerRated.tsx` uit het label halen (oude `reason`-waarden blijven dan gewoon staan).
+
 ## Afspraken bij verder sleutelen
 
 1. **Database: alleen toevoegen.** Een nieuwe versie van een tabel of functie krijgt een nieuwe naam naast de oude (zoals

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import { chip } from './ui'
 
-type Item = { tmdb_id: number; media_type: 'movie' | 'tv'; title: string }
+type Item = { tmdb_id: number; media_type: 'movie' | 'tv'; title: string; reason: string | null }
 type Rating = 'love' | 'ok' | 'dislike'
 
 // Alleen beoordelingen van je partner vanaf de invoering hiervan: eerdere Samen-beoordelingen vragen we niet
@@ -21,9 +21,10 @@ function readSkipped(userId: string): Set<string> {
   }
 }
 
-// Bij Samen beoordeelt ieder persoonlijk: geeft je partner een titel een beoordeling, dan verdwijnt hij
-// voor jullie allebei uit Samen. Hier vragen we wat jij er zelf van vond, zodat het ook voor jouw eigen
-// smaak meetelt.
+// Beoordeelt je partner een titel op Onze lijst, of geven jullie bij Samen aan hoe een samen gekeken titel was ("Samen
+// gezien?"), dan vragen we hier wat jij er zelf van vond, zodat het ook voor jouw eigen smaak meetelt. Bij "Samen gezien"
+// krijgen jullie allebei die vraag, ook degene die het aangaf. Over "niet voor ons" vragen we niets: die titel is
+// meestal niet gezien.
 export default function PartnerRated({
   connectionId,
   onRated,
@@ -42,14 +43,16 @@ export default function PartnerRated({
       if (!user || cancelled) return
       setUserId(user.id)
 
-      const { data: theirs } = await supabase
+      const { data: rows } = await supabase
         .from('couple_ratings')
-        .select('tmdb_id, media_type, title, created_at')
+        .select('tmdb_id, media_type, title, reason, rated_by, created_at')
         .eq('connection_id', connectionId)
-        .neq('rated_by', user.id)
+        .or('reason.is.null,reason.eq.samen_gezien')
         .gte('created_at', PROMPT_FROM)
         .order('created_at', { ascending: false })
-      if (cancelled || !theirs || theirs.length === 0) return
+      // Een gewone beoordeling alleen als je partner hem gaf; "samen gezien" voor jullie allebei.
+      const theirs = (rows ?? []).filter((r) => r.rated_by !== user.id || r.reason === 'samen_gezien')
+      if (cancelled || theirs.length === 0) return
 
       // Wat je zelf al beoordeeld hebt of als favoriet hebt staan hoeft niet meer gevraagd te worden.
       const ids = theirs.map((t) => t.tmdb_id)
@@ -102,7 +105,8 @@ export default function PartnerRated({
       {items.map((item) => (
         <div key={`${item.media_type}-${item.tmdb_id}`} className="rounded-2xl border border-[#2A3644] bg-[#1A2330] p-4">
           <p className="text-sm leading-relaxed">
-            Je partner beoordeelde <span className="font-medium">{item.title}</span>. Wat vond jij er zelf van?
+            {item.reason === 'samen_gezien' ? 'Jullie keken samen ' : 'Je partner beoordeelde '}
+            <span className="font-medium">{item.title}</span>. Wat vond jij er zelf van?
           </p>
           <div className="flex flex-wrap gap-1.5 mt-3">
             <button onClick={() => rate(item, 'love')} className={chip(false, 'accent', 'sm')}>Zeker leuk</button>

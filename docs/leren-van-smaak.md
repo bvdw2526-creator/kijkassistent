@@ -78,6 +78,23 @@ nu alleen bij titels waarvan het verhaal beter past dan bij driekwart van de ove
 
 De percentages bij Samen zakken ook mee, omdat Samen de persoonlijke percentages van allebei gebruikt.
 
+## Samen: "Niet voor ons", "Samen gezien?" en wat jullie samen leuk vonden
+
+Sinds 9 oktober 2026 geeft de popup bij Samen geen persoonlijke beoordelingen meer (die geef je in je eigen tabbladen,
+via Zoeken of na het samen kijken op Onze lijst). Bij Samen staan alleen oordelen over jullie samen, in
+`couple_ratings` met een `reason`:
+
+- **Niet voor ons** (`niet_voor_ons`, als `dislike`): past niet bij jullie samen, ook als je hem niet zag. Haalt de titel
+  uit Samen en telt mee als samen afgekeurd, maar niet voor je eigen smaak; de titel kan in je eigen tabbladen blijven.
+  De 7 oude Samen-"niet voor mij" van het eerste stel zijn op 9 oktober omgezet (hun eigen beoordelingen bleven staan).
+- **Samen gezien?** (`samen_gezien`: Leuk, Oké of Niet leuk): hoe het samen was. Telt voor Samen; daarna krijgen jullie
+  allebei het vraagje "wat vond jij er zelf van?" (`app/components/PartnerRated.tsx`).
+- Beoordelen op Onze lijst (`reason` leeg) werkt zoals voorheen: persoonlijk én voor Samen, met een vraagje aan je partner.
+
+Wat jullie samen **leuk of oké** vonden, telt nu ook via het verhaal mee: titels die erop lijken stijgen
+(`COUPLE_LIKE_STORY_WEIGHT` 0,5, net zo zwaar als samen afgekeurd). Voorheen alleen via de genres. Gemeten op het stel met
+de meeste samen beoordeelde titels (14, steeds de titel zelf weggelaten): 73% naar 94%.
+
 ## Kenmerken van de films zelf
 
 Naast het verhaal leert de app van wat een titel *is*, in `lib/titleFeatures.ts`:

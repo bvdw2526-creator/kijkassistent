@@ -17,7 +17,7 @@ import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
-import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon } from './components/Icons'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon, UsersIcon } from './components/Icons'
 import HideTitleConfirm from './components/HideTitleConfirm'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
@@ -661,26 +661,8 @@ export default function Home() {
     setActionError(null)
     const movieKey = (m: Movie) => m.id === movie.id && m.media_type === movie.media_type
 
-    // Bij Samen beoordeel je gewoon persoonlijk: het is jouw "zeker leuk / was oké / niet voor mij", en de app
-    // leert er dus ook van. De titel verdwijnt daarmee voor jullie allebei uit Samen (de lijst komt uit beide
-    // profielen). Daarnaast leggen we in couple_ratings vast dat dit bij Samen gebeurde, zodat je partner
-    // een vraagje krijgt om hem ook zelf te beoordelen (zie PartnerRated). Mislukt dat, dan is je eigen
-    // beoordeling toch gewoon opgeslagen.
-    if (mode === 'samen' && togetherConnectionId) {
-      const { error: coupleError } = await supabase.from('couple_ratings').upsert(
-        {
-          connection_id: togetherConnectionId,
-          tmdb_id: movie.id,
-          media_type: movie.media_type,
-          title: movie.title,
-          rating,
-          rated_by: user.id,
-        },
-        { onConflict: 'connection_id,tmdb_id,media_type' }
-      )
-      if (coupleError) console.error('Samen-markering opslaan mislukt:', coupleError)
-    }
-
+    // Bij Samen staan deze knoppen niet: daar kies je "Op onze lijst" of "Niet voor ons" (zie handleNotForUs). Je eigen
+    // oordeel geef je in je eigen tabbladen, via Zoeken of na het samen kijken op Onze lijst (app/watchlist).
     const { error } = await supabase.from('ratings').upsert(
       {
         user_id: user.id,
@@ -705,6 +687,47 @@ export default function Home() {
     // titel verdwijnt al direct uit de lijst (hieronder); voor bijgewerkte aanbevelingen
     // die je nieuwste smaak meewegen is er de handmatige "Vernieuwen"-knop.
     removeEverywhere(movieKey)
+    setSelected(null)
+  }
+
+  // "Niet voor ons" (alleen bij Samen): de titel past niet bij jullie samen, bijvoorbeeld omdat je partner hem niet zou
+  // willen zien. Hij verdwijnt uit Samen en telt mee als iets wat jullie samen afkeurden, maar het is géén beoordeling van
+  // jou: je eigen smaak en je eigen tabbladen blijven erbuiten, en je partner krijgt er geen vraagje over (zie
+  // couple_ratings.reason). Kan ook bij titels die je niet gezien hebt of die nog moeten uitkomen.
+  async function handleNotForUs(movie: Movie) {
+    await saveCoupleVerdict(movie, 'dislike', 'niet_voor_ons')
+  }
+
+  // "Samen gezien?" (alleen bij Samen): jullie keken de titel samen, ook zonder hem eerst op Onze lijst te zetten. Het
+  // oordeel gaat over hoe het samen was en telt mee voor Samen (titels die erop lijken stijgen of zakken), maar is geen
+  // persoonlijke beoordeling: daarna krijgen jullie allebei het vraagje wat je er zelf van vond (zie PartnerRated).
+  async function handleSeenTogether(movie: Movie, rating: 'love' | 'ok' | 'dislike') {
+    await saveCoupleVerdict(movie, rating, 'samen_gezien')
+  }
+
+  // Een oordeel dat alleen voor Samen geldt (couple_ratings.reason); de titel verdwijnt uit Samen, niet uit je eigen lijsten.
+  async function saveCoupleVerdict(movie: Movie, rating: 'love' | 'ok' | 'dislike', reason: 'niet_voor_ons' | 'samen_gezien') {
+    if (!user || !togetherConnectionId) return
+    if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
+    setActionError(null)
+    const { error } = await supabase.from('couple_ratings').upsert(
+      {
+        connection_id: togetherConnectionId,
+        tmdb_id: movie.id,
+        media_type: movie.media_type,
+        title: movie.title,
+        rating,
+        reason,
+        rated_by: user.id,
+      },
+      { onConflict: 'connection_id,tmdb_id,media_type' }
+    )
+    if (error) {
+      console.error('Samen-oordeel opslaan mislukt:', error)
+      setActionError(`Kon dit niet opslaan: ${error.message}`)
+      return
+    }
+    removeFromSamen((m) => m.id === movie.id && m.media_type === movie.media_type)
     setSelected(null)
   }
 
@@ -1198,10 +1221,57 @@ export default function Home() {
                 </p>
               )}
 
+              {/* Bij Samen gaat het alleen om de vraag "kijken we dit samen?". Je eigen oordeel (beoordelen, favoriet) geef je in
+                  je eigen tabbladen, via Zoeken of na het samen kijken op Onze lijst. */}
+              {mode === 'samen' ? (
+                <div className="mb-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
+                      <PlusIcon className="w-4 h-4" />
+                      Op onze lijst
+                    </button>
+                    <button onClick={() => handleNotForUs(selected)} className={btnSecondary}>
+                      <UsersIcon className="w-4 h-4" />
+                      Niet voor ons
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-[#5E6D80] text-center mt-1.5">
+                    Niet voor ons: past niet bij jullie samen, telt niet mee voor je eigen smaak.
+                  </p>
+                  {!selected.upcoming && (
+                    <>
+                      <p className="text-xs text-[#93A3B5] mt-4 mb-2">Samen gezien? Hoe was het samen?</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          onClick={() => handleSeenTogether(selected, 'love')}
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#E8A33D] hover:text-[#E8A33D]"
+                        >
+                          <HeartIcon className="w-4 h-4" />
+                          <span className="text-xs font-medium">Leuk</span>
+                        </button>
+                        <button
+                          onClick={() => handleSeenTogether(selected, 'ok')}
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#52A9A0] hover:text-[#52A9A0]"
+                        >
+                          <OkIcon className="w-4 h-4" />
+                          <span className="text-xs font-medium">Oké</span>
+                        </button>
+                        <button
+                          onClick={() => handleSeenTogether(selected, 'dislike')}
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#C97064] hover:text-[#C97064]"
+                        >
+                          <DislikeIcon className="w-4 h-4" />
+                          <span className="text-xs font-medium">Niet leuk</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
               <div className={`grid gap-2 mb-3 ${selected.upcoming ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
                   <PlusIcon className="w-4 h-4" />
-                  {mode === 'samen' ? 'Op onze lijst' : 'Op kijklijst'}
+                  Op kijklijst
                 </button>
                 {!selected.upcoming && (
                   <button onClick={() => handleFavorite(selected)} className={btnSecondary}>
@@ -1210,9 +1280,10 @@ export default function Home() {
                   </button>
                 )}
               </div>
+              )}
 
-              {/* Beoordelen kan pas als je hem gezien hebt, dus niet bij titels die nog moeten uitkomen. */}
-              {!selected.upcoming && (
+              {/* Beoordelen kan pas als je hem gezien hebt, dus niet bij titels die nog moeten uitkomen; bij Samen niet. */}
+              {!selected.upcoming && mode !== 'samen' && (
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleRate(selected, 'love')}
