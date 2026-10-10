@@ -1135,6 +1135,8 @@ export default function Home() {
                   <h2 className="font-display text-xl leading-tight">{selected.title}</h2>
                   <p className="text-sm text-[#93A3B5] mt-1.5">
                     {selected.media_type === 'tv' ? 'Serie' : 'Film'}
+                    {/* Bij Binnenkort staat de datum al verderop in de popup. */}
+                    {!selected.upcoming && selected.release_date ? ` · ${selected.release_date.slice(0, 4)}` : ''}
                   </p>
                   {selected.upcoming ? (
                     <span className="inline-block mt-2 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-semibold px-2.5 py-1">
