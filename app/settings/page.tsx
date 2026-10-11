@@ -12,6 +12,7 @@ import { WhatsNewSheet } from '../components/WhatsNew'
 import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, ChevronLeftIcon, TrashIcon, UsersIcon } from '../components/Icons'
 import { SKINS } from '@/lib/skins'
+import { MIN_YEAR_OPTIONS } from '@/lib/tooOld'
 import { useSkin, setSkin } from '@/lib/useSkin'
 
 const AVAILABLE_SERVICES = [
@@ -138,6 +139,8 @@ export default function Settings() {
   const [onboardingComplete, setOnboardingComplete] = useState(true)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const skin = useSkin()
+  // Eigen grens "Niet ouder dan" (profiles.min_year); null = geen grens. Wordt direct opgeslagen bij het kiezen.
+  const [minYear, setMinYear] = useState<number | null>(null)
 
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
@@ -171,7 +174,7 @@ export default function Settings() {
     if (!user) return
     const { data } = await supabase
       .from('profiles')
-      .select('streaming_services, excluded_genres, onboarding_completed_at')
+      .select('streaming_services, excluded_genres, onboarding_completed_at, min_year')
       .eq('id', user.id)
       .single()
     const services: string[] = data?.streaming_services || []
@@ -179,8 +182,22 @@ export default function Settings() {
     lastSavedRef.current = snapshotOf(services, genres)
     setSelected(services)
     setExcludedGenres(genres)
+    setMinYear(typeof data?.min_year === 'number' ? data.min_year : null)
     setOnboardingComplete(!!data?.onboarding_completed_at)
     setLoading(false)
+  }
+
+  async function chooseMinYear(year: number | null) {
+    const previous = minYear
+    setMinYear(year)
+    const user = await getCurrentUser()
+    if (!user) return
+    const { error } = await supabase.from('profiles').update({ min_year: year }).eq('id', user.id)
+    if (error) {
+      console.error('Grens opslaan mislukt:', error)
+      setMinYear(previous)
+      setErrorMessage(`Kon de grens niet opslaan: ${error.message}`)
+    }
   }
 
   function toggleService(id: string) {
@@ -437,6 +454,30 @@ export default function Settings() {
 
         <div className="mt-4">
           <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
+        </div>
+
+        <div className="mt-6">
+          <SectionTitle
+            title="Niet ouder dan"
+            hint="Films en series van vóór dit jaar komen niet in je aanbevelingen. Bij series telt het jaar van de eerste aflevering. Zoeken, de Top 100 en je kijklijst blijven alles tonen."
+          />
+          <div className="flex flex-wrap gap-2">
+            {[null, ...MIN_YEAR_OPTIONS].map((year) => {
+              const active = minYear === year
+              return (
+                <button
+                  key={year ?? 'alles'}
+                  onClick={() => chooseMinYear(year)}
+                  aria-pressed={active}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-medium transition-all touch-manipulation active:scale-[0.96] ${
+                    active ? 'border-accent bg-accent/12 text-accent' : 'border-line text-muted hover:border-line-strong hover:text-foreground'
+                  }`}
+                >
+                  {year === null ? 'Alles' : `Vanaf ${year}`}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <GroupTitle title="Mijn lijsten" />

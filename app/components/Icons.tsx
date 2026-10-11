@@ -185,3 +185,13 @@ export function EyeOffIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+// Klokje, voor "Te oud".
+export function ClockIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}

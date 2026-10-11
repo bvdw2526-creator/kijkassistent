@@ -10,6 +10,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-11',
+    date: '11 oktober 2026',
+    items: [
+      "Nieuw: de knop 'Te oud' bij films en series van vóór 2000. Daarmee zet je een titel weg zonder dat het als beoordeling telt. Na een paar keer vraagt de app of oudere titels voortaan weg mogen.",
+      "Bij Instellingen kun je zelf een grens kiezen onder 'Niet ouder dan'.",
+      "Kies je eigen uiterlijk bij Instellingen onder 'Uiterlijk': Halloween, Doomsday, Dune of Matrix.",
+      'Een regisseur telt pas mee in je aanbevelingen als je twee of meer van zijn of haar films zeker leuk vond.',
+    ],
+  },
+  {
     id: '2026-10-08',
     date: '8 oktober 2026',
     items: [

@@ -1345,6 +1345,13 @@ export async function warmTitleCaches(
   ])
 }
 
+// Valt een titel onder iemands grens "Niet ouder dan"? Zonder grens of zonder bekend jaar nooit.
+export function isOlderThan(releaseDate: string | undefined, minYear: number | null | undefined): boolean {
+  if (!minYear || !releaseDate) return false
+  const year = parseInt(releaseDate.slice(0, 4), 10)
+  return Number.isFinite(year) && year < minYear
+}
+
 export interface ProfileInputs {
   favorites: { tmdb_id: number; title: string; media_type: MediaType; added_at?: string }[]
   ratings: { tmdb_id: number; title: string; rating: string; media_type: MediaType; rated_at?: string }[]
@@ -1354,6 +1361,8 @@ export interface ProfileInputs {
   hidden?: { tmdb_id: number; media_type: MediaType }[]
   streamingServices: string[]
   excludedGenreIds: Set<number>
+  // Eigen grens "Niet ouder dan" (profiles.min_year): titels van vóór dit jaar komen niet in de aanbevelingen.
+  minYear?: number | null
   favoritePeopleList: { person_id: number; name: string }[]
   favoriteDirectorsList: { person_id: number; name: string }[]
 }
@@ -1380,7 +1389,7 @@ export async function fetchProfileInputs(
     supabase.from('favorite_movies').select('tmdb_id, title, media_type, added_at').eq('user_id', userId),
     supabase.from('ratings').select('tmdb_id, title, rating, media_type, rated_at').eq('user_id', userId),
     supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', userId),
-    supabase.from('profiles').select('streaming_services, excluded_genres').eq('id', userId).single(),
+    supabase.from('profiles').select('streaming_services, excluded_genres, min_year').eq('id', userId).single(),
     supabase.from('favorite_people').select('person_id, name').eq('user_id', userId),
     supabase.from('favorite_directors').select('person_id, name').eq('user_id', userId),
   ])
@@ -1395,6 +1404,7 @@ export async function fetchProfileInputs(
     ...(hidden ? { hidden: hidden as { tmdb_id: number; media_type: MediaType }[] } : {}),
     streamingServices: profile?.streaming_services || [],
     excludedGenreIds: new Set<number>(Array.isArray(profile?.excluded_genres) ? profile.excluded_genres : []),
+    minYear: typeof profile?.min_year === 'number' ? profile.min_year : null,
     favoritePeopleList: favoritePeople || [],
     favoriteDirectorsList: favoriteDirectors || [],
   }
@@ -1411,6 +1421,7 @@ export function buildProfileSignature(inputs: ProfileInputs): string {
     'wl:' + inputs.watchlist.map((w) => `${w.media_type}-${w.tmdb_id}`).sort().join(','),
     'svc:' + [...inputs.streamingServices].sort().join(','),
     'exgen:' + [...inputs.excludedGenreIds].sort((a, b) => a - b).join(','),
+    'miny:' + (inputs.minYear ?? ''),
     'ppl:' + inputs.favoritePeopleList.map((p) => p.person_id).sort((a, b) => a - b).join(','),
     'dir:' + inputs.favoriteDirectorsList.map((p) => p.person_id).sort((a, b) => a - b).join(','),
   ].join('|')
@@ -1942,7 +1953,10 @@ export async function computeTasteProfile(
     // Titels die al in een smaller/eerder tabblad staan, komen hier niet nog eens in
     // — anders zie je "zeker leuk" ook terug bij "oké" en "verras me".
     const availableCandidates = candidates.filter(
-      (item) => !excludeKeys.has(`${item.media_type}-${item.id}`) && (!watchableKeys || watchableKeys.has(`${item.media_type}-${item.id}`))
+      (item) =>
+        !excludeKeys.has(`${item.media_type}-${item.id}`) &&
+        (!watchableKeys || watchableKeys.has(`${item.media_type}-${item.id}`)) &&
+        !isOlderThan(item.release_date, inputs.minYear)
     )
     // Puur mijn smaak: alleen titels die ook echt lijken op iets wat je leuk vond (zie FOCUSED_MIN_NEIGHBOR_SIM).
     let selectable = availableCandidates

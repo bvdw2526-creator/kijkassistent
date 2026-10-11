@@ -31,6 +31,10 @@ const LIVE_BUDGET_MS = 12_000
 // Gewicht van elk onderdeel in de eindscore (de leerfactor in de motor schaalt het geheel).
 const KEYWORD_WEIGHT = 1.8
 const DIRECTOR_WEIGHT = 2
+// Een regisseur telt pas als pluspunt bij twee of meer titels die je "zeker leuk" vond (2 punten per titel). Gemeten op
+// 11 okt 2026: buiten een filmreeks voorspelt één geliefde film van een regisseur niets (41% "zeker leuk", net als
+// zonder signaal), twee of meer wel. Een regisseur die je zelf als favoriet kiest, telt los hiervan mee in de motor.
+const DIRECTOR_MIN_POSITIVE = 4
 const DECADE_WEIGHT = 1
 const LANGUAGE_WEIGHT = 0.5
 // Eén titel krijgt hooguit zoveel uit de kenmerken (erbij of eraf), zodat die de rest van de score niet overstemmen.
@@ -317,12 +321,12 @@ export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { sco
   const misses = values.filter((m) => m.value < 0).sort((a, b) => a.value - b.value)
   const keywordScore = [...matches.slice(0, KEYWORD_TOP_N), ...misses.slice(0, KEYWORD_TOP_N)].reduce((sum, m) => sum + m.value, 0)
 
-  // Een regisseur van wie je twee "zeker leuk" hebt (4 punten) telt volledig; van één favoriet (3) driekwart, van één
-  // "zeker leuk" de helft. Keurde je iets van hem of haar af, dan gaat dat eraf; twee afkeuringen tellen volledig negatief.
+  // Een regisseur van wie je twee "zeker leuk" hebt (4 punten) telt volledig; minder telt niet als pluspunt (zie
+  // DIRECTOR_MIN_POSITIVE). Keurde je iets van hem of haar af, dan gaat dat eraf; twee afkeuringen tellen volledig negatief.
   // Bij meerdere regisseurs telt degene met het duidelijkste oordeel.
   const directorMatches = f.directors
     .map((d) => ({ d, w: taste.directorWeight.get(d.id) ?? 0 }))
-    .filter((m) => m.w !== 0)
+    .filter((m) => m.w < 0 || m.w >= DIRECTOR_MIN_POSITIVE)
     .sort((a, b) => Math.abs(b.w) - Math.abs(a.w))
   const directorScore = directorMatches.length > 0 ? Math.max(-1, Math.min(1, directorMatches[0].w / 4)) : 0
 
@@ -330,7 +334,7 @@ export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { sco
   const languageScore = f.language ? (taste.languageWeight.get(f.language) ?? 0) / taste.total : 0
 
   const labels: string[] = []
-  if (directorMatches.length > 0 && directorMatches[0].w >= 2) labels.push(`regisseur ${directorMatches[0].d.name}`)
+  if (directorMatches.length > 0 && directorMatches[0].w >= DIRECTOR_MIN_POSITIVE) labels.push(`regisseur ${directorMatches[0].d.name}`)
   // Alleen een trefwoord noemen dat echt opvalt: veel van je favorieten hebben het en weinig andere titels.
   if (matches.length > 0 && matches[0].value >= 0.15) {
     const name = matches[0].k.name

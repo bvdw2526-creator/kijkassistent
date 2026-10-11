@@ -23,6 +23,7 @@ import {
   type MediaType,
 } from '@/lib/recommendationEngine'
 import { upcomingForCouple } from '@/lib/upcomingTitles'
+import { isOlderThan } from '@/lib/recommendationEngine'
 import { withLatinTitles } from '@/lib/titleFallback'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort: deze
@@ -435,7 +436,7 @@ export async function GET(request: NextRequest) {
     // hieronder (twee keer computeTasteProfile, discover-fallback, kijkproviders)
     // overgeslagen worden.
     const signature = [
-      `v22-samen-leuk-${MATCH_PERCENT_METHOD}`,
+      `v24-te-oud-${MATCH_PERCENT_METHOD}`,
       // Gesorteerd: zo is de handtekening voor jullie beiden gelijk en delen jullie dezelfde opgeslagen lijst.
       ...[buildProfileSignature(inputsA), buildProfileSignature(inputsB)].sort(),
       'cpl:' + coupleRatings.map((r) => `${r.media_type}-${r.tmdb_id}-${r.rating}`).sort().join(','),
@@ -734,6 +735,10 @@ export async function GET(request: NextRequest) {
         return [...core, ...extra]
       })
     }
+
+    // "Niet ouder dan": de strengste grens van jullie twee geldt, net als bij uitgesloten genres.
+    const coupleMinYear = Math.max(inputsA.minYear ?? 0, inputsB.minYear ?? 0) || null
+    resultItems = resultItems.filter((item) => !isOlderThan(item.release_date, coupleMinYear))
 
     const rawMatch = computeTasteMatch(tasteA, tasteB, inputsA, inputsB)
     const match = rawMatch ? { ...rawMatch, ownerId: user.id } : null

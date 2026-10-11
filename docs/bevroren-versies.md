@@ -67,6 +67,19 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   Nieuwe database-onderdelen: kolom `couple_ratings.reason`. Voorvoegsel Samen nu `v22-samen-leuk`. De persoonlijke
   berekening is ongewijzigd. Terugzetten van alleen dit deel: `app/api/recommendations-together/route.ts`,
   `app/page.tsx` en `app/components/PartnerRated.tsx` uit het label halen (oude `reason`-waarden blijven dan gewoon staan).
+- 11 okt 2026: een regisseur telt pas als pluspunt bij twee of meer titels die je "zeker leuk" vond
+  (`DIRECTOR_MIN_POSITIVE` in `lib/titleFeatures.ts`); een zelf gekozen favoriete regisseur telt nog steeds los mee.
+  Aanleiding: titels die in Puur mijn smaak stonden met "regisseur X" als reden en verkeerd vielen. Gemeten: buiten een
+  filmreeks was een regisseur met één geliefde film bij beide profielen 41% "zeker leuk" (zonder signaal 38% en 46%),
+  binnen een reeks 90%. Kenmerken-toets (leuk > niet voor mij / leuk > oké): profiel 1 van 80,7 / 70,9 naar 78,0 / 69,9,
+  profiel 2 van 73,2 / 59,3 naar 73,7 / 58,1. Dat is op papier iets lager dan de nulmeting bij profiel 1; bewust
+  gekozen, omdat het verlies uit filmreeksen komt die de motor ook zonder regisseur herkent. Voorvoegsels nu `u15` en
+  `v23-regisseur`. Terugzetten: `lib/titleFeatures.ts` uit het label halen en de voorvoegsels ophogen.
+- 11 okt 2026: knop "Te oud" bij titels van vóór 2000 (verbergt met reden `te_oud`, geen beoordeling) en de instelling
+  "Niet ouder dan" (`profiles.min_year`). Dat is een filter achteraf in de motor (`isOlderThan`), de scores zelf zijn
+  ongewijzigd; bij Samen geldt de strengste grens van beide partners. Nieuwe database-onderdelen: kolommen
+  `hidden_titles.reason`, `hidden_titles.release_year` en `profiles.min_year` (migratie `20261011_te_oud.sql`).
+  Voorvoegsels nu `u16` en `v24-te-oud`.
 
 ## Afspraken bij verder sleutelen
 

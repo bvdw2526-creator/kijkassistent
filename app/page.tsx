@@ -16,9 +16,11 @@ import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
+import TooOldPrompt from './components/TooOldPrompt'
+import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
-import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon, UsersIcon } from './components/Icons'
+import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon, UsersIcon, ClockIcon } from './components/Icons'
 import HideTitleConfirm from './components/HideTitleConfirm'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
@@ -292,6 +294,8 @@ export default function Home() {
   const [actionError, setActionError] = useState<string | null>(null)
   // Titel waarvoor de bevestiging van "Verbergen" openstaat.
   const [hideTarget, setHideTarget] = useState<Movie | null>(null)
+  // De vraag na een paar keer "Te oud": het jaartal dat we voorstellen als grens.
+  const [tooOldSuggestion, setTooOldSuggestion] = useState<number | null>(null)
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [trueStoryTitles, setTrueStoryTitles] = useState<Set<string>>(new Set())
   const [soundtrackTitles, setSoundtrackTitles] = useState<Set<string>>(new Set())
@@ -750,12 +754,74 @@ export default function Home() {
     setSelected(null)
   }
 
+  // "Te oud": de titel verdwijnt uit je lijsten, zonder dat het als beoordeling telt. Na een paar keer vragen we of
+  // oudere titels voortaan weg mogen (zie lib/tooOld.ts); de grens zet je altijd zelf.
+  async function handleTooOld(movie: Movie) {
+    if (!user) return
+    if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
+    setActionError(null)
+    const { error } = await supabase.from('hidden_titles').upsert(
+      {
+        user_id: user.id,
+        tmdb_id: movie.id,
+        media_type: movie.media_type,
+        title: movie.title,
+        reason: TOO_OLD_REASON,
+        release_year: yearOf(movie.release_date),
+      },
+      { onConflict: 'user_id,tmdb_id,media_type' }
+    )
+    if (error) {
+      console.error('Te oud opslaan mislukt:', error)
+      setActionError(`Kon de titel niet wegzetten: ${error.message}`)
+      return
+    }
+    removeFromPersonal((m) => m.id === movie.id && m.media_type === movie.media_type)
+    setSelected(null)
+
+    const [{ data: marked }, { data: profile }] = await Promise.all([
+      supabase.from('hidden_titles').select('release_year').eq('user_id', user.id).eq('reason', TOO_OLD_REASON),
+      supabase.from('profiles').select('min_year').eq('id', user.id).single(),
+    ])
+    const years = (marked ?? []).map((row) => row.release_year).filter((y): y is number => typeof y === 'number')
+    // Staat je grens al op het hoogste jaar waarvoor de knop bestaat, dan valt er niets meer te vragen.
+    if (profile?.min_year && profile.min_year >= TOO_OLD_BEFORE) return
+    let askedAt = 0
+    try {
+      askedAt = parseInt(localStorage.getItem(TOO_OLD_ASKED_KEY) ?? '0', 10) || 0
+    } catch {
+      // Geen toegang tot de opslag: dan vragen we het gewoon bij de eerstvolgende keer.
+    }
+    if (years.length < TOO_OLD_ASK_AFTER || years.length < askedAt + TOO_OLD_ASK_AFTER) return
+    try {
+      localStorage.setItem(TOO_OLD_ASKED_KEY, String(years.length))
+    } catch {
+      // Zie hierboven.
+    }
+    setTooOldSuggestion(Math.max(suggestMinYear(years), profile?.min_year ?? 0))
+  }
+
+  async function handleChooseMinYear(minYear: number) {
+    setTooOldSuggestion(null)
+    if (!user) return
+    const { error } = await supabase.from('profiles').update({ min_year: minYear }).eq('id', user.id)
+    if (error) {
+      console.error('Grens opslaan mislukt:', error)
+      setActionError(`Kon de grens niet opslaan: ${error.message}`)
+      return
+    }
+    loadRecommendations()
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     setUser(null)
   }
 
   const movies = byMode[mode]
+  // De knop "Te oud": alleen in je eigen tabbladen, bij titels van vóór TOO_OLD_BEFORE (series: jaar van de eerste aflevering).
+  const selectedYear = selected && !selected.upcoming ? yearOf(selected.release_date) : null
+  const canMarkTooOld = mode !== 'samen' && selectedYear !== null && selectedYear < TOO_OLD_BEFORE
 
   if (loading && movies.length === 0 && !user) {
     return (
@@ -1315,6 +1381,17 @@ export default function Home() {
               </div>
               )}
 
+              {/* Geen beoordeling: zet de titel weg omdat hij je te oud is (zie handleTooOld). */}
+              {canMarkTooOld && (
+                <button
+                  onClick={() => handleTooOld(selected)}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-line-strong"
+                >
+                  <ClockIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium">Te oud</span>
+                </button>
+              )}
+
               {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (
                 <a
                   href={wikipediaSearchUrl(selected.title)}
@@ -1331,6 +1408,9 @@ export default function Home() {
         </div>
       )}
 
+      {tooOldSuggestion !== null && (
+        <TooOldPrompt suggested={tooOldSuggestion} onChoose={handleChooseMinYear} onDecline={() => setTooOldSuggestion(null)} />
+      )}
       {selected && hideTarget && (
         <HideTitleConfirm title={hideTarget.title} onCancel={() => setHideTarget(null)} onConfirm={() => handleHide(hideTarget)} />
       )}

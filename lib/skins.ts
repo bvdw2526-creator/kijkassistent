@@ -36,7 +36,7 @@ export const SKINS: Skin[] = [
   {
     id: 'doomsday',
     label: 'Doomsday',
-    description: 'Groen en staal met onweer, en de film bovenaan Voor jou',
+    description: 'De klok tikt: tel af naar Doomsday, met de film bovenaan Voor jou',
     swatch: ['#0A0F0C', '#5DBB7A', '#B9C4CB'],
     // Avengers: Doomsday bij TMDB. De teller loopt gelijk met Marvels eigen "Doomsday Clock"
     // (youtube.com/watch?v=f17J3AXVK5w): die telt af naar 18 december 2026, middernacht aan de Amerikaanse oostkust.
@@ -46,7 +46,7 @@ export const SKINS: Skin[] = [
   {
     id: 'dune',
     label: 'Dune',
-    description: 'Woestijn: zand en specerij-oranje, en de film bovenaan Voor jou',
+    description: 'Zand, zon en zandwormen, en de film bovenaan Voor jou',
     swatch: ['#120D08', '#E08A3C', '#5AA9E6'],
     // Dune: Part Three bij TMDB.
     banner: { mediaType: 'movie', tmdbId: 1170608, countdownTo: COUNTDOWN_TO_PREMIERE },
