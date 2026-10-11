@@ -7,11 +7,11 @@ const CONTACT = 'info@kijkassistent.nl'
 export default function Voorwaarden() {
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
-      <Link href="/" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Terug</Link>
+      <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Gebruiksvoorwaarden</h1>
-      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 26 september 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 26 september 2026</p>
 
-      <div className="text-sm text-[#F2EFE9]/90 space-y-5">
+      <div className="text-sm text-foreground/90 space-y-5">
         <p>
           Kijkassistent geeft persoonlijke aanbevelingen voor films en series. Door een account te maken ga je
           akkoord met deze voorwaarden.
@@ -36,7 +36,7 @@ export default function Voorwaarden() {
         </p>
         <p>
           <strong>Privacy.</strong> Hoe we met je gegevens omgaan staat in de{' '}
-          <Link href="/privacy" className="text-[#E8A33D]">privacyverklaring</Link>.
+          <Link href="/privacy" className="text-accent">privacyverklaring</Link>.
         </p>
         <p>
           <strong>Bronnen.</strong> Dit product gebruikt de TMDB API, maar wordt niet gesteund of gecertificeerd
@@ -46,7 +46,7 @@ export default function Voorwaarden() {
           <strong>Toepasselijk recht.</strong> Nederlands recht is van toepassing.
         </p>
         <p>
-          Vragen? Mail naar <a href={`mailto:${CONTACT}`} className="text-[#E8A33D]">{CONTACT}</a>.
+          Vragen? Mail naar <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>.
         </p>
       </div>
     </main>

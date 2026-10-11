@@ -30,7 +30,7 @@ export default function TrailerLink({ mediaType, id, size = 'sm' }: { mediaType:
       href={`https://www.youtube.com/watch?v=${found.key}`}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center font-medium text-[#E8A33D] hover:underline mb-4 touch-manipulation ${size === 'base' ? 'gap-2 text-base' : 'gap-1.5 text-sm'}`}
+      className={`inline-flex items-center font-medium text-accent hover:underline mb-4 touch-manipulation ${size === 'base' ? 'gap-2 text-base' : 'gap-1.5 text-sm'}`}
     >
       <PlayIcon className="w-4 h-4" />
       Bekijk de trailer

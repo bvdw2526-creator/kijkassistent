@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { Fraunces, Plus_Jakarta_Sans } from 'next/font/google'
 import './globals.css'
 import RegisterServiceWorker from './components/RegisterServiceWorker'
+import SkinBackdrop from './components/SkinBackdrop'
+import SkinInitScript from './components/SkinInitScript'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-display' })
 const body = Plus_Jakarta_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-body' })
@@ -38,9 +40,12 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // suppressHydrationWarning: het skin-script zet data-skin op <html> voordat React de pagina overneemt.
   return (
-    <html lang="nl" className={`${fraunces.variable} ${body.variable}`}>
-      <body className="bg-glow text-[#F2EFE9] min-h-screen antialiased">
+    <html lang="nl" className={`${fraunces.variable} ${body.variable}`} suppressHydrationWarning>
+      <body className="bg-glow text-foreground min-h-screen antialiased">
+        <SkinInitScript />
+        <SkinBackdrop />
         {/* Gestructureerde gegevens voor Google: wat Kijkassistent is. */}
         <script
           type="application/ld+json"

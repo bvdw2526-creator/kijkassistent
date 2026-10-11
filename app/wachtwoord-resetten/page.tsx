@@ -65,11 +65,11 @@ export default function WachtwoordResetten() {
   if (done) {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-        <div className="w-12 h-12 rounded-full bg-[#52A9A0]/12 flex items-center justify-center mb-5">
-          <CheckIcon className="w-6 h-6 text-[#52A9A0]" />
+        <div className="w-12 h-12 rounded-full bg-teal/12 flex items-center justify-center mb-5">
+          <CheckIcon className="w-6 h-6 text-teal" />
         </div>
         <h1 className="font-display text-2xl mb-2">Je wachtwoord is aangepast</h1>
-        <p className="text-[#93A3B5] leading-relaxed">Je bent ingelogd en gaat zo door naar de app.</p>
+        <p className="text-muted leading-relaxed">Je bent ingelogd en gaat zo door naar de app.</p>
       </main>
     )
   }
@@ -78,7 +78,7 @@ export default function WachtwoordResetten() {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
         <h1 className="font-display text-2xl mb-2">Deze link werkt niet meer</h1>
-        <p className="text-[#93A3B5] leading-relaxed mb-6">
+        <p className="text-muted leading-relaxed mb-6">
           De link is verlopen of al gebruikt. Vraag een nieuwe aan; die is een korte tijd geldig.
         </p>
         <Link href="/wachtwoord-vergeten" className={btnPrimary}>
@@ -92,16 +92,16 @@ export default function WachtwoordResetten() {
   if (status === 'controleren') {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-        <p className="text-[#93A3B5]">Even controleren...</p>
+        <p className="text-muted">Even controleren...</p>
       </main>
     )
   }
 
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-2">Kijkassistent</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Kijkassistent</p>
       <h1 className="font-display text-3xl mb-1">Nieuw wachtwoord</h1>
-      <p className="text-[#93A3B5] mb-8">Kies een nieuw wachtwoord van minimaal 8 tekens.</p>
+      <p className="text-muted mb-8">Kies een nieuw wachtwoord van minimaal 8 tekens.</p>
 
       <form
         className="flex flex-col gap-3"
@@ -130,7 +130,7 @@ export default function WachtwoordResetten() {
         />
 
         {error && (
-          <p className="text-[#C97064] text-sm bg-[#C97064]/5 border border-[#C97064]/40 rounded-xl px-3.5 py-2.5">{error}</p>
+          <p className="text-coral text-sm bg-coral/5 border border-coral/40 rounded-xl px-3.5 py-2.5">{error}</p>
         )}
 
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>

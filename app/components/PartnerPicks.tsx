@@ -177,14 +177,14 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
       >
         <span className="flex-1 min-w-0">
           <span className="block text-sm font-medium">Dit vindt je partner leuk om te kijken ({visible.length})</span>
-          <span className="block text-xs text-[#5E6D80] mt-0.5">Titels die je partner geweldig vindt en jij nog niet kent.</span>
+          <span className="block text-xs text-faint mt-0.5">Titels die je partner geweldig vindt en jij nog niet kent.</span>
         </span>
-        <ChevronLeftIcon className={`w-4 h-4 flex-shrink-0 text-[#93A3B5] transition-transform ${open ? 'rotate-90' : '-rotate-90'}`} />
+        <ChevronLeftIcon className={`w-4 h-4 flex-shrink-0 text-muted transition-transform ${open ? 'rotate-90' : '-rotate-90'}`} />
       </button>
       {open && (
         <div className="px-4 pb-3">
-          {error && <p className="text-sm text-[#C97064] mb-2">{error}</p>}
-          <ul className="flex flex-col divide-y divide-[#2A3644] border-t border-[#2A3644]">
+          {error && <p className="text-sm text-coral mb-2">{error}</p>}
+          <ul className="flex flex-col divide-y divide-line border-t border-line">
             {visible.map((pick) => (
               <li key={`${pick.media_type}-${pick.id}`}>
                 <button
@@ -193,12 +193,12 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
                 >
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm truncate">{pick.title}</span>
-                    <span className="block text-xs text-[#5E6D80]">
+                    <span className="block text-xs text-faint">
                       {pick.media_type === 'tv' ? 'Serie' : 'Film'}
                       {years[`${pick.media_type}-${pick.id}`] ? ` · ${years[`${pick.media_type}-${pick.id}`]}` : ''}
                     </span>
                   </span>
-                  <span className="flex-shrink-0 rounded-full bg-[#E8A33D]/12 px-2.5 py-1 text-xs font-medium text-[#E8A33D]">
+                  <span className="flex-shrink-0 rounded-full bg-accent/12 px-2.5 py-1 text-xs font-medium text-accent">
                     {pick.why === 'favoriet' ? 'Favoriet' : 'Zeker leuk'}
                   </span>
                 </button>

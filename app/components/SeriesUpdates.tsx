@@ -56,22 +56,22 @@ export default function SeriesUpdates({ userId }: { userId: string }) {
 
   return (
     <>
-      <div className="rounded-2xl border border-[#52A9A0]/40 bg-[#52A9A0]/5 px-4 py-3 mb-5">
-        <p className="text-xs font-semibold tracking-wide uppercase text-[#52A9A0] mb-2">Nieuw bij jouw series</p>
+      <div className="rounded-2xl border border-teal/40 bg-teal/5 px-4 py-3 mb-5">
+        <p className="text-xs font-semibold tracking-wide uppercase text-teal mb-2">Nieuw bij jouw series</p>
         <ul className="flex flex-col gap-2.5">
           {visible.map((item) => (
             <li key={item.key} className="flex items-center gap-3">
               <button onClick={() => setOpen(item)} className="flex flex-1 items-center gap-3 min-w-0 text-left touch-manipulation">
                 {item.poster_path ? (
-                  <span className="relative w-9 aspect-[2/3] rounded-md overflow-hidden flex-shrink-0 bg-[#212C3B]">
+                  <span className="relative w-9 aspect-[2/3] rounded-md overflow-hidden flex-shrink-0 bg-surface-2">
                     <Image src={`https://image.tmdb.org/t/p/w92${item.poster_path}`} alt="" fill sizes="36px" className="object-cover" />
                   </span>
                 ) : (
-                  <span className="w-9 aspect-[2/3] rounded-md bg-[#212C3B] flex-shrink-0" />
+                  <span className="w-9 aspect-[2/3] rounded-md bg-surface-2 flex-shrink-0" />
                 )}
                 <span className="min-w-0">
                   <span className="block text-sm font-medium truncate">{item.title}</span>
-                  <span className="block text-xs text-[#93A3B5] mt-0.5">
+                  <span className="block text-xs text-muted mt-0.5">
                     {item.kind === 'started'
                       ? `Seizoen ${item.season} is net begonnen`
                       : `Seizoen ${item.season} begint op ${formatDate(item.date)}`}
@@ -82,7 +82,7 @@ export default function SeriesUpdates({ userId }: { userId: string }) {
               <button
                 onClick={() => dismiss(item)}
                 aria-label={`${item.title} niet meer tonen`}
-                className="text-[#93A3B5] hover:text-[#F2EFE9] transition-colors p-2 touch-manipulation"
+                className="text-muted hover:text-foreground transition-colors p-2 touch-manipulation"
               >
                 <span aria-hidden className="text-lg leading-none">
                   ×

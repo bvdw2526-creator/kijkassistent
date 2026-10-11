@@ -53,8 +53,8 @@ function lastActiveLabel(value: string | null): string {
 function Kpi({ label, value }: { label: string; value: number }) {
   return (
     <div className={`${card} p-4`}>
-      <p className="font-display text-3xl text-[#E8A33D] leading-none">{value}</p>
-      <p className="text-xs text-[#93A3B5] mt-1.5">{label}</p>
+      <p className="font-display text-3xl text-accent leading-none">{value}</p>
+      <p className="text-xs text-muted mt-1.5">{label}</p>
     </div>
   )
 }
@@ -94,16 +94,16 @@ export default function Beheer() {
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Gebruik</h1>
-        <p className="text-[#93A3B5] mb-6">Alleen voor jou zichtbaar.</p>
+        <p className="text-muted mb-6">Alleen voor jou zichtbaar.</p>
 
-        {loading && <div className="h-40 rounded-2xl bg-[#1A2330] animate-skeleton" />}
+        {loading && <div className="h-40 rounded-2xl bg-surface animate-skeleton" />}
 
         {error && (
           <div className={`${card} p-5`}>
-            <p className="text-sm text-[#C97064]">
+            <p className="text-sm text-coral">
               {error === 'Geen toegang' ? 'Dit overzicht is alleen voor de beheerder van de app.' : error}
             </p>
-            <Link href="/" className="text-sm text-[#E8A33D] mt-3 inline-block">Terug naar de app</Link>
+            <Link href="/" className="text-sm text-accent mt-3 inline-block">Terug naar de app</Link>
           </div>
         )}
 
@@ -118,13 +118,13 @@ export default function Beheer() {
 
             <div className={`${card} p-5`}>
               <p className="text-sm font-medium mb-1">Actieve gebruikers per dag</p>
-              <p className="text-xs text-[#5E6D80] mb-4">Iedereen die iets heeft toegevoegd, beoordeeld of de app heeft gebruikt.</p>
+              <p className="text-xs text-faint mb-4">Iedereen die iets heeft toegevoegd, beoordeeld of de app heeft gebruikt.</p>
               <div className="flex items-end gap-1.5 h-28">
                 {data.days.map((d) => (
                   <div key={d.dag} className="flex-1 flex flex-col items-center justify-end h-full gap-1">
-                    <span className="text-[10px] text-[#93A3B5]">{d.actief || ''}</span>
+                    <span className="text-[10px] text-muted">{d.actief || ''}</span>
                     <div
-                      className={`w-full rounded-t ${d.dag === lastDay ? 'bg-[#E8A33D]' : 'bg-[#E8A33D]/45'}`}
+                      className={`w-full rounded-t ${d.dag === lastDay ? 'bg-accent' : 'bg-accent/45'}`}
                       style={{ height: `${Math.max(3, (d.actief / maxActive) * 70)}%` }}
                       title={`${dayLabel(d.dag)}: ${d.actief} actief`}
                     />
@@ -133,7 +133,7 @@ export default function Beheer() {
               </div>
               <div className="flex gap-1.5 mt-1.5">
                 {data.days.map((d) => (
-                  <span key={d.dag} className="flex-1 text-center text-[9px] text-[#5E6D80]">
+                  <span key={d.dag} className="flex-1 text-center text-[9px] text-faint">
                     {new Date(`${d.dag}T12:00:00`).getDate()}
                   </span>
                 ))}
@@ -145,13 +145,13 @@ export default function Beheer() {
               <div className="grid grid-cols-[1fr_repeat(6,2.2rem)] gap-x-1 gap-y-1.5 text-xs">
                 <span />
                 {['nieuw', 'actief', 'beoord.', 'fav.', 'kijk', 'samen'].map((h) => (
-                  <span key={h} className="text-[#5E6D80] text-right text-[10px]">{h}</span>
+                  <span key={h} className="text-faint text-right text-[10px]">{h}</span>
                 ))}
                 {[...data.days].reverse().map((d) => (
                   <div key={d.dag} className="contents">
-                    <span className="text-[#93A3B5]">{dayLabel(d.dag)}</span>
+                    <span className="text-muted">{dayLabel(d.dag)}</span>
                     {[d.nieuw, d.actief, d.beoordelingen, d.favorieten, d.watchlist, d.samen].map((n, i) => (
-                      <span key={i} className={`text-right ${n === 0 ? 'text-[#3A4A5C]' : ''}`}>{n}</span>
+                      <span key={i} className={`text-right ${n === 0 ? 'text-control' : ''}`}>{n}</span>
                     ))}
                   </div>
                 ))}
@@ -163,36 +163,36 @@ export default function Beheer() {
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
                   <p className="font-display text-2xl">{data.totals.onze_lijst}</p>
-                  <p className="text-[11px] text-[#93A3B5]">op Onze lijst</p>
+                  <p className="text-[11px] text-muted">op Onze lijst</p>
                 </div>
                 <div>
                   <p className="font-display text-2xl">{data.totals.samen_beoordelingen}</p>
-                  <p className="text-[11px] text-[#93A3B5]">samen beoordeeld</p>
+                  <p className="text-[11px] text-muted">samen beoordeeld</p>
                 </div>
                 <div>
                   <p className="font-display text-2xl">{data.totals.datenights_lopend}</p>
-                  <p className="text-[11px] text-[#93A3B5]">datenights lopend</p>
+                  <p className="text-[11px] text-muted">datenights lopend</p>
                 </div>
               </div>
             </div>
 
             <div className={`${card} p-5`}>
               <p className="text-sm font-medium mb-3">Per gebruiker</p>
-              <ul className="flex flex-col divide-y divide-[#2A3644]">
+              <ul className="flex flex-col divide-y divide-line">
                 {data.users.map((u) => (
                   <li key={u.email} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex items-start justify-between gap-3">
                       <span className="text-sm font-medium truncate">{u.email}</span>
-                      <span className="text-xs text-[#E8A33D] flex-shrink-0">{lastActiveLabel(u.laatst_actief)}</span>
+                      <span className="text-xs text-accent flex-shrink-0">{lastActiveLabel(u.laatst_actief)}</span>
                     </div>
-                    <p className="text-xs text-[#93A3B5] mt-1">
+                    <p className="text-xs text-muted mt-1">
                       {u.favorieten} favorieten · {u.beoordelingen} beoordelingen · {u.watchlist} op kijklijst · {u.actieve_dagen_7}/7 dagen actief
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {u.gekoppeld && <span className="rounded-full bg-[#52A9A0]/12 px-2 py-0.5 text-[10px] text-[#52A9A0]">gekoppeld</span>}
-                      {!u.wizard_af && <span className="rounded-full bg-[#C97064]/12 px-2 py-0.5 text-[10px] text-[#C97064]">starthulp niet af</span>}
-                      {u.diensten === 0 && <span className="rounded-full bg-[#C97064]/12 px-2 py-0.5 text-[10px] text-[#C97064]">geen streamingdiensten</span>}
-                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[#5E6D80]">
+                      {u.gekoppeld && <span className="rounded-full bg-teal/12 px-2 py-0.5 text-[10px] text-teal">gekoppeld</span>}
+                      {!u.wizard_af && <span className="rounded-full bg-coral/12 px-2 py-0.5 text-[10px] text-coral">starthulp niet af</span>}
+                      {u.diensten === 0 && <span className="rounded-full bg-coral/12 px-2 py-0.5 text-[10px] text-coral">geen streamingdiensten</span>}
+                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-faint">
                         sinds {new Date(u.created_at).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })}
                       </span>
                     </div>
@@ -201,9 +201,9 @@ export default function Beheer() {
               </ul>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-[#5E6D80]">
+            <div className="flex items-center justify-between text-xs text-faint">
               <span>Bijgewerkt {new Date(data.generated_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</span>
-              <button onClick={load} className="text-[#E8A33D] touch-manipulation">Vernieuwen</button>
+              <button onClick={load} className="text-accent touch-manipulation">Vernieuwen</button>
             </div>
           </div>
         )}

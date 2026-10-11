@@ -18,7 +18,7 @@ export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
       <div className="mx-auto max-w-xl px-3 pb-3">
-        <div className="flex items-center justify-around rounded-2xl border border-[#2A3644] bg-[#1A2330]/90 backdrop-blur-xl px-1.5 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
+        <div className="flex items-center justify-around rounded-2xl border border-line bg-surface/90 backdrop-blur-xl px-1.5 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.35)]">
           {TABS.map(({ href, label, icon: Icon }) => {
             const active = href === '/' ? pathname === '/' : pathname.startsWith(href)
             return (
@@ -36,10 +36,10 @@ export default function BottomNav() {
                 className="relative flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 transition-colors touch-manipulation"
               >
                 {active && (
-                  <span className="absolute inset-0 rounded-xl bg-[#E8A33D]/10" aria-hidden />
+                  <span className="absolute inset-0 rounded-xl bg-accent/10" aria-hidden />
                 )}
-                <Icon className={`relative w-5 h-5 transition-colors ${active ? 'text-[#E8A33D]' : 'text-[#93A3B5]'}`} />
-                <span className={`relative text-[10.5px] font-medium tracking-tight transition-colors ${active ? 'text-[#E8A33D]' : 'text-[#93A3B5]'}`}>
+                <Icon className={`relative w-5 h-5 transition-colors ${active ? 'text-accent' : 'text-muted'}`} />
+                <span className={`relative text-[10.5px] font-medium tracking-tight transition-colors ${active ? 'text-accent' : 'text-muted'}`}>
                   {label}
                 </span>
               </Link>

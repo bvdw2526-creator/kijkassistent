@@ -14,10 +14,10 @@ type Rating = 'love' | 'ok' | 'dislike'
 type Mark = Rating | 'fav'
 
 const markStyle: Record<Mark, { label: string; className: string }> = {
-  love: { label: 'Zeker leuk', className: 'text-[#E8A33D]' },
-  ok: { label: 'Was oké', className: 'text-[#52A9A0]' },
-  dislike: { label: 'Niet voor mij', className: 'text-[#C97064]' },
-  fav: { label: 'Favoriet', className: 'text-[#E8A33D]' },
+  love: { label: 'Zeker leuk', className: 'text-accent' },
+  ok: { label: 'Was oké', className: 'text-teal' },
+  dislike: { label: 'Niet voor mij', className: 'text-coral' },
+  fav: { label: 'Favoriet', className: 'text-accent' },
 }
 
 // Zelfde keuzes als bij Zoeken.
@@ -154,8 +154,8 @@ export default function TopList({ items }: { items: TopItem[] }) {
           <p className="text-sm font-medium">
             Je hebt {seen} van de {items.length} gezien
           </p>
-          <div className="mt-2 h-1.5 rounded-full bg-[#2A3644] overflow-hidden">
-            <div className="h-full rounded-full bg-[#E8A33D]" style={{ width: `${items.length ? (seen / items.length) * 100 : 0}%` }} />
+          <div className="mt-2 h-1.5 rounded-full bg-line overflow-hidden">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${items.length ? (seen / items.length) * 100 : 0}%` }} />
           </div>
         </div>
       )}
@@ -163,11 +163,11 @@ export default function TopList({ items }: { items: TopItem[] }) {
         <div className={`${card} px-4 py-3 mb-5`}>
           <p className="text-sm">
             Wil je zien welke je al gezien hebt en welke bij jou passen?{' '}
-            <Link href="/register" className="text-[#E8A33D] underline underline-offset-2">
+            <Link href="/register" className="text-accent underline underline-offset-2">
               Maak een account
             </Link>{' '}
             of{' '}
-            <Link href="/login" className="text-[#E8A33D] underline underline-offset-2">
+            <Link href="/login" className="text-accent underline underline-offset-2">
               log in
             </Link>
             .
@@ -180,15 +180,15 @@ export default function TopList({ items }: { items: TopItem[] }) {
           const mark = markOf(item)
           const row = (
             <>
-              <span className="w-8 text-right font-display text-lg text-[#5E6D80] flex-shrink-0">{index + 1}</span>
-              <span className="relative w-10 aspect-[2/3] rounded-md overflow-hidden flex-shrink-0 bg-[#212C3B]">
+              <span className="w-8 text-right font-display text-lg text-faint flex-shrink-0">{index + 1}</span>
+              <span className="relative w-10 aspect-[2/3] rounded-md overflow-hidden flex-shrink-0 bg-surface-2">
                 {item.poster_path && (
                   <Image src={`https://image.tmdb.org/t/p/w92${item.poster_path}`} alt="" fill sizes="40px" className="object-cover" />
                 )}
               </span>
               <span className="min-w-0 flex-1 text-left">
                 <span className="block text-sm font-medium truncate">{item.title}</span>
-                <span className="block text-xs text-[#93A3B5] mt-0.5">
+                <span className="block text-xs text-muted mt-0.5">
                   {item.year} · ★ {item.voteAverage.toFixed(1).replace('.', ',')}
                 </span>
               </span>
@@ -207,7 +207,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
                     setActionError(null)
                     setOpen(item)
                   }}
-                  className={`${card} w-full flex items-center gap-3 px-3 py-2.5 touch-manipulation hover:border-[#3d4c60] transition-colors`}
+                  className={`${card} w-full flex items-center gap-3 px-3 py-2.5 touch-manipulation hover:border-line-strong transition-colors`}
                 >
                   {row}
                 </button>
@@ -227,7 +227,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
           {(details) => (
             <>
               {actionError && (
-                <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-3">{actionError}</p>
+                <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-3">{actionError}</p>
               )}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <button onClick={() => addToWatchlist(open, details?.posterPath ?? open.poster_path)} className={btnPrimary}>

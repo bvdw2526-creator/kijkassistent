@@ -57,14 +57,14 @@ export default function Uitnodiging() {
 
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-3">Kijkassistent</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-3">Kijkassistent</p>
 
-      {status === 'loading' && <div className="h-40 rounded-2xl bg-[#1A2330] animate-skeleton" />}
+      {status === 'loading' && <div className="h-40 rounded-2xl bg-surface animate-skeleton" />}
 
       {status === 'invalid' && (
         <>
           <h1 className="font-display text-3xl mb-2">Uitnodiging niet geldig</h1>
-          <p className="text-[#93A3B5] mb-8 leading-relaxed">
+          <p className="text-muted mb-8 leading-relaxed">
             Deze link is al gebruikt of verlopen. Vraag je partner om een nieuwe link te maken bij Instellingen.
           </p>
           <Link href="/" className={btnSecondary}>Naar de app</Link>
@@ -73,17 +73,17 @@ export default function Uitnodiging() {
 
       {(status === 'login-needed' || status === 'ready' || status === 'accepting') && (
         <>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#E8A33D]/12 text-[#E8A33D] mb-5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/12 text-accent mb-5">
             <UsersIcon className="w-6 h-6" />
           </div>
           <h1 className="font-display text-3xl mb-2">Samen kijken</h1>
-          <p className="text-[#93A3B5] mb-8 leading-relaxed">
-            <span className="text-[#F2EFE9]">{inviter}</span> nodigt je uit om te koppelen. Daarna krijgen jullie
+          <p className="text-muted mb-8 leading-relaxed">
+            <span className="text-foreground">{inviter}</span> nodigt je uit om te koppelen. Daarna krijgen jullie
             aanbevelingen die bij jullie allebei passen.
           </p>
 
           {error && (
-            <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-4">
+            <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-4">
               {error}
             </p>
           )}
@@ -103,11 +103,11 @@ export default function Uitnodiging() {
 
       {status === 'done' && (
         <>
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#52A9A0]/12 text-[#52A9A0] mb-5">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal/12 text-teal mb-5">
             <CheckIcon className="w-6 h-6" />
           </div>
           <h1 className="font-display text-3xl mb-2">Jullie zijn gekoppeld</h1>
-          <p className="text-[#93A3B5] mb-8 leading-relaxed">
+          <p className="text-muted mb-8 leading-relaxed">
             Bekijk de tab &quot;Samen&quot; bij Voor jou voor aanbevelingen die jullie allebei leuk vinden. Hoe meer
             jullie allebei beoordelen, hoe scherper ze worden.
           </p>

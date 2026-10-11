@@ -356,28 +356,28 @@ export default function Onboarding() {
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Zoeken en favorieten</h1>
-        <p className="text-[#93A3B5] mb-5 leading-relaxed">
+        <p className="text-muted mb-5 leading-relaxed">
           Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
         </p>
 
         <Link
           href="/top-100"
-          className={`${card} flex items-center justify-between gap-3 px-4 py-3 mb-5 hover:border-[#3d4c60] transition-colors`}
+          className={`${card} flex items-center justify-between gap-3 px-4 py-3 mb-5 hover:border-line-strong transition-colors`}
         >
           <span>
             <span className="block text-sm font-medium">De beste films en series</span>
-            <span className="block text-xs text-[#93A3B5] mt-0.5">Top 100, ook per streamingdienst</span>
+            <span className="block text-xs text-muted mt-0.5">Top 100, ook per streamingdienst</span>
           </span>
-          <span aria-hidden className="text-[#93A3B5] text-lg">›</span>
+          <span aria-hidden className="text-muted text-lg">›</span>
         </Link>
 
-        <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-6">
+        <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6">
           {SEGMENTS.map((s) => (
             <button
               key={s.id}
               onClick={() => (s.id === 'boeken' ? openBookSegment() : setSegment(s.id))}
               className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-                segment === s.id ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+                segment === s.id ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
               {s.label}
@@ -391,7 +391,7 @@ export default function Onboarding() {
         {(segment === 'titels' || segment === 'boeken') && (
           <>
         {ratingError && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
             {ratingError}
           </p>
         )}
@@ -399,7 +399,7 @@ export default function Onboarding() {
         {segment === 'titels' && (
         <div className="flex gap-2 mb-6">
           <div className="relative flex-1">
-            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
             <input
               type="text"
               value={query}
@@ -417,14 +417,14 @@ export default function Onboarding() {
 
         {segment === 'boeken' && (
           <div className="mb-6">
-            <p className="text-[#93A3B5] text-sm mb-4 leading-relaxed">
+            <p className="text-muted text-sm mb-4 leading-relaxed">
               Films en series die op een boek gebaseerd zijn, de populairste eerst. Wat je al beoordeeld, favoriet gemaakt of
               op je kijklijst gezet hebt, staat hier niet tussen. Gebaseerd op TMDB-trefwoorden, dus een enkele verfilming
               kan ontbreken.
             </p>
             <div className="flex gap-2 mb-4">
               <div className="relative flex-1">
-                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+                <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                 <input
                   type="text"
                   value={bookQuery}
@@ -439,7 +439,7 @@ export default function Onboarding() {
               </button>
             </div>
             {bookActiveQuery && (
-              <p className="text-xs text-[#5E6D80] mb-3">
+              <p className="text-xs text-faint mb-3">
                 Resultaten voor &quot;{bookActiveQuery}&quot; — alleen titels die op een boek gebaseerd zijn. Laat de
                 zoekbalk leeg en zoek opnieuw voor de volledige lijst.
               </p>
@@ -460,17 +460,17 @@ export default function Onboarding() {
                 </button>
               )}
             </div>
-            {bookError && <p className="text-sm text-[#C97064] mt-3">{bookError}</p>}
-            {bookLoading && visibleBooks.length === 0 && <p className="text-[#93A3B5] text-sm mt-4">Laden...</p>}
+            {bookError && <p className="text-sm text-coral mt-3">{bookError}</p>}
+            {bookLoading && visibleBooks.length === 0 && <p className="text-muted text-sm mt-4">Laden...</p>}
             {!bookLoading && !bookError && bookResults.length > 0 && visibleBooks.length === 0 && (
-              <p className="text-[#93A3B5] text-sm mt-4">
+              <p className="text-muted text-sm mt-4">
                 {bookPage < bookTotalPages
                   ? 'Alles op deze pagina heb je al afgehandeld. Laad meer, of zet "Ook al beoordeeld tonen" aan.'
                   : 'Je hebt alles in deze lijst al afgehandeld. Zet "Ook al beoordeeld tonen" aan om ze terug te zien.'}
               </p>
             )}
             {!bookLoading && !bookError && bookResults.length === 0 && (
-              <p className="text-[#93A3B5] text-sm mt-4">
+              <p className="text-muted text-sm mt-4">
                 {bookActiveQuery
                   ? 'Geen boekverfilming gevonden met deze titel. Probeer een andere schrijfwijze, of wissel tussen Films en Series.'
                   : 'Niets gevonden. Zet "Alleen op mijn diensten" eens uit.'}
@@ -479,7 +479,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {segment === 'titels' && searchNote && <p className="text-sm text-[#93A3B5] mb-3">{searchNote}</p>}
+        {segment === 'titels' && searchNote && <p className="text-sm text-muted mb-3">{searchNote}</p>}
 
         {(segment === 'titels' ? results : visibleBooks).length > 0 && (
           <div className="flex flex-col gap-2 mb-10">
@@ -504,11 +504,11 @@ export default function Onboarding() {
                         />
                       </div>
                     ) : (
-                      <div className="w-11 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
+                      <div className="w-11 aspect-[2/3] rounded-lg bg-surface-2 flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm min-w-0">
                       <span className="block font-medium truncate">{movie.title}</span>
-                      <span className="text-xs text-[#93A3B5]">
+                      <span className="text-xs text-muted">
                         {movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}
                       </span>
                     </span>
@@ -516,7 +516,7 @@ export default function Onboarding() {
                     <button
                       onClick={() => addFavorite(movie)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                        added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
+                        added ? 'border-teal text-teal bg-teal/12' : 'border-line hover:border-accent hover:text-accent'
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
@@ -551,12 +551,12 @@ export default function Onboarding() {
         <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
 
         {favorites.length === 0 && (
-          <p className="text-[#93A3B5] text-sm mb-6">Nog geen favorieten toegevoegd.</p>
+          <p className="text-muted text-sm mb-6">Nog geen favorieten toegevoegd.</p>
         )}
 
         {movieFavorites.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm text-[#93A3B5] mb-2">Films ({movieFavorites.length})</h3>
+            <h3 className="text-sm text-muted mb-2">Films ({movieFavorites.length})</h3>
             <div className="flex flex-col gap-1.5">
               {movieFavorites.map((movie) => (
                 <div key={`movie-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
@@ -565,7 +565,7 @@ export default function Onboarding() {
                   </button>
                   <button
                     onClick={() => removeFavorite(movie)}
-                    className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                    className="text-muted hover:text-coral transition-colors p-1"
                     aria-label="Verwijderen"
                   >
                     <TrashIcon className="w-4 h-4" />
@@ -578,7 +578,7 @@ export default function Onboarding() {
 
         {tvFavorites.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm text-[#93A3B5] mb-2">Series ({tvFavorites.length})</h3>
+            <h3 className="text-sm text-muted mb-2">Series ({tvFavorites.length})</h3>
             <div className="flex flex-col gap-1.5">
               {tvFavorites.map((movie) => (
                 <div key={`tv-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
@@ -587,7 +587,7 @@ export default function Onboarding() {
                   </button>
                   <button
                     onClick={() => removeFavorite(movie)}
-                    className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                    className="text-muted hover:text-coral transition-colors p-1"
                     aria-label="Verwijderen"
                   >
                     <TrashIcon className="w-4 h-4" />
@@ -601,7 +601,7 @@ export default function Onboarding() {
         <h2 className="font-display text-lg mb-3">Jouw beoordelingen ({ratedMovies.length})</h2>
 
         {ratedMovies.length === 0 && (
-          <p className="text-[#93A3B5] text-sm mb-6">Nog geen films of series beoordeeld.</p>
+          <p className="text-muted text-sm mb-6">Nog geen films of series beoordeeld.</p>
         )}
 
         {ratedMovies.length > 0 && (
@@ -616,7 +616,7 @@ export default function Onboarding() {
                     className="flex-1 text-sm min-w-[140px] truncate text-left touch-manipulation"
                   >
                     {movie.title}{' '}
-                    <span className="text-xs text-[#5E6D80]">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                    <span className="text-xs text-faint">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
                   </button>
                   <div className="flex gap-1.5 flex-wrap items-center">
                     {RATING_BUTTONS.map(({ rating, label, tone }) => (
@@ -633,7 +633,7 @@ export default function Onboarding() {
                       // "opheffen"-tak in rateMovie hierboven — geen aparte verwijder-
                       // aanroep nodig, gewoon een duidelijker knopje voor diezelfde actie.
                       onClick={() => rateMovie(movie, movie.rating)}
-                      className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                      className="text-muted hover:text-coral transition-colors p-1"
                       aria-label="Beoordeling verwijderen"
                     >
                       <TrashIcon className="w-4 h-4" />

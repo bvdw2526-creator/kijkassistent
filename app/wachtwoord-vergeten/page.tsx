@@ -37,15 +37,15 @@ export default function WachtwoordVergeten() {
   if (sent) {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-        <div className="w-12 h-12 rounded-full bg-[#52A9A0]/12 flex items-center justify-center mb-5">
-          <CheckIcon className="w-6 h-6 text-[#52A9A0]" />
+        <div className="w-12 h-12 rounded-full bg-teal/12 flex items-center justify-center mb-5">
+          <CheckIcon className="w-6 h-6 text-teal" />
         </div>
         <h1 className="font-display text-2xl mb-2">Controleer je e-mail</h1>
-        <p className="text-[#93A3B5] leading-relaxed mb-6">
-          Hoort <span className="text-[#F2EFE9]">{email}</span> bij een account, dan hebben we je een mail gestuurd met een link om
+        <p className="text-muted leading-relaxed mb-6">
+          Hoort <span className="text-foreground">{email}</span> bij een account, dan hebben we je een mail gestuurd met een link om
           een nieuw wachtwoord te kiezen. Kijk ook in je spam als je hem niet ziet.
         </p>
-        <Link href="/login" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors text-sm">
+        <Link href="/login" className="text-accent hover:text-accent-hover transition-colors text-sm">
           Terug naar inloggen
         </Link>
         <LegalLinks className="mt-10" />
@@ -55,9 +55,9 @@ export default function WachtwoordVergeten() {
 
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-2">Kijkassistent</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Kijkassistent</p>
       <h1 className="font-display text-3xl mb-1">Wachtwoord vergeten</h1>
-      <p className="text-[#93A3B5] mb-8">Vul je e-mailadres in. Je krijgt een link om een nieuw wachtwoord te kiezen.</p>
+      <p className="text-muted mb-8">Vul je e-mailadres in. Je krijgt een link om een nieuw wachtwoord te kiezen.</p>
 
       <form
         className="flex flex-col gap-3"
@@ -77,7 +77,7 @@ export default function WachtwoordVergeten() {
         />
 
         {error && (
-          <p className="text-[#C97064] text-sm bg-[#C97064]/5 border border-[#C97064]/40 rounded-xl px-3.5 py-2.5">{error}</p>
+          <p className="text-coral text-sm bg-coral/5 border border-coral/40 rounded-xl px-3.5 py-2.5">{error}</p>
         )}
 
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
@@ -85,8 +85,8 @@ export default function WachtwoordVergeten() {
         </button>
       </form>
 
-      <p className="text-sm text-[#93A3B5] mt-6">
-        <Link href="/login" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
+      <p className="text-sm text-muted mt-6">
+        <Link href="/login" className="text-accent hover:text-accent-hover transition-colors">
           Terug naar inloggen
         </Link>
       </p>

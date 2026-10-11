@@ -35,9 +35,9 @@ export default function Login() {
 
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-2">Welkom terug</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Welkom terug</p>
       <h1 className="font-display text-3xl mb-1">Kijkassistent</h1>
-      <p className="text-[#93A3B5] mb-8">Log in met je e-mailadres en wachtwoord.</p>
+      <p className="text-muted mb-8">Log in met je e-mailadres en wachtwoord.</p>
 
       <form
         className="flex flex-col gap-3"
@@ -64,12 +64,12 @@ export default function Login() {
           onChange={(e) => setPassword(e.target.value)}
           className={input}
         />
-        <Link href="/wachtwoord-vergeten" className="self-end text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors -mt-1">
+        <Link href="/wachtwoord-vergeten" className="self-end text-sm text-muted hover:text-foreground transition-colors -mt-1">
           Wachtwoord vergeten?
         </Link>
 
         {error && (
-          <p className="text-[#C97064] text-sm bg-[#C97064]/5 border border-[#C97064]/40 rounded-xl px-3.5 py-2.5">
+          <p className="text-coral text-sm bg-coral/5 border border-coral/40 rounded-xl px-3.5 py-2.5">
             {error}
           </p>
         )}
@@ -79,9 +79,9 @@ export default function Login() {
         </button>
       </form>
 
-      <p className="text-sm text-[#93A3B5] mt-6">
+      <p className="text-sm text-muted mt-6">
         Nog geen account?{' '}
-        <Link href="/register" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
+        <Link href="/register" className="text-accent hover:text-accent-hover transition-colors">
           Account aanmaken
         </Link>
       </p>

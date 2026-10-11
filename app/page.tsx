@@ -15,6 +15,7 @@ import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
+import SkinBanner from './components/SkinBanner'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon, UsersIcon } from './components/Icons'
@@ -193,11 +194,11 @@ function joinNames(names: string[]): string {
 function MatchBar({ label, percent }: { label: string; percent: number }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs text-[#93A3B5] w-16 flex-shrink-0">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-[#212C3B] overflow-hidden">
-        <div className="h-full rounded-full bg-[#E8A33D]" style={{ width: `${percent}%` }} />
+      <span className="text-xs text-muted w-16 flex-shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
+        <div className="h-full rounded-full bg-accent" style={{ width: `${percent}%` }} />
       </div>
-      <span className="text-xs text-[#93A3B5] w-9 text-right flex-shrink-0">{percent}%</span>
+      <span className="text-xs text-muted w-9 text-right flex-shrink-0">{percent}%</span>
     </div>
   )
 }
@@ -243,7 +244,7 @@ function PosterSkeletonGrid() {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="aspect-[2/3] rounded-xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+        <div key={i} className="aspect-[2/3] rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
       ))}
     </div>
   )
@@ -767,11 +768,11 @@ export default function Home() {
   if (!user && !loading) {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-md mx-auto px-6 py-16">
-        <p className="font-display text-sm tracking-[0.2em] uppercase text-[#E8A33D] mb-3">Kijkassistent</p>
+        <p className="font-display text-sm tracking-[0.2em] uppercase text-accent mb-3">Kijkassistent</p>
         <h1 className="font-display text-4xl leading-tight mb-3">
           Weten wat je vanavond gaat kijken.
         </h1>
-        <p className="text-[#93A3B5] mb-8 leading-relaxed">
+        <p className="text-muted mb-8 leading-relaxed">
           Persoonlijke films- en series-aanbevelingen, op basis van wat jij mooi vindt.
         </p>
         <a href="/login" className={btnPrimary}>
@@ -814,17 +815,20 @@ export default function Home() {
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
         <header className="flex items-center justify-between mb-5">
           <div>
-            <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D]">Kijkassistent</p>
+            <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Kijkassistent</p>
             <h1 className="font-display text-2xl mt-0.5">Voor jou</h1>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors px-3 py-2 rounded-full hover:bg-white/5"
+            className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors px-3 py-2 rounded-full hover:bg-white/5"
           >
             <LogoutIcon className="w-4 h-4" />
           </button>
         </header>
 
+        {user && (
+          <SkinBanner userId={user.id} onAdded={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)} />
+        )}
         {user && <WhatsNew userId={user.id} createdAt={user.created_at} />}
         {user && <SeriesUpdates userId={user.id} />}
 
@@ -840,25 +844,25 @@ export default function Home() {
                 onClick={() => handleModeChange(m)}
                 className={`flex-shrink-0 text-left px-4 py-2.5 rounded-2xl border transition-all touch-manipulation active:scale-[0.97] ${
                   active
-                    ? 'border-[#E8A33D] bg-[#E8A33D]/10'
-                    : 'border-[#2A3644] hover:border-[#3d4c60]'
+                    ? 'border-accent bg-accent/10'
+                    : 'border-line hover:border-line-strong'
                 }`}
               >
-                <p className={`text-sm font-semibold ${active ? 'text-[#E8A33D]' : 'text-[#F2EFE9]'}`}>
+                <p className={`text-sm font-semibold ${active ? 'text-accent' : 'text-foreground'}`}>
                   {MODE_LABELS[m].label}
                 </p>
-                <p className="text-[11px] text-[#93A3B5] mt-0.5 whitespace-nowrap">{MODE_LABELS[m].hint}</p>
+                <p className="text-[11px] text-muted mt-0.5 whitespace-nowrap">{MODE_LABELS[m].hint}</p>
               </button>
             )
           })}
         </div>
 
         <div className="flex items-center justify-between mb-5">
-          <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644]">
+          <div className="flex gap-1 p-1 rounded-full bg-surface border border-line">
             <button
               onClick={() => setTab('movie')}
               className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-                tab === 'movie' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+                tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
               Films ({movieResults.length})
@@ -866,7 +870,7 @@ export default function Home() {
             <button
               onClick={() => setTab('tv')}
               className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-                tab === 'tv' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+                tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
               Series ({tvResults.length})
@@ -878,14 +882,14 @@ export default function Home() {
               loadTogetherRecommendations()
             }}
             disabled={loading}
-            className="text-xs font-medium text-[#93A3B5] hover:text-[#F2EFE9] transition-colors disabled:opacity-50"
+            className="text-xs font-medium text-muted hover:text-foreground transition-colors disabled:opacity-50"
           >
             {loading ? 'Vernieuwen...' : 'Vernieuwen'}
           </button>
         </div>
 
         {refreshError && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">
             {refreshError}
           </p>
         )}
@@ -900,7 +904,7 @@ export default function Home() {
         )}
 
         {mode === 'samen' && togetherComputing && byMode.samen.length === 0 && (
-          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-6 mb-5 text-center leading-relaxed">
+          <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-6 mb-5 text-center leading-relaxed">
             Jullie Samen-lijst wordt op de achtergrond samengesteld. Dat duurt de eerste keer even, meestal een minuutje.
             Je hoeft niets te doen: hij verschijnt vanzelf.
           </p>
@@ -914,15 +918,15 @@ export default function Home() {
         )}
 
         {mode === 'samen' && togetherError && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">
             Samen-aanbevelingen laden mislukt: {togetherError}
           </p>
         )}
 
         {mode === 'samen' && togetherConnected === false && (
-          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-6 mb-5 text-center">
+          <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-6 mb-5 text-center">
             Je hebt nog geen partner gekoppeld.{' '}
-            <a href="/settings" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">
+            <a href="/settings" className="text-accent hover:text-accent-hover transition-colors">
               Koppel er een bij Instellingen
             </a>{' '}
             om samen aanbevelingen te zien.
@@ -930,15 +934,15 @@ export default function Home() {
         )}
 
         {mode === 'samen' && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
-          <p className="text-sm text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-3 mb-5">
+          <p className="text-sm text-muted border border-dashed border-line rounded-2xl px-4 py-3 mb-5">
             Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
             zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
           </p>
         )}
 
         {mode === 'samen' && togetherConnected && rankedForTab.length > 0 && (
-          <div className="rounded-2xl border border-[#E8A33D]/40 bg-[#E8A33D]/5 p-4 mb-5">
-            <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-3">
+          <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mb-5">
+            <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-3">
               {tab === 'movie' ? 'Filmtip' : 'Serietip'} van vanavond
             </p>
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 mb-4 [@media(pointer:fine)]:flex-wrap">
@@ -951,8 +955,8 @@ export default function Home() {
                   }}
                   className={`flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors touch-manipulation ${
                     tipMood === m.id
-                      ? 'border-[#E8A33D] bg-[#E8A33D]/15 text-[#E8A33D]'
-                      : 'border-[#2A3644] text-[#93A3B5] hover:border-[#3d4c60]'
+                      ? 'border-accent bg-accent/15 text-accent'
+                      : 'border-line text-muted hover:border-line-strong'
                   }`}
                 >
                   {m.label}
@@ -961,7 +965,7 @@ export default function Home() {
             </div>
 
             {!tipItem && (
-              <p className="text-sm text-[#93A3B5] leading-relaxed">
+              <p className="text-sm text-muted leading-relaxed">
                 Geen {TIP_MOODS.find((m) => m.id === tipMood)?.label.toLowerCase()} titel gevonden in jullie beste{' '}
                 {tab === 'movie' ? 'films' : 'series'}. Probeer een andere sfeer.
               </p>
@@ -990,15 +994,15 @@ export default function Home() {
                       />
                     </div>
                   ) : (
-                    <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+                    <div className="w-24 aspect-[2/3] rounded-xl bg-surface-2 flex-shrink-0" />
                   )}
                   <span className="min-w-0">
                     <span className="block font-display text-xl leading-tight">{tipItem.title}</span>
-                    <span className="block text-sm text-[#93A3B5] mt-1">
+                    <span className="block text-sm text-muted mt-1">
                       {tipItem.media_type === 'tv' ? 'Serie' : 'Film'}
                       {tipItem.watchOn ? ` · ${tipItem.watchOn}` : ''}
                     </span>
-                    <span className="block text-sm text-[#F2EFE9]/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn)}</span>
+                    <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn)}</span>
                   </span>
                 </button>
                 <div className="flex gap-2 mt-4">
@@ -1018,22 +1022,22 @@ export default function Home() {
         )}
 
         {mode === 'samen' && togetherConnected && togetherMatch && (
-          <div className="rounded-2xl border border-[#2A3644] bg-[#1A2330] p-4 mb-5">
+          <div className="rounded-2xl border border-line bg-surface p-4 mb-5">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-sm font-medium">Jullie smaakmatch</p>
-              <p className="font-display text-3xl text-[#E8A33D] leading-none">{togetherMatch.score}%</p>
+              <p className="font-display text-3xl text-accent leading-none">{togetherMatch.score}%</p>
             </div>
-            <p className="text-sm text-[#93A3B5] mt-1">{matchLabel(togetherMatch.score)}</p>
+            <p className="text-sm text-muted mt-1">{matchLabel(togetherMatch.score)}</p>
             <div className="flex flex-col gap-2 mt-4">
               <MatchBar label="Genres" percent={togetherMatch.genrePercent} />
               {togetherMatch.storyPercent !== null && <MatchBar label="Verhalen" percent={togetherMatch.storyPercent} />}
             </div>
-            <div className="mt-4 flex flex-col gap-1.5 text-sm text-[#F2EFE9]/85 leading-relaxed">
+            <div className="mt-4 flex flex-col gap-1.5 text-sm text-foreground/85 leading-relaxed">
               {togetherMatch.sharedGenres.length > 0 && (
                 <p>Jullie delen je liefde voor {joinNames(togetherMatch.sharedGenres).toLowerCase()}.</p>
               )}
               {(togetherMatch.youMoreGenres.length > 0 || togetherMatch.partnerMoreGenres.length > 0) && (
-                <p className="text-[#93A3B5]">
+                <p className="text-muted">
                   {togetherMatch.youMoreGenres.length > 0 && `Jij houdt meer van ${joinNames(togetherMatch.youMoreGenres).toLowerCase()}`}
                   {togetherMatch.youMoreGenres.length > 0 && togetherMatch.partnerMoreGenres.length > 0 && ', '}
                   {togetherMatch.partnerMoreGenres.length > 0 &&
@@ -1042,7 +1046,7 @@ export default function Home() {
                 </p>
               )}
               {togetherMatch.sharedTopTitles > 0 && (
-                <p className="text-[#93A3B5]">
+                <p className="text-muted">
                   {togetherMatch.sharedTopTitles} {togetherMatch.sharedTopTitles === 1 ? 'titel staat' : 'titels staan'} bij jullie allebei bovenaan.
                 </p>
               )}
@@ -1055,7 +1059,7 @@ export default function Home() {
         {(showSkeleton || togetherLoading) && <PosterSkeletonGrid />}
 
         {!showSkeleton && !togetherLoading && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
-          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center leading-relaxed">
+          <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center leading-relaxed">
             {mode === 'samen'
               ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
               : tab === 'movie'
@@ -1096,11 +1100,11 @@ export default function Home() {
           onClick={() => setSelected(null)}
         >
           <div
-            className="w-full sm:max-w-md bg-[#1A2330] border border-[#2A3644] rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
+            className="w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center pt-3 sm:hidden">
-              <div className="w-10 h-1 rounded-full bg-[#3A4A5C]" />
+              <div className="w-10 h-1 rounded-full bg-control" />
             </div>
 
             <div className="p-6">
@@ -1129,42 +1133,42 @@ export default function Home() {
                     />
                   </div>
                 ) : (
-                  <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+                  <div className="w-24 aspect-[2/3] rounded-xl bg-surface-2 flex-shrink-0" />
                 )}
                 <div className="min-w-0">
                   <h2 className="font-display text-xl leading-tight">{selected.title}</h2>
-                  <p className="text-sm text-[#93A3B5] mt-1.5">
+                  <p className="text-sm text-muted mt-1.5">
                     {selected.media_type === 'tv' ? 'Serie' : 'Film'}
                     {/* Bij Binnenkort staat de datum al verderop in de popup. */}
                     {!selected.upcoming && selected.release_date ? ` · ${selected.release_date.slice(0, 4)}` : ''}
                   </p>
                   {selected.upcoming ? (
-                    <span className="inline-block mt-2 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-semibold px-2.5 py-1">
+                    <span className="inline-block mt-2 rounded-full bg-teal/12 text-teal text-xs font-semibold px-2.5 py-1">
                       Binnenkort
                     </span>
                   ) : mode === 'explore' ? null : (
                     // Bij Verras me geen percentage: daar gaat het om ontdekken (zie hideMatch in MovieCard).
-                    <span className="inline-block mt-2 rounded-full bg-[#E8A33D]/12 text-[#E8A33D] text-xs font-semibold px-2.5 py-1">
+                    <span className="inline-block mt-2 rounded-full bg-accent/12 text-accent text-xs font-semibold px-2.5 py-1">
                       {selected.matchPercent}% match
                     </span>
                   )}
                   {bookTitles.has(`${selected.media_type}-${selected.id}`) && (
-                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
                       Gebaseerd op een boek
                     </span>
                   )}
                   {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (
-                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
                       Waargebeurd verhaal
                     </span>
                   )}
                   {selected.vote_average > 0 && (
-                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-muted text-xs font-medium px-2.5 py-1">
                       ★ {selected.vote_average.toFixed(1)} TMDB
                     </span>
                   )}
                   {selected.watchOn && (
-                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
+                    <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-muted text-xs font-medium px-2.5 py-1">
                       {selected.watchOn}
                     </span>
                   )}
@@ -1173,7 +1177,7 @@ export default function Home() {
                       href={spotifySoundtrackUrl(selected.title)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#93A3B5] hover:text-[#F2EFE9] transition-colors touch-manipulation"
+                      className="mt-3 flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground transition-colors touch-manipulation"
                     >
                       <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
                       Soundtrack op Spotify
@@ -1185,11 +1189,11 @@ export default function Home() {
               <TrailerLink mediaType={selected.media_type} id={selected.id} size="base" />
 
               {selected.overview && (
-                <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-4">{selected.overview}</p>
+                <p className="text-sm text-foreground/90 leading-relaxed mb-4">{selected.overview}</p>
               )}
 
               {selected.upcoming && (
-                <p className="text-sm text-[#52A9A0] mb-6">
+                <p className="text-sm text-teal mb-6">
                   {selected.media_type === 'tv'
                     ? `Eerste aflevering op ${formatReleaseDate(selected.release_date, true)}.`
                     : `Verschijnt op ${formatReleaseDate(selected.release_date, true)} in de bioscoop.`}{' '}
@@ -1201,16 +1205,16 @@ export default function Home() {
                 const liked = selected.basedOn.filter((b) => !isTraitLabel(b))
                 const traits = selected.basedOn.filter(isTraitLabel)
                 return (
-                  <div className="text-sm text-[#93A3B5] mb-6 space-y-1">
+                  <div className="text-sm text-muted mb-6 space-y-1">
                     {liked.length > 0 && (
                       <p>
-                        Aanbevolen omdat je hield van: <span className="text-[#E8A33D]">{liked.join(', ')}</span>
+                        Aanbevolen omdat je hield van: <span className="text-accent">{liked.join(', ')}</span>
                       </p>
                     )}
                     {traits.length > 0 && (
                       <p>
                         {liked.length > 0 ? 'Past ook bij je smaak:' : 'Aanbevolen vanwege:'}{' '}
-                        <span className="text-[#E8A33D]">{traits.join(', ')}</span>
+                        <span className="text-accent">{traits.join(', ')}</span>
                       </p>
                     )}
                   </div>
@@ -1218,7 +1222,7 @@ export default function Home() {
               })()}
 
               {actionError && (
-                <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-3">
+                <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-3">
                   {actionError}
                 </p>
               )}
@@ -1237,30 +1241,30 @@ export default function Home() {
                       Niet voor ons
                     </button>
                   </div>
-                  <p className="text-[11px] text-[#5E6D80] text-center mt-1.5">
+                  <p className="text-[11px] text-faint text-center mt-1.5">
                     Niet voor ons: past niet bij jullie samen, telt niet mee voor je eigen smaak.
                   </p>
                   {!selected.upcoming && (
                     <>
-                      <p className="text-xs text-[#93A3B5] mt-4 mb-2">Samen gezien? Hoe was het samen?</p>
+                      <p className="text-xs text-muted mt-4 mb-2">Samen gezien? Hoe was het samen?</p>
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => handleSeenTogether(selected, 'love')}
-                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#E8A33D] hover:text-[#E8A33D]"
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-accent hover:text-accent"
                         >
                           <HeartIcon className="w-4 h-4" />
                           <span className="text-xs font-medium">Leuk</span>
                         </button>
                         <button
                           onClick={() => handleSeenTogether(selected, 'ok')}
-                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#52A9A0] hover:text-[#52A9A0]"
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-teal hover:text-teal"
                         >
                           <OkIcon className="w-4 h-4" />
                           <span className="text-xs font-medium">Oké</span>
                         </button>
                         <button
                           onClick={() => handleSeenTogether(selected, 'dislike')}
-                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#C97064] hover:text-[#C97064]"
+                          className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-coral hover:text-coral"
                         >
                           <DislikeIcon className="w-4 h-4" />
                           <span className="text-xs font-medium">Niet leuk</span>
@@ -1289,21 +1293,21 @@ export default function Home() {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleRate(selected, 'love')}
-                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#E8A33D] hover:text-[#E8A33D]"
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-accent hover:text-accent"
                 >
                   <HeartIcon className="w-4 h-4" />
                   <span className="text-xs font-medium">Zeker</span>
                 </button>
                 <button
                   onClick={() => handleRate(selected, 'ok')}
-                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#52A9A0] hover:text-[#52A9A0]"
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-teal hover:text-teal"
                 >
                   <OkIcon className="w-4 h-4" />
                   <span className="text-xs font-medium">Was oké</span>
                 </button>
                 <button
                   onClick={() => handleRate(selected, 'dislike')}
-                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-[#2A3644] bg-[#1A2330] py-3 text-[#F2EFE9] transition-all active:scale-[0.97] touch-manipulation hover:border-[#C97064] hover:text-[#C97064]"
+                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-coral hover:text-coral"
                 >
                   <DislikeIcon className="w-4 h-4" />
                   <span className="text-xs font-medium">Niet voor mij</span>

@@ -40,7 +40,7 @@ function Avatar({ name, path }: { name: string; path: string | null }) {
       className="w-9 h-9 rounded-full object-cover flex-shrink-0"
     />
   ) : (
-    <div className="w-9 h-9 rounded-full bg-[#212C3B] flex-shrink-0" />
+    <div className="w-9 h-9 rounded-full bg-surface-2 flex-shrink-0" />
   )
 }
 
@@ -120,17 +120,17 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
 
   return (
     <div>
-      <p className="text-[#93A3B5] text-sm mb-4 leading-relaxed">{config.hint}</p>
+      <p className="text-muted text-sm mb-4 leading-relaxed">{config.hint}</p>
 
       {error && (
-        <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-4">
+        <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-4">
           {error}
         </p>
       )}
 
       <div className="flex gap-2 mb-4">
         <div className="relative flex-1">
-          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
           <input
             type="text"
             value={query}
@@ -161,7 +161,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
                 <button
                   onClick={() => add(person)}
                   className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                    added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
+                    added ? 'border-teal text-teal bg-teal/12' : 'border-line hover:border-accent hover:text-accent'
                   }`}
                 >
                   {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
@@ -174,7 +174,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
       )}
 
       <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
-      {favorites.length === 0 && <p className="text-[#93A3B5] text-sm">{config.empty}</p>}
+      {favorites.length === 0 && <p className="text-muted text-sm">{config.empty}</p>}
       {favorites.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {favorites.map((person) => (
@@ -188,7 +188,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
               </button>
               <button
                 onClick={() => remove(person.person_id)}
-                className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1"
+                className="text-muted hover:text-coral transition-colors p-1"
                 aria-label="Verwijderen"
               >
                 <TrashIcon className="w-4 h-4" />

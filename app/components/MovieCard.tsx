@@ -39,7 +39,7 @@ export default function MovieCard({
       onClick={onClick}
       className="group text-left touch-manipulation active:scale-[0.97] transition-transform"
     >
-      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-[#2A3644] bg-[#212C3B] shadow-[0_4px_14px_rgba(0,0,0,0.3)]">
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-xl border border-line bg-surface-2 shadow-[0_4px_14px_rgba(0,0,0,0.3)]">
         {movie.poster_path ? (
           <Image
             src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
@@ -51,20 +51,20 @@ export default function MovieCard({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center p-3 text-center">
-            <span className="font-display text-sm text-[#5E6D80]">{movie.title}</span>
+            <span className="font-display text-sm text-faint">{movie.title}</span>
           </div>
         )}
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
         {upcomingLabel && (
-          <span className="absolute top-2 left-2 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-[#52A9A0] ring-1 ring-[#52A9A0]/40">
+          <span className="absolute top-2 left-2 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-teal ring-1 ring-teal/40">
             {upcomingLabel}
           </span>
         )}
 
         {!upcomingLabel && !hideMatch && typeof movie.matchPercent === 'number' && (
-          <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-[#E8A33D] ring-1 ring-white/10">
+          <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-accent ring-1 ring-white/10">
             {movie.matchPercent}%
           </span>
         )}
@@ -72,11 +72,11 @@ export default function MovieCard({
         {(isNew || alsoSamen) && !badge && (
           <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
             {isNew && (
-              <span className="rounded-full bg-[#52A9A0]/90 px-2 py-0.5 text-[10px] font-semibold text-[#10151C]">Nieuw</span>
+              <span className="rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-semibold text-background">Nieuw</span>
             )}
             {alsoSamen && (
               <span
-                className="flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-[#E8A33D] ring-1 ring-[#E8A33D]/40"
+                className="flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-accent ring-1 ring-accent/40"
                 title="Staat ook bij Samen"
               >
                 <UsersIcon className="w-3 h-3" />
@@ -87,7 +87,7 @@ export default function MovieCard({
         )}
 
         {badge && (
-          <span className="absolute top-2 right-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-[#93A3B5] ring-1 ring-white/10">
+          <span className="absolute top-2 right-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-muted ring-1 ring-white/10">
             {badge}
           </span>
         )}
@@ -98,7 +98,7 @@ export default function MovieCard({
             <p className="mt-0.5 text-[11px] font-medium text-white/65">{movie.release_date.slice(0, 4)}</p>
           )}
           {movie.watchOn && (
-            <p className="mt-0.5 text-[11px] font-medium text-[#E8A33D]/90 truncate">{movie.watchOn}</p>
+            <p className="mt-0.5 text-[11px] font-medium text-accent/90 truncate">{movie.watchOn}</p>
           )}
         </div>
       </div>

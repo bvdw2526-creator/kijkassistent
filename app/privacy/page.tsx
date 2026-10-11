@@ -7,15 +7,15 @@ const CONTACT = 'info@kijkassistent.nl'
 export default function Privacy() {
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
-      <Link href="/" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Terug</Link>
+      <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-[#93A3B5] mb-8">Laatst bijgewerkt: 8 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 11 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
           Kijkassistent is een app die persoonlijke film- en serie-aanbevelingen geeft. De verantwoordelijke voor
           jouw gegevens is B. vd Woude, beheerder van Kijkassistent, te bereiken via{' '}
-          <a href={`mailto:${CONTACT}`} className="text-[#E8A33D]">{CONTACT}</a>.
+          <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>.
         </p>
       </Section>
 
@@ -73,8 +73,8 @@ export default function Privacy() {
 
       <Section title="Cookies en lokale opslag">
         <p>
-          We gebruiken alleen wat nodig is: je inlogsessie en een kopie van je laatste aanbevelingen in de opslag van
-          je browser. Daarom is er geen cookiebanner.
+          We gebruiken alleen wat nodig is: je inlogsessie, een kopie van je laatste aanbevelingen en het uiterlijk
+          (de skin) dat je hebt gekozen, in de opslag van je browser. Daarom is er geen cookiebanner.
         </p>
       </Section>
 
@@ -86,9 +86,9 @@ export default function Privacy() {
         <p>
           Je mag vragen om inzage in, correctie van of verwijdering van je gegevens, en bezwaar maken tegen het
           gebruik ervan. Je account en alle gegevens verwijderen kan zelf bij{' '}
-          <Link href="/settings" className="text-[#E8A33D]">Instellingen</Link> onder &quot;Account verwijderen&quot; (zie ook{' '}
-          <Link href="/account-verwijderen" className="text-[#E8A33D]">hoe je je account verwijdert</Link>). Voor
-          andere verzoeken mail je naar <a href={`mailto:${CONTACT}`} className="text-[#E8A33D]">{CONTACT}</a>; we
+          <Link href="/settings" className="text-accent">Instellingen</Link> onder &quot;Account verwijderen&quot; (zie ook{' '}
+          <Link href="/account-verwijderen" className="text-accent">hoe je je account verwijdert</Link>). Voor
+          andere verzoeken mail je naar <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>; we
           reageren binnen 30 dagen. Ben je niet tevreden, dan kun je een klacht indienen bij de Autoriteit
           Persoonsgegevens.
         </p>
@@ -109,7 +109,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mb-7">
       <h2 className="font-display text-xl mb-2">{title}</h2>
-      <div className="text-[#F2EFE9]/90 text-sm">{children}</div>
+      <div className="text-foreground/90 text-sm">{children}</div>
     </section>
   )
 }

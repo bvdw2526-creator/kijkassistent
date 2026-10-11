@@ -77,29 +77,29 @@ export default function Verborgen() {
   return (
     <>
       <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
-        <Link href="/settings" className="inline-flex items-center gap-1 text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors mb-4">
+        <Link href="/settings" className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors mb-4">
           <ChevronLeftIcon className="w-4 h-4" />
           Instellingen
         </Link>
         <h1 className="font-display text-2xl mb-1">Verborgen films en series</h1>
-        <p className="text-[#93A3B5] mb-6">
+        <p className="text-muted mb-6">
           Deze titels komen niet meer in je aanbevelingen. Ze tellen niet mee voor je smaak. Zet je een titel terug, dan kan hij
           weer verschijnen.
         </p>
 
         {error && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-4">{error}</p>
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-4">{error}</p>
         )}
 
         {loading && (
           <div className="flex flex-col gap-2">
-            <div className="h-16 rounded-2xl bg-[#1A2330] animate-skeleton" />
-            <div className="h-16 rounded-2xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: '80ms' }} />
+            <div className="h-16 rounded-2xl bg-surface animate-skeleton" />
+            <div className="h-16 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: '80ms' }} />
           </div>
         )}
 
         {!loading && items.length === 0 && !error && (
-          <p className="text-sm text-[#93A3B5]">Je hebt niets verborgen. Bij een film of serie op Voor jou vind je onderin de knop Verbergen.</p>
+          <p className="text-sm text-muted">Je hebt niets verborgen. Bij een film of serie op Voor jou vind je onderin de knop Verbergen.</p>
         )}
 
         {!loading && items.length > 0 && (
@@ -110,7 +110,7 @@ export default function Verborgen() {
                 <li key={key} className={`${card} flex items-center justify-between gap-3 px-4 py-3`}>
                   <span className="min-w-0">
                     <span className="block text-sm font-medium truncate">{item.title}</span>
-                    <span className="block text-xs text-[#93A3B5] mt-0.5">
+                    <span className="block text-xs text-muted mt-0.5">
                       {item.media_type === 'tv' ? 'Serie' : 'Film'} · verborgen op {formatHiddenDate(item.hidden_at)}
                     </span>
                   </span>

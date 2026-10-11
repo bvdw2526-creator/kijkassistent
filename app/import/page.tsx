@@ -50,7 +50,7 @@ function starsLabel(stars: number): string {
 }
 
 const selectClass =
-  'rounded-xl border border-[#2A3644] bg-[#1A2330] px-3 py-2 text-sm text-[#F2EFE9] outline-none focus:border-[#E8A33D] w-52'
+  'rounded-xl border border-line bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent w-52'
 
 async function fetchAllRows(table: 'ratings' | 'favorite_movies' | 'watchlist', userId: string): Promise<Set<string>> {
   const keys = new Set<string>()
@@ -340,35 +340,35 @@ export default function ImportPage() {
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
-        <Link href="/settings" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Instellingen</Link>
+        <Link href="/settings" className="text-sm text-muted hover:text-foreground transition-colors">← Instellingen</Link>
         <h1 className="font-display text-2xl mt-3 mb-1">Importeren uit Letterboxd</h1>
 
         {/* Alleen op een computer: op telefoon en tablet is de export van Letterboxd er ook niet. */}
         <div className="[@media(pointer:fine)]:hidden mt-6">
-          <p className={`${card} p-5 text-[#93A3B5] leading-relaxed`}>
+          <p className={`${card} p-5 text-muted leading-relaxed`}>
             Importeren werkt alleen op een computer. Open Kijkassistent op je laptop of pc, en kom dan hier terug.
           </p>
         </div>
 
         <div className="hidden [@media(pointer:fine)]:block">
-          <p className="text-[#93A3B5] mb-6">Stap {stepNumber} van 4</p>
+          <p className="text-muted mb-6">Stap {stepNumber} van 4</p>
 
           {error && (
-            <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-4 py-3 mb-5">{error}</p>
+            <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">{error}</p>
           )}
 
           {step === 'file' && (
             <div className="flex flex-col gap-4">
-              <p className="text-[#93A3B5] leading-relaxed">
+              <p className="text-muted leading-relaxed">
                 Neem je films en beoordelingen van Letterboxd over. Je kiest zelf wat een aantal sterren in Kijkassistent
                 wordt. Het bestand wordt alleen in je eigen browser gelezen; het wordt niet naar ons gestuurd. Alleen de
                 films die je importeert worden opgeslagen.
               </p>
               <div className={`${card} p-5`}>
                 <p className="text-sm font-medium mb-2">Zo haal je je export op</p>
-                <ol className="list-decimal pl-5 text-sm text-[#93A3B5] space-y-1 leading-relaxed">
-                  <li>Log in op <span className="text-[#F2EFE9]">letterboxd.com</span> op je computer.</li>
-                  <li>Ga naar <span className="text-[#F2EFE9]">Instellingen → Data</span> en kies <span className="text-[#F2EFE9]">Export your data</span>.</li>
+                <ol className="list-decimal pl-5 text-sm text-muted space-y-1 leading-relaxed">
+                  <li>Log in op <span className="text-foreground">letterboxd.com</span> op je computer.</li>
+                  <li>Ga naar <span className="text-foreground">Instellingen → Data</span> en kies <span className="text-foreground">Export your data</span>.</li>
                   <li>Je krijgt een zip-bestand. Kies dat hieronder (uitpakken hoeft niet).</li>
                 </ol>
               </div>
@@ -386,8 +386,8 @@ export default function ImportPage() {
 
           {step === 'mapping' && data && (
             <div className="flex flex-col gap-5">
-              <p className="text-[#93A3B5] leading-relaxed">
-                <span className="text-[#F2EFE9]">{fileName}</span>: {data.ratings.length} beoordeelde films
+              <p className="text-muted leading-relaxed">
+                <span className="text-foreground">{fileName}</span>: {data.ratings.length} beoordeelde films
                 {data.watchlist.length > 0 ? `, ${data.watchlist.length} op je Letterboxd-watchlist` : ''}. Wat moet een aantal sterren
                 in Kijkassistent worden?
               </p>
@@ -399,8 +399,8 @@ export default function ImportPage() {
                   return (
                     <div key={key} className={`flex items-center justify-between gap-3 ${count === 0 ? 'opacity-45' : ''}`}>
                       <span className="text-sm">
-                        <span className="text-[#E8A33D]">{'★'.repeat(Math.floor(stars))}{stars % 1 ? '½' : ''}</span>{' '}
-                        <span className="text-[#93A3B5]">{starsLabel(stars)} · {count} {count === 1 ? 'film' : 'films'}</span>
+                        <span className="text-accent">{'★'.repeat(Math.floor(stars))}{stars % 1 ? '½' : ''}</span>{' '}
+                        <span className="text-muted">{starsLabel(stars)} · {count} {count === 1 ? 'film' : 'films'}</span>
                       </span>
                       <select
                         value={starMap[key]}
@@ -420,7 +420,7 @@ export default function ImportPage() {
                 {unratedCount > 0 && (
                   <label className="flex items-center justify-between gap-3 text-sm">
                     <span>
-                      Gezien, maar niet beoordeeld <span className="text-[#93A3B5]">({unratedCount})</span>
+                      Gezien, maar niet beoordeeld <span className="text-muted">({unratedCount})</span>
                     </span>
                     <select value={unratedAction} onChange={(e) => setUnratedAction(e.target.value as 'skip' | 'ok')} className={selectClass}>
                       <option value="skip">Overslaan</option>
@@ -430,8 +430,8 @@ export default function ImportPage() {
                 )}
                 {data.watchlist.length > 0 && (
                   <label className="flex items-center gap-3 text-sm">
-                    <input type="checkbox" checked={includeWatchlist} onChange={(e) => setIncludeWatchlist(e.target.checked)} className="accent-[#E8A33D] w-4 h-4" />
-                    <span>Ook mijn Letterboxd-watchlist op mijn kijklijst zetten <span className="text-[#93A3B5]">({data.watchlist.length})</span></span>
+                    <input type="checkbox" checked={includeWatchlist} onChange={(e) => setIncludeWatchlist(e.target.checked)} className="accent-accent w-4 h-4" />
+                    <span>Ook mijn Letterboxd-watchlist op mijn kijklijst zetten <span className="text-muted">({data.watchlist.length})</span></span>
                   </label>
                 )}
                 <label className="flex items-center justify-between gap-3 text-sm">
@@ -452,17 +452,17 @@ export default function ImportPage() {
 
           {step === 'matching' && (
             <div className="flex flex-col gap-4">
-              <p className="text-[#93A3B5] leading-relaxed">
+              <p className="text-muted leading-relaxed">
                 We zoeken je films op bij TMDB, de filmdatabase achter Kijkassistent. Dat duurt bij veel films even; je
                 kunt dit venster open laten staan.
               </p>
               <div className={`${card} p-5`}>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Films opzoeken</span>
-                  <span className="text-[#93A3B5]">{progress.done} van {progress.total}</span>
+                  <span className="text-muted">{progress.done} van {progress.total}</span>
                 </div>
-                <div className="h-2 rounded-full bg-[#10151C] overflow-hidden">
-                  <div className="h-full bg-[#E8A33D] transition-all" style={{ width: `${percent}%` }} />
+                <div className="h-2 rounded-full bg-background overflow-hidden">
+                  <div className="h-full bg-accent transition-all" style={{ width: `${percent}%` }} />
                 </div>
               </div>
               {error && (
@@ -476,8 +476,8 @@ export default function ImportPage() {
 
           {step === 'review' && (
             <div className="flex flex-col gap-5">
-              <p className="text-[#93A3B5] leading-relaxed">
-                Klaar om te importeren: <span className="text-[#F2EFE9]">{found.length}</span> van de {targets.length} films
+              <p className="text-muted leading-relaxed">
+                Klaar om te importeren: <span className="text-foreground">{found.length}</span> van de {targets.length} films
                 gevonden.
               </p>
               <div className={`${card} p-4 flex flex-col gap-2 text-sm`}>
@@ -487,12 +487,12 @@ export default function ImportPage() {
                   return (
                     <div key={a} className="flex justify-between">
                       <span>{a === 'watchlist' ? 'Op je kijklijst' : STAR_ACTION_LABELS[a]}</span>
-                      <span className="text-[#93A3B5]">{n}</span>
+                      <span className="text-muted">{n}</span>
                     </div>
                   )
                 })}
                 {alreadyRated > 0 && (
-                  <p className="text-xs text-[#93A3B5] mt-1 leading-relaxed">
+                  <p className="text-xs text-muted mt-1 leading-relaxed">
                     {alreadyRated} {alreadyRated === 1 ? 'film had' : 'films hadden'} je al beoordeeld in Kijkassistent:{' '}
                     {keepExisting ? 'die beoordeling blijft staan.' : 'die wordt overschreven.'}
                   </p>
@@ -504,7 +504,7 @@ export default function ImportPage() {
                   <summary className="cursor-pointer">
                     {notFound.length} {notFound.length === 1 ? 'film' : 'films'} niet gevonden (worden overgeslagen)
                   </summary>
-                  <ul className="mt-3 space-y-1 text-[#93A3B5] max-h-56 overflow-y-auto">
+                  <ul className="mt-3 space-y-1 text-muted max-h-56 overflow-y-auto">
                     {notFound.slice(0, 300).map((t) => (
                       <li key={t.film.uri}>{t.film.name}{t.film.year ? ` (${t.film.year})` : ''}</li>
                     ))}
@@ -526,13 +526,13 @@ export default function ImportPage() {
               <div className={`${card} p-5`}>
                 <div className="flex justify-between text-sm mb-2">
                   <span>{phase}</span>
-                  {progress.total > 0 && <span className="text-[#93A3B5]">{progress.done} van {progress.total}</span>}
+                  {progress.total > 0 && <span className="text-muted">{progress.done} van {progress.total}</span>}
                 </div>
-                <div className="h-2 rounded-full bg-[#10151C] overflow-hidden">
-                  <div className="h-full bg-[#E8A33D] transition-all" style={{ width: `${progress.total > 0 ? percent : 8}%` }} />
+                <div className="h-2 rounded-full bg-background overflow-hidden">
+                  <div className="h-full bg-accent transition-all" style={{ width: `${progress.total > 0 ? percent : 8}%` }} />
                 </div>
               </div>
-              <p className="text-sm text-[#93A3B5] leading-relaxed">
+              <p className="text-sm text-muted leading-relaxed">
                 Je smaak leren kennen kan een paar minuten duren bij veel films. Laat dit venster open, dan gaat straks het
                 eerste vernieuwen van je aanbevelingen snel.
               </p>
@@ -547,7 +547,7 @@ export default function ImportPage() {
                 <p>{summary.favorites} favorieten toegevoegd</p>
                 {summary.watchlist > 0 && <p>{summary.watchlist} films op je kijklijst gezet</p>}
                 {summary.warmFailed > 0 && (
-                  <p className="text-xs text-[#93A3B5] mt-1 leading-relaxed">
+                  <p className="text-xs text-muted mt-1 leading-relaxed">
                     Bij {summary.warmFailed} films lukte het voorbereiden niet. Dat is niet erg: het eerste vernieuwen van je
                     aanbevelingen kan dan iets langer duren.
                   </p>

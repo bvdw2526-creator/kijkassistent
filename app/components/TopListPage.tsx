@@ -16,11 +16,11 @@ export default async function TopListPage({ typeSlug, serviceSlug }: { typeSlug:
 
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
-      <Link href="/top-100" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">
+      <Link href="/top-100" className="text-sm text-muted hover:text-foreground transition-colors">
         ← Alle lijsten
       </Link>
       <h1 className="font-display text-3xl mt-4 mb-2">{heading}</h1>
-      <p className="text-[#93A3B5] mb-6">
+      <p className="text-muted mb-6">
         {service
           ? `De best beoordeelde ${typeInfo.label} die je nu bij ${service.label} in Nederland kunt kijken (met een abonnement). `
           : `De best beoordeelde ${typeInfo.label}, ongeacht waar je ze kunt kijken. `}
@@ -29,7 +29,7 @@ export default async function TopListPage({ typeSlug, serviceSlug }: { typeSlug:
       </p>
 
       {items.length === 0 ? (
-        <p className="text-sm text-[#93A3B5]">De lijst kon niet worden opgehaald. Probeer het later opnieuw.</p>
+        <p className="text-sm text-muted">De lijst kon niet worden opgehaald. Probeer het later opnieuw.</p>
       ) : (
         <TopList items={items} />
       )}

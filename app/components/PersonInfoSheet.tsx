@@ -86,11 +86,11 @@ export default function PersonInfoSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-[#1A2330] border border-[#2A3644] rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
+        className="w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-[#3A4A5C]" />
+          <div className="w-10 h-1 rounded-full bg-control" />
         </div>
 
         <div className="p-6">
@@ -106,36 +106,36 @@ export default function PersonInfoSheet({
                 />
               </div>
             ) : (
-              <div className="w-32 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+              <div className="w-32 aspect-[2/3] rounded-xl bg-surface-2 flex-shrink-0" />
             )}
             <div className="min-w-0">
               <h2 className="font-display text-xl leading-tight">{person.name}</h2>
               {info?.department && (
-                <p className="text-sm text-[#93A3B5] mt-1.5">{DEPARTMENT_LABELS[info.department] ?? info.department}</p>
+                <p className="text-sm text-muted mt-1.5">{DEPARTMENT_LABELS[info.department] ?? info.department}</p>
               )}
               {info?.birthday && (
-                <p className="text-sm text-[#93A3B5] mt-3">
+                <p className="text-sm text-muted mt-3">
                   Geboren {formatDate(info.birthday)}
-                  <span className="block text-xs text-[#5E6D80]">{ageLabel(info.birthday, info.deathday)}</span>
+                  <span className="block text-xs text-faint">{ageLabel(info.birthday, info.deathday)}</span>
                 </p>
               )}
-              {info?.deathday && <p className="text-sm text-[#93A3B5] mt-1">Overleden {formatDate(info.deathday)}</p>}
-              {info?.placeOfBirth && <p className="text-xs text-[#5E6D80] mt-1">{info.placeOfBirth}</p>}
+              {info?.deathday && <p className="text-sm text-muted mt-1">Overleden {formatDate(info.deathday)}</p>}
+              {info?.placeOfBirth && <p className="text-xs text-faint mt-1">{info.placeOfBirth}</p>}
             </div>
           </div>
 
-          {!info && !failed && <div className="h-20 rounded-xl bg-[#212C3B] animate-skeleton mb-4" />}
-          {failed && <p className="text-sm text-[#93A3B5] mb-4">Kon de gegevens niet laden.</p>}
+          {!info && !failed && <div className="h-20 rounded-xl bg-surface-2 animate-skeleton mb-4" />}
+          {failed && <p className="text-sm text-muted mb-4">Kon de gegevens niet laden.</p>}
 
           {bio && (
             <div className="mb-4">
-              <p className="text-sm text-[#F2EFE9]/90 leading-relaxed whitespace-pre-line">
+              <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
                 {bioExpanded || !longBio ? bio : `${bio.slice(0, BIO_PREVIEW_CHARS).trimEnd()}…`}
               </p>
               {longBio && (
                 <button
                   onClick={() => setBioExpanded((v) => !v)}
-                  className="text-xs text-[#E8A33D] mt-1 touch-manipulation"
+                  className="text-xs text-accent mt-1 touch-manipulation"
                 >
                   {bioExpanded ? 'Minder tonen' : 'Meer lezen'}
                 </button>
@@ -148,9 +148,9 @@ export default function PersonInfoSheet({
               <p className="text-sm font-medium mb-2">Bekend van</p>
               <ul className="flex flex-col gap-1">
                 {info.knownFor.map((t) => (
-                  <li key={`${t.media_type}-${t.id}`} className="text-sm text-[#93A3B5]">
+                  <li key={`${t.media_type}-${t.id}`} className="text-sm text-muted">
                     {t.title}
-                    <span className="text-xs text-[#5E6D80]">
+                    <span className="text-xs text-faint">
                       {t.year ? ` · ${t.year}` : ''} · {t.media_type === 'tv' ? 'Serie' : 'Film'}
                     </span>
                   </li>

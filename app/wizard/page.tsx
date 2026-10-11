@@ -327,10 +327,10 @@ export default function Wizard() {
   if (loading) {
     return (
       <main className="max-w-sm mx-auto px-5 pt-10 pb-16">
-        <div className="h-6 w-32 rounded-lg bg-[#1A2330] animate-skeleton mb-8" />
+        <div className="h-6 w-32 rounded-lg bg-surface animate-skeleton mb-8" />
         <div className="flex flex-col gap-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 rounded-xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+            <div key={i} className="h-14 rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
           ))}
         </div>
       </main>
@@ -342,20 +342,20 @@ export default function Wizard() {
       {/* Voortgang */}
       <div className="flex items-center gap-2 mb-1">
         {step > 1 && (
-          <button onClick={() => setStep(step - 1)} className="text-[#93A3B5] hover:text-[#F2EFE9] transition-colors p-1 -ml-1 flex-shrink-0" aria-label="Vorige stap">
+          <button onClick={() => setStep(step - 1)} className="text-muted hover:text-foreground transition-colors p-1 -ml-1 flex-shrink-0" aria-label="Vorige stap">
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
         )}
         <div className="flex gap-1.5 flex-1">
           {STEP_LABELS.map((_, i) => (
-            <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i + 1 <= step ? 'bg-[#E8A33D]' : 'bg-[#2A3644]'}`} />
+            <div key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${i + 1 <= step ? 'bg-accent' : 'bg-line'}`} />
           ))}
         </div>
       </div>
-      <p className="text-xs text-[#5E6D80] mb-8">Stap {step} van {STEP_LABELS.length} — {STEP_LABELS[step - 1]}</p>
+      <p className="text-xs text-faint mb-8">Stap {step} van {STEP_LABELS.length} — {STEP_LABELS[step - 1]}</p>
 
       {error && (
-        <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+        <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
           {error}
         </p>
       )}
@@ -363,7 +363,7 @@ export default function Wizard() {
       {step === 1 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Kies je streamingdiensten</h1>
-          <p className="text-[#93A3B5] mb-6">Kies je streamingdiensten. Heb je geen streamingdiensten? Kies dan &ldquo;Sla deze stap over&rdquo;.</p>
+          <p className="text-muted mb-6">Kies je streamingdiensten. Heb je geen streamingdiensten? Kies dan &ldquo;Sla deze stap over&rdquo;.</p>
           <div className="grid grid-cols-2 gap-2 mb-8">
             {AVAILABLE_SERVICES.map((service) => {
               const active = selectedServices.includes(service.id)
@@ -372,11 +372,11 @@ export default function Wizard() {
                   key={service.id}
                   onClick={() => toggleService(service.id)}
                   className={`flex items-center gap-2 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.97] ${
-                    active ? 'border-[#E8A33D] text-[#E8A33D] bg-[#E8A33D]/10' : 'border-[#2A3644] hover:border-[#3d4c60]'
+                    active ? 'border-accent text-accent bg-accent/10' : 'border-line hover:border-line-strong'
                   }`}
                 >
-                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${active ? 'border-[#E8A33D] bg-[#E8A33D]' : 'border-[#3A4A5C]'}`}>
-                    {active && <CheckIcon className="w-3 h-3 text-[#171F2B]" />}
+                  <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${active ? 'border-accent bg-accent' : 'border-control'}`}>
+                    {active && <CheckIcon className="w-3 h-3 text-on-accent" />}
                   </span>
                   <span className="text-sm font-medium">{service.label}</span>
                 </button>
@@ -393,12 +393,12 @@ export default function Wizard() {
       {step === 2 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Kies je favorieten</h1>
-          <p className="text-[#93A3B5] mb-1">Kies minimaal {MIN_FAVORITES} films en series die je écht heel leuk vindt. Deze keuzes tellen zwaar mee in de aanbevelingen van je films of series.</p>
-          <p className="text-sm font-medium text-[#E8A33D] mb-6">{favorites.length} / {MIN_FAVORITES} gekozen</p>
+          <p className="text-muted mb-1">Kies minimaal {MIN_FAVORITES} films en series die je écht heel leuk vindt. Deze keuzes tellen zwaar mee in de aanbevelingen van je films of series.</p>
+          <p className="text-sm font-medium text-accent mb-6">{favorites.length} / {MIN_FAVORITES} gekozen</p>
 
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
-              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
               <input
                 type="text"
                 value={movieQuery}
@@ -411,7 +411,7 @@ export default function Wizard() {
             <button onClick={handleMovieSearch} disabled={movieSearchLoading} className={btnPrimary}>Zoeken</button>
           </div>
 
-          {movieSearchNote && <p className="text-sm text-[#93A3B5] mb-3">{movieSearchNote}</p>}
+          {movieSearchNote && <p className="text-sm text-muted mb-3">{movieSearchNote}</p>}
 
           {movieResults.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-6">
@@ -424,15 +424,15 @@ export default function Wizard() {
                         <Image src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`} alt={movie.title} fill sizes="36px" className="object-cover" />
                       </div>
                     ) : (
-                      <div className="w-9 aspect-[2/3] rounded-md bg-[#212C3B] flex-shrink-0" />
+                      <div className="w-9 aspect-[2/3] rounded-md bg-surface-2 flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm min-w-0 truncate">
-                      {movie.title} <span className="text-xs text-[#5E6D80]">{movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                      {movie.title} <span className="text-xs text-faint">{movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
                     </span>
                     <button
                       onClick={() => addFavoriteMovie(movie)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                        added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
+                        added ? 'border-teal text-teal bg-teal/12' : 'border-line hover:border-accent hover:text-accent'
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
@@ -446,11 +446,11 @@ export default function Wizard() {
 
           {favorites.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-6">
-              <h3 className="text-sm text-[#93A3B5] mb-1">Jouw favorieten</h3>
+              <h3 className="text-sm text-muted mb-1">Jouw favorieten</h3>
               {favorites.map((movie) => (
                 <div key={`${movie.media_type}-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
                   <span className="flex-1 text-sm truncate">{movie.title}</span>
-                  <button onClick={() => removeFavoriteMovie(movie)} className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1" aria-label="Verwijderen">
+                  <button onClick={() => removeFavoriteMovie(movie)} className="text-muted hover:text-coral transition-colors p-1" aria-label="Verwijderen">
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -475,33 +475,33 @@ export default function Wizard() {
       {step === 3 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Sluit genres uit</h1>
-          <p className="text-[#93A3B5] mb-4">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
+          <p className="text-muted mb-4">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
 
-          <div className="flex items-start gap-3 rounded-xl border border-[#C97064]/40 bg-[#C97064]/5 p-4 mb-6">
-            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#C97064]/15 text-[#C97064]">
+          <div className="flex items-start gap-3 rounded-xl border border-coral/40 bg-coral/5 p-4 mb-6">
+            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-coral/15 text-coral">
               <CloseIcon className="w-4 h-4" />
             </span>
             <p className="text-sm leading-relaxed">
-              <span className="font-medium text-[#C97064]">Dit is een lijst van wat je níet wilt zien.</span> Een genre dat je
+              <span className="font-medium text-coral">Dit is een lijst van wat je níet wilt zien.</span> Een genre dat je
               aantikt, verdwijnt helemaal uit je aanbevelingen, ook als een van je favorieten erin valt. Vind je alles goed?
               Tik dan niets aan en ga verder.
             </p>
           </div>
 
-          <h3 className="text-sm text-[#93A3B5] mb-2">Films</h3>
+          <h3 className="text-sm text-muted mb-2">Films</h3>
           <div className="flex flex-wrap gap-2 mb-5">
             {MOVIE_GENRES.map((genre) => (
               <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
-          <h3 className="text-sm text-[#93A3B5] mb-2">Series</h3>
+          <h3 className="text-sm text-muted mb-2">Series</h3>
           <div className="flex flex-wrap gap-2 mb-4">
             {TV_GENRES.map((genre) => (
               <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
 
-          <p className="text-sm text-[#93A3B5] mb-6">
+          <p className="text-sm text-muted mb-6">
             {excludedGenres.length === 0
               ? 'Nog niets uitgesloten. Dat is prima.'
               : `${excludedGenres.length} ${excludedGenres.length === 1 ? 'genre' : 'genres'} uitgesloten: dat komt niet meer in je aanbevelingen.`}
@@ -519,12 +519,12 @@ export default function Wizard() {
       {step === 4 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Favoriete acteurs &amp; regisseurs</h1>
-          <p className="text-[#93A3B5] mb-6">Optioneel — films en series met hen erin komen hoger in je aanbevelingen.</p>
+          <p className="text-muted mb-6">Optioneel — films en series met hen erin komen hoger in je aanbevelingen.</p>
 
-          <h3 className="text-sm text-[#93A3B5] mb-2">Acteurs &amp; actrices</h3>
+          <h3 className="text-sm text-muted mb-2">Acteurs &amp; actrices</h3>
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
-              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
               <input
                 type="text"
                 value={actorQuery}
@@ -546,14 +546,14 @@ export default function Wizard() {
                     {person.profile_path ? (
                       <Image src={`https://image.tmdb.org/t/p/w92${person.profile_path}`} alt={person.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-[#212C3B] flex-shrink-0" />
+                      <div className="w-8 h-8 rounded-full bg-surface-2 flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm truncate">{person.name}</span>
                     </button>
                     <button
                       onClick={() => addFavoriteActor(person)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                        added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
+                        added ? 'border-teal text-teal bg-teal/12' : 'border-line hover:border-accent hover:text-accent'
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
@@ -571,10 +571,10 @@ export default function Wizard() {
                   {person.profile_path ? (
                     <Image src={`https://image.tmdb.org/t/p/w92${person.profile_path}`} alt={person.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#212C3B] flex-shrink-0" />
+                    <div className="w-8 h-8 rounded-full bg-surface-2 flex-shrink-0" />
                   )}
                   <span className="flex-1 text-sm truncate">{person.name}</span>
-                  <button onClick={() => removeFavoriteActor(person.person_id)} className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1" aria-label="Verwijderen">
+                  <button onClick={() => removeFavoriteActor(person.person_id)} className="text-muted hover:text-coral transition-colors p-1" aria-label="Verwijderen">
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -582,10 +582,10 @@ export default function Wizard() {
             </div>
           )}
 
-          <h3 className="text-sm text-[#93A3B5] mb-2">Regisseurs</h3>
+          <h3 className="text-sm text-muted mb-2">Regisseurs</h3>
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
-              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5E6D80]" />
+              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
               <input
                 type="text"
                 value={directorQuery}
@@ -607,14 +607,14 @@ export default function Wizard() {
                     {person.profile_path ? (
                       <Image src={`https://image.tmdb.org/t/p/w92${person.profile_path}`} alt={person.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-[#212C3B] flex-shrink-0" />
+                      <div className="w-8 h-8 rounded-full bg-surface-2 flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm truncate">{person.name}</span>
                     </button>
                     <button
                       onClick={() => addFavoriteDirector(person)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
-                        added ? 'border-[#52A9A0] text-[#52A9A0] bg-[#52A9A0]/12' : 'border-[#2A3644] hover:border-[#E8A33D] hover:text-[#E8A33D]'
+                        added ? 'border-teal text-teal bg-teal/12' : 'border-line hover:border-accent hover:text-accent'
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
@@ -632,10 +632,10 @@ export default function Wizard() {
                   {person.profile_path ? (
                     <Image src={`https://image.tmdb.org/t/p/w92${person.profile_path}`} alt={person.name} width={32} height={32} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#212C3B] flex-shrink-0" />
+                    <div className="w-8 h-8 rounded-full bg-surface-2 flex-shrink-0" />
                   )}
                   <span className="flex-1 text-sm truncate">{person.name}</span>
-                  <button onClick={() => removeFavoriteDirector(person.person_id)} className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1" aria-label="Verwijderen">
+                  <button onClick={() => removeFavoriteDirector(person.person_id)} className="text-muted hover:text-coral transition-colors p-1" aria-label="Verwijderen">
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -653,52 +653,52 @@ export default function Wizard() {
       {step === 5 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">Je bent er klaar voor</h1>
-          <p className="text-[#93A3B5] mb-6">Een paar dingen die handig zijn om te weten.</p>
+          <p className="text-muted mb-6">Een paar dingen die handig zijn om te weten.</p>
 
           <div className="flex flex-col gap-3 mb-8">
             <div className={`${card} p-4 flex gap-3`}>
-              <div className="w-9 h-9 rounded-full bg-[#E8A33D]/12 flex items-center justify-center flex-shrink-0">
-                <HomeIcon className="w-4.5 h-4.5 text-[#E8A33D]" />
+              <div className="w-9 h-9 rounded-full bg-accent/12 flex items-center justify-center flex-shrink-0">
+                <HomeIcon className="w-4.5 h-4.5 text-accent" />
               </div>
               <div>
                 <p className="font-medium text-sm mb-1">Voor jou</p>
-                <p className="text-sm text-[#93A3B5] leading-relaxed">Drie tabbladen — van &ldquo;Puur mijn smaak&rdquo; tot &ldquo;Verras me&rdquo; — elk met andere aanbevelingen. Beoordeel wat je ziet, hoe meer hoe scherper het wordt.</p>
+                <p className="text-sm text-muted leading-relaxed">Drie tabbladen — van &ldquo;Puur mijn smaak&rdquo; tot &ldquo;Verras me&rdquo; — elk met andere aanbevelingen. Beoordeel wat je ziet, hoe meer hoe scherper het wordt.</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
-              <div className="w-9 h-9 rounded-full bg-[#52A9A0]/12 flex items-center justify-center flex-shrink-0">
-                <SearchIcon className="w-4.5 h-4.5 text-[#52A9A0]" />
+              <div className="w-9 h-9 rounded-full bg-teal/12 flex items-center justify-center flex-shrink-0">
+                <SearchIcon className="w-4.5 h-4.5 text-teal" />
               </div>
               <div>
                 <p className="font-medium text-sm mb-1">Zoeken</p>
-                <p className="text-sm text-[#93A3B5] leading-relaxed">Hier kun je altijd nog meer favorieten toevoegen of iets direct beoordelen — ook zonder het als favoriet te markeren.</p>
+                <p className="text-sm text-muted leading-relaxed">Hier kun je altijd nog meer favorieten toevoegen of iets direct beoordelen — ook zonder het als favoriet te markeren.</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
-              <div className="w-9 h-9 rounded-full bg-[#93A3B5]/12 flex items-center justify-center flex-shrink-0">
-                <SettingsIcon className="w-4.5 h-4.5 text-[#93A3B5]" />
+              <div className="w-9 h-9 rounded-full bg-muted/12 flex items-center justify-center flex-shrink-0">
+                <SettingsIcon className="w-4.5 h-4.5 text-muted" />
               </div>
               <div>
                 <p className="font-medium text-sm mb-1">Instellingen</p>
-                <p className="text-sm text-[#93A3B5] leading-relaxed">Streamingdiensten, genres uitsluiten en favoriete acteurs/regisseurs kun je hier altijd nog aanpassen.</p>
+                <p className="text-sm text-muted leading-relaxed">Streamingdiensten, genres uitsluiten en favoriete acteurs/regisseurs kun je hier altijd nog aanpassen.</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
-              <div className="w-9 h-9 rounded-full bg-[#E8A33D]/12 flex items-center justify-center flex-shrink-0">
-                <BookmarkIcon className="w-4.5 h-4.5 text-[#E8A33D]" />
+              <div className="w-9 h-9 rounded-full bg-accent/12 flex items-center justify-center flex-shrink-0">
+                <BookmarkIcon className="w-4.5 h-4.5 text-accent" />
               </div>
               <div>
                 <p className="font-medium text-sm mb-1">Kom je van Letterboxd?</p>
-                <p className="text-sm text-[#93A3B5] leading-relaxed">Op een pc of laptop kun je bij Instellingen je films en beoordelingen uit Letterboxd importeren. Dan begint Kijkassistent niet bij nul.</p>
+                <p className="text-sm text-muted leading-relaxed">Op een pc of laptop kun je bij Instellingen je films en beoordelingen uit Letterboxd importeren. Dan begint Kijkassistent niet bij nul.</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
-              <div className="w-9 h-9 rounded-full bg-[#C97064]/12 flex items-center justify-center flex-shrink-0">
-                <UsersIcon className="w-4.5 h-4.5 text-[#C97064]" />
+              <div className="w-9 h-9 rounded-full bg-coral/12 flex items-center justify-center flex-shrink-0">
+                <UsersIcon className="w-4.5 h-4.5 text-coral" />
               </div>
               <div>
                 <p className="font-medium text-sm mb-1">Samen</p>
-                <p className="text-sm text-[#93A3B5] leading-relaxed">Koppel je partner (ook bij Instellingen) om aanbevelingen te zien die jullie allebei goed zouden vinden.</p>
+                <p className="text-sm text-muted leading-relaxed">Koppel je partner (ook bij Instellingen) om aanbevelingen te zien die jullie allebei goed zouden vinden.</p>
               </div>
             </div>
           </div>

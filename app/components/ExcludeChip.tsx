@@ -15,7 +15,7 @@ export default function ExcludeChip({
   return (
     <button onClick={onClick} className={`${chip(active, 'coral')} inline-flex items-center gap-1.5`} aria-pressed={active}>
       {active && <CloseIcon className="w-3.5 h-3.5" />}
-      <span className={active ? 'line-through decoration-[#C97064]/70' : ''}>{label}</span>
+      <span className={active ? 'line-through decoration-coral/70' : ''}>{label}</span>
     </button>
   )
 }

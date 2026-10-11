@@ -11,6 +11,8 @@ import BottomNav from '../components/BottomNav'
 import { WhatsNewSheet } from '../components/WhatsNew'
 import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, ChevronLeftIcon, TrashIcon, UsersIcon } from '../components/Icons'
+import { SKINS } from '@/lib/skins'
+import { useSkin, setSkin } from '@/lib/useSkin'
 
 const AVAILABLE_SERVICES = [
   { id: 'netflix', label: 'Netflix' },
@@ -80,14 +82,14 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 const AUTOSAVE_DELAY_MS = 500
 
 function GroupTitle({ title }: { title: string }) {
-  return <h2 className="text-xs font-semibold uppercase tracking-wide text-[#93A3B5] mb-3 mt-10 first:mt-0">{title}</h2>
+  return <h2 className="text-xs font-semibold uppercase tracking-wide text-muted mb-3 mt-10 first:mt-0">{title}</h2>
 }
 
 function SectionTitle({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="mb-3">
       <h3 className="font-display text-lg">{title}</h3>
-      {hint && <p className="text-[#93A3B5] text-sm mt-0.5 leading-relaxed">{hint}</p>}
+      {hint && <p className="text-muted text-sm mt-0.5 leading-relaxed">{hint}</p>}
     </div>
   )
 }
@@ -110,17 +112,17 @@ function Collapsible({
   const [userOpen, setUserOpen] = useState(false)
   const open = userOpen || openWhen
   return (
-    <div className={`rounded-xl border ${tone === 'danger' ? 'border-[#C97064]/30' : 'border-[#2A3644]'}`}>
+    <div className={`rounded-xl border ${tone === 'danger' ? 'border-coral/30' : 'border-line'}`}>
       <button
         onClick={() => setUserOpen(!open)}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left touch-manipulation"
       >
         <span className="min-w-0">
-          <span className={`block text-sm font-medium ${tone === 'danger' ? 'text-[#C97064]' : ''}`}>{title}</span>
-          {summary && <span className="block text-xs text-[#93A3B5] mt-0.5 truncate">{summary}</span>}
+          <span className={`block text-sm font-medium ${tone === 'danger' ? 'text-coral' : ''}`}>{title}</span>
+          {summary && <span className="block text-xs text-muted mt-0.5 truncate">{summary}</span>}
         </span>
-        <ChevronLeftIcon className={`w-4 h-4 flex-shrink-0 text-[#93A3B5] transition-transform ${open ? '-rotate-90' : 'rotate-180'}`} />
+        <ChevronLeftIcon className={`w-4 h-4 flex-shrink-0 text-muted transition-transform ${open ? '-rotate-90' : 'rotate-180'}`} />
       </button>
       {open && <div className="px-4 pb-4 pt-1">{children}</div>}
     </div>
@@ -135,6 +137,7 @@ export default function Settings() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [onboardingComplete, setOnboardingComplete] = useState(true)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
+  const skin = useSkin()
 
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
@@ -343,17 +346,17 @@ export default function Settings() {
   if (loading) {
     return (
       <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
-        <div className="h-7 w-40 rounded-lg bg-[#1A2330] animate-skeleton mb-8" />
+        <div className="h-7 w-40 rounded-lg bg-surface animate-skeleton mb-8" />
         <div className="flex flex-col gap-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 rounded-xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+            <div key={i} className="h-12 rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
           ))}
         </div>
       </main>
     )
   }
 
-  const linkRow = 'flex items-center justify-between gap-3 rounded-xl border border-[#2A3644] px-4 py-3.5 mb-2 hover:border-[#3d4c60] transition-colors'
+  const linkRow = 'flex items-center justify-between gap-3 rounded-xl border border-line px-4 py-3.5 mb-2 hover:border-line-strong transition-colors'
 
   const acceptedPartner = connections.find((c) => c.status === 'accepted')
   const hasIncoming = connections.some((c) => c.status === 'pending' && c.direction === 'incoming')
@@ -370,22 +373,22 @@ export default function Settings() {
     <>
       <main className="max-w-sm mx-auto px-5 pt-6 pb-32">
         <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
-        <p className="text-[#93A3B5] mb-6">Stel in wat je aanbevelingen beter maakt. Wijzigingen worden automatisch opgeslagen.</p>
+        <p className="text-muted mb-6">Stel in wat je aanbevelingen beter maakt. Wijzigingen worden automatisch opgeslagen.</p>
 
         {!onboardingComplete && (
           <Link
             href="/wizard"
-            className="flex items-center justify-between gap-3 rounded-xl border border-[#E8A33D]/40 bg-[#E8A33D]/10 px-4 py-3.5 mb-3 hover:border-[#E8A33D] transition-colors"
+            className="flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3.5 mb-3 hover:border-accent transition-colors"
           >
             <span>
-              <span className="block text-sm font-medium text-[#E8A33D]">Maak je profiel af</span>
-              <span className="block text-xs text-[#93A3B5] mt-0.5">Rond de starthulp af voor scherpere aanbevelingen</span>
+              <span className="block text-sm font-medium text-accent">Maak je profiel af</span>
+              <span className="block text-xs text-muted mt-0.5">Rond de starthulp af voor scherpere aanbevelingen</span>
             </span>
           </Link>
         )}
 
         {errorMessage && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
             {errorMessage}
           </p>
         )}
@@ -400,13 +403,13 @@ export default function Settings() {
                 key={service.id}
                 onClick={() => toggleService(service.id)}
                 className={`flex items-center gap-2 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.97] ${
-                  active ? 'border-[#E8A33D] text-[#E8A33D] bg-[#E8A33D]/10' : 'border-[#2A3644] hover:border-[#3d4c60]'
+                  active ? 'border-accent text-accent bg-accent/10' : 'border-line hover:border-line-strong'
                 }`}
               >
                 <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${
-                  active ? 'border-[#E8A33D] bg-[#E8A33D]' : 'border-[#3A4A5C]'
+                  active ? 'border-accent bg-accent' : 'border-control'
                 }`}>
-                  {active && <CheckIcon className="w-3 h-3 text-[#171F2B]" />}
+                  {active && <CheckIcon className="w-3 h-3 text-on-accent" />}
                 </span>
                 <span className="text-sm font-medium">{service.label}</span>
               </button>
@@ -415,16 +418,16 @@ export default function Settings() {
         </div>
 
         <Collapsible title="Genres uitsluiten" summary={genreSummary}>
-          <p className="text-[#93A3B5] text-sm mb-3 leading-relaxed">
+          <p className="text-muted text-sm mb-3 leading-relaxed">
             Vink hier alleen aan wat je niet wilt zien. Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt.
           </p>
-          <h4 className="text-sm text-[#93A3B5] mb-2">Films</h4>
+          <h4 className="text-sm text-muted mb-2">Films</h4>
           <div className="flex flex-wrap gap-2 mb-4">
             {MOVIE_GENRES.map((genre) => (
               <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
-          <h4 className="text-sm text-[#93A3B5] mb-2">Series</h4>
+          <h4 className="text-sm text-muted mb-2">Series</h4>
           <div className="flex flex-wrap gap-2">
             {TV_GENRES.map((genre) => (
               <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
@@ -440,26 +443,26 @@ export default function Settings() {
         <Link href="/onboarding" className={linkRow}>
           <span>
             <span className="block text-sm font-medium">Favorieten beheren</span>
-            <span className="block text-xs text-[#93A3B5] mt-0.5">Films, series, acteurs en regisseurs vind je bij Zoeken</span>
+            <span className="block text-xs text-muted mt-0.5">Films, series, acteurs en regisseurs vind je bij Zoeken</span>
           </span>
         </Link>
         <Link href="/verborgen" className={linkRow}>
           <span>
             <span className="block text-sm font-medium">Verborgen films of series beheren</span>
-            <span className="block text-xs text-[#93A3B5] mt-0.5">Bekijk wat je hebt verborgen en zet het terug</span>
+            <span className="block text-xs text-muted mt-0.5">Bekijk wat je hebt verborgen en zet het terug</span>
           </span>
         </Link>
         {/* Alleen op een computer: de export van Letterboxd haal je ook op een computer op. */}
         <Link href="/import" className={`hidden [@media(pointer:fine)]:flex ${linkRow}`}>
           <span>
             <span className="block text-sm font-medium">Importeren uit Letterboxd</span>
-            <span className="block text-xs text-[#93A3B5] mt-0.5">Neem je films en beoordelingen over met je Letterboxd-export</span>
+            <span className="block text-xs text-muted mt-0.5">Neem je films en beoordelingen over met je Letterboxd-export</span>
           </span>
         </Link>
 
         <GroupTitle title="Samen kijken" />
         <Collapsible title="Partner koppelen" summary={partnerSummary} openWhen={hasIncoming}>
-          <p className="text-[#93A3B5] text-sm mb-4 leading-relaxed">
+          <p className="text-muted text-sm mb-4 leading-relaxed">
             Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf accepteren voordat jullie smaak wordt gecombineerd.
           </p>
 
@@ -471,14 +474,14 @@ export default function Settings() {
               </button>
             ) : (
               <div className={`${card} p-4`}>
-                <p className="text-xs text-[#93A3B5] mb-2">Deel deze link met je partner. Hij werkt één keer en is 7 dagen geldig.</p>
+                <p className="text-xs text-muted mb-2">Deel deze link met je partner. Hij werkt één keer en is 7 dagen geldig.</p>
                 <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} className={`${input} text-xs mb-3`} />
                 <div className="flex gap-2">
                   <button onClick={shareInviteLink} className={`${btnPrimary} flex-1`}>
                     {linkCopied ? <CheckIcon className="w-4 h-4" /> : null}
                     {linkCopied ? 'Gekopieerd' : 'Delen'}
                   </button>
-                  <button onClick={createInviteLink} disabled={inviteLinkLoading} className="text-sm text-[#93A3B5] px-3">
+                  <button onClick={createInviteLink} disabled={inviteLinkLoading} className="text-sm text-muted px-3">
                     Nieuwe link
                   </button>
                 </div>
@@ -486,7 +489,7 @@ export default function Settings() {
             )}
           </div>
 
-          <p className="text-xs text-[#5E6D80] mb-2">Of nodig iemand uit die al een account heeft, via het e-mailadres:</p>
+          <p className="text-xs text-faint mb-2">Of nodig iemand uit die al een account heeft, via het e-mailadres:</p>
           <div className="flex gap-2 mb-4">
             <input
               type="email"
@@ -502,8 +505,8 @@ export default function Settings() {
           </div>
 
           {connections.length === 0 && (
-            <p className="text-[#93A3B5] text-sm flex items-center gap-2">
-              <UsersIcon className="w-4 h-4 text-[#5E6D80]" />
+            <p className="text-muted text-sm flex items-center gap-2">
+              <UsersIcon className="w-4 h-4 text-faint" />
               Nog geen koppeling met een partner.
             </p>
           )}
@@ -513,7 +516,7 @@ export default function Settings() {
                 <div key={c.id} className={`${card} flex items-center gap-3 flex-wrap px-4 py-3`}>
                   <span className="flex-1 text-sm min-w-[160px]">
                     {c.other_email}
-                    <span className="block text-xs text-[#5E6D80] mt-0.5">
+                    <span className="block text-xs text-faint mt-0.5">
                       {c.status === 'accepted'
                         ? 'Gekoppeld'
                         : c.direction === 'incoming'
@@ -525,14 +528,14 @@ export default function Settings() {
                     {c.status === 'pending' && c.direction === 'incoming' && (
                       <button
                         onClick={() => acceptConnection(c.id)}
-                        className="text-sm font-medium border border-[#52A9A0] text-[#52A9A0] rounded-full px-3.5 py-1.5 hover:bg-[#52A9A0]/10 transition-colors touch-manipulation active:scale-[0.96]"
+                        className="text-sm font-medium border border-teal text-teal rounded-full px-3.5 py-1.5 hover:bg-teal/10 transition-colors touch-manipulation active:scale-[0.96]"
                       >
                         Accepteren
                       </button>
                     )}
                     <button
                       onClick={() => removeConnection(c.id)}
-                      className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1.5"
+                      className="text-muted hover:text-coral transition-colors p-1.5"
                       aria-label="Verwijderen"
                     >
                       <TrashIcon className="w-4 h-4" />
@@ -544,48 +547,77 @@ export default function Settings() {
           )}
         </Collapsible>
 
+        <GroupTitle title="Uiterlijk" />
+        <SectionTitle title="Skin" hint="Kies de kleuren van de app. De keuze geldt op dit apparaat." />
+        <div className="flex flex-col gap-2">
+          {SKINS.map((s) => {
+            const active = skin === s.id
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSkin(s.id)}
+                aria-pressed={active}
+                className={`flex items-center gap-3 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.98] ${
+                  active ? 'border-accent bg-accent/10' : 'border-line hover:border-line-strong'
+                }`}
+              >
+                <span className="flex flex-shrink-0 -space-x-1.5" aria-hidden="true">
+                  {s.swatch.map((color) => (
+                    <span key={color} className="h-5 w-5 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-sm font-medium ${active ? 'text-accent' : ''}`}>{s.label}</span>
+                  <span className="block text-xs text-muted mt-0.5 leading-snug">{s.description}</span>
+                </span>
+                {active && <CheckIcon className="w-4 h-4 flex-shrink-0 text-accent" />}
+              </button>
+            )
+          })}
+        </div>
+
         <GroupTitle title="Over de app" />
         <button
           onClick={() => setShowWhatsNew(true)}
-          className="w-full text-left rounded-xl border border-[#2A3644] px-4 py-3.5 mb-2 hover:border-[#3d4c60] transition-colors touch-manipulation"
+          className="w-full text-left rounded-xl border border-line px-4 py-3.5 mb-2 hover:border-line-strong transition-colors touch-manipulation"
         >
           <span className="block text-sm font-medium">Wat is er nieuw</span>
-          <span className="block text-xs text-[#93A3B5] mt-0.5">De laatste verbeteringen aan Kijkassistent</span>
+          <span className="block text-xs text-muted mt-0.5">De laatste verbeteringen aan Kijkassistent</span>
         </button>
 
         {isAdmin && (
           <Link href="/beheer" className={linkRow}>
             <span>
               <span className="block text-sm font-medium">Gebruiksoverzicht</span>
-              <span className="block text-xs text-[#93A3B5] mt-0.5">Wie de app gebruikt, per dag en per gebruiker (alleen voor jou)</span>
+              <span className="block text-xs text-muted mt-0.5">Wie de app gebruikt, per dag en per gebruiker (alleen voor jou)</span>
             </span>
           </Link>
         )}
 
         <div className="mt-10">
           <Collapsible title="Account verwijderen" tone="danger">
-            <p className="text-[#93A3B5] text-sm mb-3 leading-relaxed">
+            <p className="text-muted text-sm mb-3 leading-relaxed">
               Wist je account en al je gegevens (favorieten, beoordelingen, kijklijst en koppelingen). Dit kan niet ongedaan worden gemaakt.
             </p>
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="text-sm font-medium text-[#C97064] border border-[#C97064]/40 rounded-full px-4 py-2.5 hover:bg-[#C97064]/10 transition-colors touch-manipulation"
+                className="text-sm font-medium text-coral border border-coral/40 rounded-full px-4 py-2.5 hover:bg-coral/10 transition-colors touch-manipulation"
               >
                 Account verwijderen
               </button>
             ) : (
-              <div className="rounded-xl border border-[#C97064]/40 bg-[#C97064]/5 p-4">
+              <div className="rounded-xl border border-coral/40 bg-coral/5 p-4">
                 <p className="text-sm mb-3">Weet je het zeker? Alles wordt direct en definitief gewist.</p>
                 <div className="flex gap-2">
                   <button
                     onClick={handleDeleteAccount}
                     disabled={deleting}
-                    className="text-sm font-semibold bg-[#C97064] text-[#171F2B] rounded-full px-4 py-2.5 disabled:opacity-50 touch-manipulation"
+                    className="text-sm font-semibold bg-coral text-on-accent rounded-full px-4 py-2.5 disabled:opacity-50 touch-manipulation"
                   >
                     {deleting ? 'Verwijderen...' : 'Ja, verwijder alles'}
                   </button>
-                  <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-sm text-[#93A3B5] px-4 py-2.5">
+                  <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-sm text-muted px-4 py-2.5">
                     Annuleren
                   </button>
                 </div>
@@ -602,10 +634,10 @@ export default function Settings() {
         {saveState !== 'idle' && (
           <span
             className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium shadow-[0_6px_18px_rgba(0,0,0,0.35)] animate-fade-in ${
-              saveState === 'error' ? 'bg-[#C97064] text-[#171F2B]' : 'bg-[#1A2330] text-[#F2EFE9] border border-[#2A3644]'
+              saveState === 'error' ? 'bg-coral text-on-accent' : 'bg-surface text-foreground border border-line'
             }`}
           >
-            {saveState === 'saved' && <CheckIcon className="w-4 h-4 text-[#52A9A0]" />}
+            {saveState === 'saved' && <CheckIcon className="w-4 h-4 text-teal" />}
             {saveState === 'saving' ? 'Opslaan...' : saveState === 'saved' ? 'Opgeslagen' : 'Opslaan mislukt'}
           </span>
         )}

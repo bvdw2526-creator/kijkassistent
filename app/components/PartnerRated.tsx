@@ -103,7 +103,7 @@ export default function PartnerRated({
   return (
     <div className="flex flex-col gap-3 mb-5">
       {items.map((item) => (
-        <div key={`${item.media_type}-${item.tmdb_id}`} className="rounded-2xl border border-[#2A3644] bg-[#1A2330] p-4">
+        <div key={`${item.media_type}-${item.tmdb_id}`} className="rounded-2xl border border-line bg-surface p-4">
           <p className="text-sm leading-relaxed">
             {item.reason === 'samen_gezien' ? 'Jullie keken samen ' : 'Je partner beoordeelde '}
             <span className="font-medium">{item.title}</span>. Wat vond jij er zelf van?
@@ -112,7 +112,7 @@ export default function PartnerRated({
             <button onClick={() => rate(item, 'love')} className={chip(false, 'accent', 'sm')}>Zeker leuk</button>
             <button onClick={() => rate(item, 'ok')} className={chip(false, 'teal', 'sm')}>Was oké</button>
             <button onClick={() => rate(item, 'dislike')} className={chip(false, 'coral', 'sm')}>Niet voor mij</button>
-            <button onClick={() => skip(item)} className="text-xs text-[#93A3B5] px-2.5 py-1">Sla over</button>
+            <button onClick={() => skip(item)} className="text-xs text-muted px-2.5 py-1">Sla over</button>
           </div>
         </div>
       ))}

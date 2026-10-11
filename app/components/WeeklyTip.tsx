@@ -268,8 +268,8 @@ export default function WeeklyTip({
   return (
     <div className="mb-5 flex flex-col gap-3">
       {shownTip && (
-        <div className="rounded-2xl border border-[#E8A33D]/40 bg-[#E8A33D]/5 p-4">
-          <p className="font-display text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-3">
+        <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4">
+          <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-3">
             {mediaType === 'movie' ? 'Filmtip' : 'Serietip'} van de week
           </p>
           <button
@@ -281,30 +281,30 @@ export default function WeeklyTip({
                 <Image src={`https://image.tmdb.org/t/p/w342${shownTip.poster_path}`} alt={shownTip.title} fill sizes="96px" className="object-cover" />
               </div>
             ) : (
-              <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+              <div className="w-24 aspect-[2/3] rounded-xl bg-surface-2 flex-shrink-0" />
             )}
             <span className="min-w-0">
               <span className="block font-display text-xl leading-tight">{shownTip.title}</span>
-              <span className="block text-sm text-[#93A3B5] mt-1">
+              <span className="block text-sm text-muted mt-1">
                 {mediaType === 'tv' ? 'Serie' : 'Film'}
                 {shownTip.watch_on ? ` · ${shownTip.watch_on}` : ''}
               </span>
-              {shownTip.explanation && <span className="block text-sm text-[#F2EFE9]/85 mt-2 leading-relaxed">{shownTip.explanation}</span>}
+              {shownTip.explanation && <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{shownTip.explanation}</span>}
             </span>
           </button>
 
           {facts.length > 0 && (
-            <div className="mt-3 rounded-xl bg-[#10151C]/60 px-3.5 py-2.5 text-sm leading-relaxed">
-              <p className="text-[11px] tracking-[0.15em] uppercase text-[#E8A33D] mb-1">Weetje</p>
+            <div className="mt-3 rounded-xl bg-background/60 px-3.5 py-2.5 text-sm leading-relaxed">
+              <p className="text-[11px] tracking-[0.15em] uppercase text-accent mb-1">Weetje</p>
               {facts.map((fact) => (
-                <p key={fact} className="text-[#F2EFE9]/85">{fact}</p>
+                <p key={fact} className="text-foreground/85">{fact}</p>
               ))}
             </div>
           )}
 
           <div className="flex gap-2 mt-4">
             {done === 'watchlist' ? (
-              <p className="flex-1 flex items-center gap-1.5 text-sm text-[#52A9A0]">
+              <p className="flex-1 flex items-center gap-1.5 text-sm text-teal">
                 <CheckIcon className="w-4 h-4" /> Staat op je kijklijst
               </p>
             ) : (
@@ -324,7 +324,7 @@ export default function WeeklyTip({
       )}
 
       {shownLast && (
-        <div className="rounded-2xl border border-[#2A3644] bg-[#1A2330] p-4">
+        <div className="rounded-2xl border border-line bg-surface p-4">
           <p className="text-sm leading-relaxed">
             Vorige week tipten we <span className="font-medium">{shownLast.title}</span>. Al gezien?
           </p>
@@ -332,7 +332,7 @@ export default function WeeklyTip({
             <button onClick={() => rateLastWeek('love')} className={chip(false, 'accent', 'sm')}>Zeker leuk</button>
             <button onClick={() => rateLastWeek('ok')} className={chip(false, 'teal', 'sm')}>Was oké</button>
             <button onClick={() => rateLastWeek('dislike')} className={chip(false, 'coral', 'sm')}>Niet voor mij</button>
-            <button onClick={dismissLastWeek} className="text-xs text-[#93A3B5] px-2.5 py-1">Nog niet gezien</button>
+            <button onClick={dismissLastWeek} className="text-xs text-muted px-2.5 py-1">Nog niet gezien</button>
           </div>
         </div>
       )}

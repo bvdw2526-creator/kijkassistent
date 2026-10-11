@@ -20,9 +20,9 @@ type ProfileStats = {
 function StatSkeleton() {
   return (
     <div className="flex flex-col gap-3">
-      <div className="h-24 rounded-2xl bg-[#1A2330] animate-skeleton" />
-      <div className="h-32 rounded-2xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: '80ms' }} />
-      <div className="h-40 rounded-2xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: '160ms' }} />
+      <div className="h-24 rounded-2xl bg-surface animate-skeleton" />
+      <div className="h-32 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: '80ms' }} />
+      <div className="h-40 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: '160ms' }} />
     </div>
   )
 }
@@ -115,10 +115,10 @@ export default function Profiel() {
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Stats</h1>
-        <p className="text-[#93A3B5] mb-6">Wat je favorieten en beoordelingen over je smaak zeggen.</p>
+        <p className="text-muted mb-6">Wat je favorieten en beoordelingen over je smaak zeggen.</p>
 
         {error && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
             {error}
           </p>
         )}
@@ -126,9 +126,9 @@ export default function Profiel() {
         {loading && <StatSkeleton />}
 
         {!loading && stats && stats.totalWatched === 0 && (
-          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center leading-relaxed">
+          <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center leading-relaxed">
             Nog niets om te laten zien — voeg favorieten toe of geef een paar beoordelingen bij{' '}
-            <Link href="/onboarding" className="text-[#E8A33D] hover:text-[#F0B457] transition-colors">Zoeken</Link>.
+            <Link href="/onboarding" className="text-accent hover:text-accent-hover transition-colors">Zoeken</Link>.
           </p>
         )}
 
@@ -136,9 +136,9 @@ export default function Profiel() {
           <div className="flex flex-col gap-3">
             {/* Grote cijfers */}
             <div className={`${card} p-5`}>
-              <p className="font-display text-4xl text-[#E8A33D] leading-none">{stats.totalWatched}</p>
-              <p className="text-sm text-[#93A3B5] mt-1.5">titels gezien</p>
-              <p className="text-sm text-[#5E6D80] mt-3">
+              <p className="font-display text-4xl text-accent leading-none">{stats.totalWatched}</p>
+              <p className="text-sm text-muted mt-1.5">titels gezien</p>
+              <p className="text-sm text-faint mt-3">
                 {stats.movieCount} {stats.movieCount === 1 ? 'film' : 'films'} · {stats.tvCount} {stats.tvCount === 1 ? 'serie' : 'series'}
               </p>
             </div>
@@ -147,7 +147,7 @@ export default function Profiel() {
             {topProgress && topProgress.films.total > 0 && (
               <div className={`${card} p-5`}>
                 <p className="text-sm font-medium mb-1">Top 100 gezien</p>
-                <p className="text-xs text-[#5E6D80] mb-4">De best beoordeelde titels, zie ook per streamingdienst</p>
+                <p className="text-xs text-faint mb-4">De best beoordeelde titels, zie ook per streamingdienst</p>
                 <div className="flex flex-col gap-3">
                   {[
                     { label: 'Films', href: '/top-100/films', ...topProgress.films },
@@ -156,12 +156,12 @@ export default function Profiel() {
                     <Link key={label} href={href} className="block group">
                       <div className="flex items-baseline justify-between mb-1.5">
                         <span className="text-sm">{label}</span>
-                        <span className="text-sm text-[#93A3B5] group-hover:text-[#F2EFE9] transition-colors">
+                        <span className="text-sm text-muted group-hover:text-foreground transition-colors">
                           {seen} van {total}
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-[#212C3B] overflow-hidden">
-                        <div className="h-full rounded-full bg-[#E8A33D] transition-all" style={{ width: `${total > 0 ? (seen / total) * 100 : 0}%` }} />
+                      <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
+                        <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total > 0 ? (seen / total) * 100 : 0}%` }} />
                       </div>
                     </Link>
                   ))}
@@ -174,9 +174,9 @@ export default function Profiel() {
               <p className="text-sm font-medium mb-4">Hoe je beoordeelt</p>
               <div className="flex flex-col gap-3">
                 {[
-                  { icon: HeartIcon, label: 'Zeker leuk', count: stats.ratingCounts.love, colorClass: 'text-[#E8A33D]', hex: '#E8A33D' },
-                  { icon: OkIcon, label: 'Was oké', count: stats.ratingCounts.ok, colorClass: 'text-[#52A9A0]', hex: '#52A9A0' },
-                  { icon: DislikeIcon, label: 'Niet voor mij', count: stats.ratingCounts.dislike, colorClass: 'text-[#C97064]', hex: '#C97064' },
+                  { icon: HeartIcon, label: 'Zeker leuk', count: stats.ratingCounts.love, colorClass: 'text-accent', hex: 'var(--accent)' },
+                  { icon: OkIcon, label: 'Was oké', count: stats.ratingCounts.ok, colorClass: 'text-teal', hex: 'var(--teal)' },
+                  { icon: DislikeIcon, label: 'Niet voor mij', count: stats.ratingCounts.dislike, colorClass: 'text-coral', hex: 'var(--coral)' },
                 ].map(({ icon: Icon, label, count, colorClass, hex }) => {
                   const total = stats.ratingCounts.love + stats.ratingCounts.ok + stats.ratingCounts.dislike
                   const pct = total > 0 ? (count / total) * 100 : 0
@@ -184,7 +184,7 @@ export default function Profiel() {
                     <div key={label} className="flex items-center gap-3">
                       <Icon className={`w-4 h-4 flex-shrink-0 ${colorClass}`} />
                       <span className="text-sm w-28 flex-shrink-0">{label}</span>
-                      <div className="flex-1 h-2 rounded-full bg-[#212C3B] overflow-hidden">
+                      <div className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden">
                         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: hex }} />
                       </div>
                       <span className="text-sm font-medium w-6 text-right flex-shrink-0">{count}</span>
@@ -198,19 +198,19 @@ export default function Profiel() {
             {stats.topGenres.length > 0 && (
               <div className={`${card} p-5`}>
                 <p className="text-sm font-medium mb-1">Jouw favoriete genres</p>
-                <p className="text-xs text-[#5E6D80] mb-4">Gebaseerd op je favorieten en beoordelingen</p>
+                <p className="text-xs text-faint mb-4">Gebaseerd op je favorieten en beoordelingen</p>
                 <div className="flex flex-col gap-2.5">
                   {stats.topGenres.map((genre, i) => (
                     <div key={genre.name} className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-[#5E6D80] w-4 flex-shrink-0">{i + 1}</span>
+                      <span className="text-xs font-mono text-faint w-4 flex-shrink-0">{i + 1}</span>
                       <span className="text-sm flex-1 min-w-0 truncate">{genre.name}</span>
-                      <div className="w-20 h-1.5 rounded-full bg-[#212C3B] overflow-hidden flex-shrink-0">
+                      <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
                         <div
-                          className="h-full rounded-full bg-[#E8A33D] transition-all"
+                          className="h-full rounded-full bg-accent transition-all"
                           style={{ width: `${maxGenreCount > 0 ? (genre.count / maxGenreCount) * 100 : 0}%` }}
                         />
                       </div>
-                      <span className="text-xs text-[#93A3B5] w-4 text-right flex-shrink-0">{genre.count}</span>
+                      <span className="text-xs text-muted w-4 text-right flex-shrink-0">{genre.count}</span>
                     </div>
                   ))}
                 </div>
@@ -221,7 +221,7 @@ export default function Profiel() {
             {stats.streaming.lovedTotal > 0 && stats.streaming.services.some((s) => s.count > 0) && (
               <div className={`${card} p-5`}>
                 <p className="text-sm font-medium mb-1">Waar staat jouw smaak?</p>
-                <p className="text-xs text-[#5E6D80] mb-4">
+                <p className="text-xs text-faint mb-4">
                   {stats.streaming.services[0].label} heeft de meeste van je {stats.streaming.lovedTotal} favorieten en
                   &quot;zeker leuk&quot;-titels. Alleen abonnementsaanbod van nu.
                 </p>
@@ -231,13 +231,13 @@ export default function Profiel() {
                     return (
                       <div key={service.id} className="flex items-center gap-3">
                         <span className="text-sm w-24 flex-shrink-0 truncate">{service.label}</span>
-                        <div className="flex-1 h-1.5 rounded-full bg-[#212C3B] overflow-hidden">
+                        <div className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden">
                           <div
-                            className={`h-full rounded-full ${service.owned ? 'bg-[#E8A33D]' : 'bg-[#5E6D80]'}`}
+                            className={`h-full rounded-full ${service.owned ? 'bg-accent' : 'bg-faint'}`}
                             style={{ width: `${max > 0 ? (service.count / max) * 100 : 0}%` }}
                           />
                         </div>
-                        <span className="text-xs text-[#93A3B5] w-16 text-right flex-shrink-0">
+                        <span className="text-xs text-muted w-16 text-right flex-shrink-0">
                           {service.count}×{service.owned ? ' · jij' : ''}
                         </span>
                       </div>
@@ -249,24 +249,24 @@ export default function Profiel() {
 
             {/* Meest voorkomende acteurs — het verrassende inzicht */}
             {stats.topActors.length > 0 && (
-              <div className={`${card} p-5 border-[#E8A33D]/30`}>
+              <div className={`${card} p-5 border-accent/30`}>
                 <div className="flex items-center gap-2 mb-1">
-                  <UsersIcon className="w-4 h-4 text-[#E8A33D]" />
+                  <UsersIcon className="w-4 h-4 text-accent" />
                   <p className="text-sm font-medium">Wist je dit al?</p>
                 </div>
-                <p className="text-xs text-[#5E6D80] mb-4">Deze mensen duiken opvallend vaak op in wat je hebt gezien</p>
+                <p className="text-xs text-faint mb-4">Deze mensen duiken opvallend vaak op in wat je hebt gezien</p>
                 <div className="flex flex-col gap-2.5">
                   {stats.topActors.map((actor, i) => (
                     <div key={actor.name} className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-[#5E6D80] w-4 flex-shrink-0">{i + 1}</span>
+                      <span className="text-xs font-mono text-faint w-4 flex-shrink-0">{i + 1}</span>
                       <span className="text-sm flex-1 min-w-0 truncate">{actor.name}</span>
-                      <div className="w-20 h-1.5 rounded-full bg-[#212C3B] overflow-hidden flex-shrink-0">
+                      <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
                         <div
-                          className="h-full rounded-full bg-[#E8A33D] transition-all"
+                          className="h-full rounded-full bg-accent transition-all"
                           style={{ width: `${maxActorCount > 0 ? (actor.count / maxActorCount) * 100 : 0}%` }}
                         />
                       </div>
-                      <span className="text-xs text-[#93A3B5] w-16 text-right flex-shrink-0">
+                      <span className="text-xs text-muted w-16 text-right flex-shrink-0">
                         {actor.count}× gezien
                       </span>
                     </div>

@@ -1,16 +1,21 @@
 @import "tailwindcss";
 
+/* Alle kleuren van de app staan hier. Schermen gebruiken alleen de namen (bg-surface, text-muted, border-line, ...),
+   zodat een skin het hele uiterlijk kan wisselen door dit rijtje te vervangen. */
 :root {
   --background: #10151C;
   --surface: #1A2330;
   --surface-2: #212C3B;
   --border: #2A3644;
+  --border-strong: #3D4C60;
   --border-soft: #232D3B;
+  --control: #3A4A5C;
   --foreground: #F2EFE9;
   --muted: #93A3B5;
   --faint: #5E6D80;
   --accent: #E8A33D;
   --accent-hover: #F0B457;
+  --on-accent: #171F2B;
   --accent-soft: rgba(232, 163, 61, 0.14);
   --teal: #52A9A0;
   --teal-soft: rgba(82, 169, 160, 0.14);
@@ -18,9 +23,113 @@
   --coral-soft: rgba(201, 112, 100, 0.14);
 }
 
+/* Skins: een skin is een ander rijtje kleuren, eventueel met een eigen achtergrond (zie .bg-glow verderop). De keuze
+   staat als data-skin op <html>; welke skins er zijn en wat er nog meer bij hoort staat in lib/skins.ts. */
+:root[data-skin="doomsday"] {
+  --background: #0A0F0C;
+  --surface: #131B16;
+  --surface-2: #1B2620;
+  --border: #2B3A31;
+  --border-strong: #41564A;
+  --border-soft: #222E27;
+  --control: #3C4D43;
+  --foreground: #E8ECE6;
+  --muted: #94A39A;
+  --faint: #617067;
+  --accent: #5DBB7A;
+  --accent-hover: #78CE92;
+  --on-accent: #0D1510;
+  --accent-soft: rgba(93, 187, 122, 0.14);
+  --teal: #B9C4CB;
+  --teal-soft: rgba(185, 196, 203, 0.14);
+  --coral: #C9A24B;
+  --coral-soft: rgba(201, 162, 75, 0.14);
+}
+
+/* Matrix: zwart met fosforgroen. "Niet voor mij" en foutmeldingen zijn rood, de rest groen. Koppen staan in een
+   lettertype met vaste breedte, als op een terminal; de gewone tekst blijft zoals hij is, voor de leesbaarheid.
+   De vallende code op de achtergrond komt uit app/components/SkinBackdrop.tsx. */
+:root[data-skin="matrix"] {
+  --background: #050805;
+  --surface: #0B120C;
+  --surface-2: #111B13;
+  --border: #1C2C1F;
+  --border-strong: #2E4A33;
+  --border-soft: #152117;
+  --control: #2A3F2E;
+  --foreground: #D7F5DC;
+  --muted: #7FA387;
+  --faint: #4F6B55;
+  --accent: #3BE06B;
+  --accent-hover: #6BF08F;
+  --on-accent: #041006;
+  --accent-soft: rgba(59, 224, 107, 0.14);
+  --teal: #7AD7C6;
+  --teal-soft: rgba(122, 215, 198, 0.14);
+  --coral: #E0524A;
+  --coral-soft: rgba(224, 82, 74, 0.14);
+  --font-display: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Halloween: bijna zwart met paars, pompoenoranje als accent. "Was oké" is paars, "niet voor mij" bloedrood. */
+:root[data-skin="halloween"] {
+  --background: #0D0A12;
+  --surface: #17121F;
+  --surface-2: #201A2B;
+  --border: #2E2540;
+  --border-strong: #46395F;
+  --border-soft: #241C33;
+  --control: #41355A;
+  --foreground: #F1EAF5;
+  --muted: #A396B5;
+  --faint: #6B5E80;
+  --accent: #F28C28;
+  --accent-hover: #FFA54D;
+  --on-accent: #1A0F05;
+  --accent-soft: rgba(242, 140, 40, 0.14);
+  --teal: #B18AE8;
+  --teal-soft: rgba(177, 138, 232, 0.14);
+  --coral: #E0524A;
+  --coral-soft: rgba(224, 82, 74, 0.14);
+}
+
+/* Dune: woestijn. Warm bruin en zand, specerij-oranje als accent, het blauw van de ogen als tweede kleur. */
+:root[data-skin="dune"] {
+  --background: #120D08;
+  --surface: #1C150D;
+  --surface-2: #261C12;
+  --border: #3A2B1B;
+  --border-strong: #574229;
+  --border-soft: #2B2015;
+  --control: #4E3C26;
+  --foreground: #F3E9DA;
+  --muted: #B8A58A;
+  --faint: #7D6B52;
+  --accent: #E08A3C;
+  --accent-hover: #F0A45C;
+  --on-accent: #1A1006;
+  --accent-soft: rgba(224, 138, 60, 0.14);
+  --teal: #5AA9E6;
+  --teal-soft: rgba(90, 169, 230, 0.14);
+  --coral: #C8553D;
+  --coral-soft: rgba(200, 85, 61, 0.14);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-control: var(--control);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-teal: var(--teal);
+  --color-coral: var(--coral);
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
@@ -48,7 +157,44 @@ body {
 /* Subtle warm glow behind the top of the page for depth, without any images. */
 .bg-glow {
   background:
-    radial-gradient(90% 55% at 50% 0%, rgba(232, 163, 61, 0.10), transparent 60%),
+    radial-gradient(90% 55% at 50% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    var(--background);
+}
+
+/* Doomsday: onweer boven de pagina. Twee bliksemschichten en wat schuine regen (getekend, geen afbeelding), een
+   staalgrijze gloed rechtsboven en een groene gloed vanaf de bovenkant. Alles zit in de bovenste 520 pixels en loopt
+   weg naar de effen achtergrond, zodat de tekst leesbaar blijft. */
+:root[data-skin="doomsday"] .bg-glow {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 300' preserveAspectRatio='xMidYMin meet' fill='none' stroke='%239BE0B0' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpolyline points='548,0 520,66 550,76 494,160 526,168 474,250' stroke-opacity='.5' stroke-width='2'/%3E%3Cpolyline points='520,66 484,102 498,108 462,148' stroke-opacity='.25' stroke-width='1.5'/%3E%3Cpolyline points='156,0 180,52 152,62 196,136 174,142 204,196' stroke-opacity='.22' stroke-width='1.5'/%3E%3Cg stroke='%23B9C4CB' stroke-opacity='.05' stroke-width='1'%3E%3Cline x1='0' y1='90' x2='260' y2='0'/%3E%3Cline x1='0' y1='200' x2='560' y2='0'/%3E%3Cline x1='120' y1='300' x2='720' y2='84'/%3E%3Cline x1='420' y1='300' x2='720' y2='192'/%3E%3C/g%3E%3C/svg%3E") no-repeat top center / min(100%, 720px) 300px,
+    radial-gradient(circle at 100% 0%, rgba(185, 196, 203, 0.16), transparent 340px) no-repeat top right / 100% 520px,
+    radial-gradient(ellipse 95% 100% at 50% 0%, rgba(93, 187, 122, 0.30), transparent 70%) no-repeat top center / 100% 520px,
+    var(--background);
+}
+
+/* Halloween: een bleke maan met een vleermuis ervoor en een paar vleermuizen in de lucht (getekend, geen afbeelding),
+   een oranje gloed linksboven en een paarse gloed vanaf de bovenkant. */
+:root[data-skin="halloween"] .bg-glow {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 300' preserveAspectRatio='xMidYMin meet'%3E%3Cdefs%3E%3Cpath id='b' d='M20 6 L18 2 L17 6 C13 2 6 2 0 5 C4 6 6 9 6 13 C8 10 11 10 13 13 C15 10 18 12 20 16 C22 12 25 10 27 13 C29 10 32 10 34 13 C34 9 36 6 40 5 C34 2 27 2 23 6 L22 2 Z'/%3E%3C/defs%3E%3Ccircle cx='566' cy='84' r='46' fill='%23F1EAF5' fill-opacity='.13'/%3E%3Ccircle cx='552' cy='72' r='9' fill='%230D0A12' fill-opacity='.18'/%3E%3Ccircle cx='582' cy='100' r='6' fill='%230D0A12' fill-opacity='.15'/%3E%3Cuse href='%23b' transform='translate(534 70) scale(1.5)' fill='%230D0A12' fill-opacity='.85'/%3E%3Cuse href='%23b' transform='translate(120 46) rotate(-10) scale(1.1)' fill='%23B18AE8' fill-opacity='.32'/%3E%3Cuse href='%23b' transform='translate(214 118) rotate(8) scale(.8)' fill='%23B18AE8' fill-opacity='.22'/%3E%3Cuse href='%23b' transform='translate(408 34) rotate(-6) scale(.7)' fill='%23B18AE8' fill-opacity='.26'/%3E%3Cuse href='%23b' transform='translate(640 176) rotate(12) scale(.6)' fill='%23B18AE8' fill-opacity='.18'/%3E%3C/svg%3E") no-repeat top center / min(100%, 720px) 300px,
+    radial-gradient(circle at 0% 0%, rgba(242, 140, 40, 0.16), transparent 360px) no-repeat top left / 100% 520px,
+    radial-gradient(ellipse 95% 100% at 50% 0%, rgba(177, 138, 232, 0.22), transparent 70%) no-repeat top center / 100% 520px,
+    var(--background);
+}
+
+/* Dune: twee duinruggen die naar onderen wegvagen (getekend, geen afbeelding), een lage zon rechts en een warme
+   gloed vanaf de bovenkant. */
+:root[data-skin="dune"] .bg-glow {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 320' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23E08A3C' stop-opacity='.16'/%3E%3Cstop offset='1' stop-color='%23E08A3C' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 196 C110 140 210 138 310 178 S 470 236 560 190 S 680 140 720 158 V320 H0Z' fill='url(%23d)'/%3E%3Cpath d='M0 248 C150 196 270 214 390 240 S 610 206 720 228 V320 H0Z' fill='url(%23d)'/%3E%3C/svg%3E") no-repeat top center / 100% 320px,
+    radial-gradient(circle at 78% 104px, rgba(243, 233, 218, 0.20) 0, rgba(243, 233, 218, 0.20) 30px, rgba(224, 138, 60, 0.22) 34px, transparent 150px) no-repeat top center / 100% 520px,
+    radial-gradient(ellipse 95% 100% at 50% 0%, rgba(224, 138, 60, 0.18), transparent 70%) no-repeat top center / 100% 520px,
+    var(--background);
+}
+
+:root[data-skin="matrix"] .bg-glow {
+  background:
+    radial-gradient(ellipse 95% 100% at 50% 0%, rgba(59, 224, 107, 0.14), transparent 70%) no-repeat top center / 100% 520px,
     var(--background);
 }
 

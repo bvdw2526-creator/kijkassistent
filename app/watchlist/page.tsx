@@ -330,16 +330,16 @@ export default function Watchlist() {
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Kijklijst</h1>
-        <p className="text-[#93A3B5] mb-6">{scope === 'shared' ? 'Wat jullie samen nog willen zien.' : 'Wat je nog wilt zien.'}</p>
+        <p className="text-muted mb-6">{scope === 'shared' ? 'Wat jullie samen nog willen zien.' : 'Wat je nog wilt zien.'}</p>
 
         {connectionId && (
-          <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-4">
+          <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-4">
             {(['mine', 'shared'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setScope(s)}
                 className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-                  scope === s ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+                  scope === s ? 'bg-accent text-on-accent' : 'text-muted'
                 }`}
               >
                 {s === 'mine' ? `Mijn lijst (${items.length})` : `Onze lijst (${sharedItems.length})`}
@@ -349,16 +349,16 @@ export default function Watchlist() {
         )}
 
         {error && (
-          <p className="text-sm text-[#C97064] border border-[#C97064]/40 bg-[#C97064]/5 rounded-xl px-3.5 py-2.5 mb-6">
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
             {error}
           </p>
         )}
 
-        <div className="flex gap-1 p-1 rounded-full bg-[#1A2330] border border-[#2A3644] mb-6 w-fit">
+        <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6 w-fit">
           <button
             onClick={() => setTab('movie')}
             className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-              tab === 'movie' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+              tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
             }`}
           >
             Films ({movieItems.length})
@@ -366,7 +366,7 @@ export default function Watchlist() {
           <button
             onClick={() => setTab('tv')}
             className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
-              tab === 'tv' ? 'bg-[#E8A33D] text-[#171F2B]' : 'text-[#93A3B5]'
+              tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
             }`}
           >
             Series ({tvItems.length})
@@ -376,13 +376,13 @@ export default function Watchlist() {
         {loading && (
           <div className="flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-2xl bg-[#1A2330] animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+              <div key={i} className="h-28 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
             ))}
           </div>
         )}
 
         {!loading && visible.length === 0 && (
-          <p className="text-[#93A3B5] border border-dashed border-[#2A3644] rounded-2xl px-4 py-10 text-center">
+          <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center">
             {scope === 'shared'
               ? 'Nog niets op jullie lijst. Tik in Samen op "Op onze lijst" bij een titel die jullie allebei willen zien.'
               : 'Nog niets op je kijklijst. Voeg iets toe vanuit je aanbevelingen.'}
@@ -405,7 +405,7 @@ export default function Watchlist() {
                     />
                   </div>
                 ) : (
-                  <div className="w-16 aspect-[2/3] rounded-lg bg-[#212C3B] flex-shrink-0" />
+                  <div className="w-16 aspect-[2/3] rounded-lg bg-surface-2 flex-shrink-0" />
                 )}
                 </button>
                 <div className="flex-1 min-w-0">
@@ -415,13 +415,13 @@ export default function Watchlist() {
                     </button>
                     <button
                       onClick={() => (scope === 'shared' ? handleRemoveShared(item) : handleRemove(item))}
-                      className="text-[#93A3B5] hover:text-[#C97064] transition-colors p-1 -mt-1 -mr-1 flex-shrink-0"
+                      className="text-muted hover:text-coral transition-colors p-1 -mt-1 -mr-1 flex-shrink-0"
                       aria-label="Verwijderen"
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
-                  <p className="text-sm text-[#93A3B5] mt-1">
+                  <p className="text-sm text-muted mt-1">
                     {scope === 'shared' && <span>Toegevoegd door {item.addedByYou ? 'jou' : 'je partner'}</span>}
                     {scope === 'mine' && item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
                     {item.watchOn && (
@@ -432,12 +432,12 @@ export default function Watchlist() {
                             href={item.watchUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[#E8A33D] hover:text-[#F0B457] transition-colors"
+                            className="text-accent hover:text-accent-hover transition-colors"
                           >
                             {item.watchOn}
                           </a>
                         ) : (
-                          <span className="text-[#E8A33D]">{item.watchOn}</span>
+                          <span className="text-accent">{item.watchOn}</span>
                         )}
                       </>
                     )}

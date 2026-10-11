@@ -9,9 +9,9 @@ const CONTACT = 'info@kijkassistent.nl'
 export default function AccountVerwijderen() {
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
-      <Link href="/" className="text-sm text-[#93A3B5] hover:text-[#F2EFE9] transition-colors">← Terug</Link>
+      <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Account en gegevens verwijderen</h1>
-      <p className="text-[#93A3B5] mb-8">Voor gebruikers van Kijkassistent (app en website).</p>
+      <p className="text-muted mb-8">Voor gebruikers van Kijkassistent (app en website).</p>
 
       <Section title="Zelf verwijderen in de app">
         <ol className="list-decimal pl-5 space-y-1">
@@ -37,7 +37,7 @@ export default function AccountVerwijderen() {
 
       <Section title="Kun je niet meer inloggen?">
         <p>
-          Stuur dan een e-mail naar <a href={`mailto:${CONTACT}`} className="text-[#E8A33D]">{CONTACT}</a>, vanaf het
+          Stuur dan een e-mail naar <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>, vanaf het
           e-mailadres waarmee je je hebt aangemeld, en vraag om verwijdering. We verwijderen je account en je gegevens
           binnen 30 dagen en laten het je weten als het gedaan is.
         </p>
@@ -45,7 +45,7 @@ export default function AccountVerwijderen() {
 
       <Section title="Meer informatie">
         <p>
-          Lees in onze <Link href="/privacy" className="text-[#E8A33D]">privacyverklaring</Link> welke gegevens we
+          Lees in onze <Link href="/privacy" className="text-accent">privacyverklaring</Link> welke gegevens we
           bewaren en waarvoor.
         </p>
       </Section>
@@ -57,7 +57,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mb-7">
       <h2 className="font-display text-xl mb-2">{title}</h2>
-      <div className="text-[#F2EFE9]/90 text-sm">{children}</div>
+      <div className="text-foreground/90 text-sm">{children}</div>
     </section>
   )
 }

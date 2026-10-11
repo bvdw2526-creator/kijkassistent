@@ -68,9 +68,9 @@ export default function ExcludedGenreWarning({
   if (conflicts.size === 0) return null
 
   return (
-    <div className="rounded-xl border border-[#E8A33D]/40 bg-[#E8A33D]/5 p-4 mb-6">
-      <p className="text-sm font-medium text-[#E8A33D]">Klopt dit? Je favorieten vallen in genres die je hebt uitgesloten</p>
-      <p className="text-xs text-[#93A3B5] mt-1 leading-relaxed">
+    <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 mb-6">
+      <p className="text-sm font-medium text-accent">Klopt dit? Je favorieten vallen in genres die je hebt uitgesloten</p>
+      <p className="text-xs text-muted mt-1 leading-relaxed">
         Uitgesloten genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt. Dat maakt je aanbevelingen erg
         smal. Vink alleen aan wat je écht niet wilt zien.
       </p>
@@ -79,7 +79,7 @@ export default function ExcludedGenreWarning({
           <li key={id} className="flex items-center gap-3 text-sm">
             <span className="flex-1 min-w-0">
               <span className="font-medium">{name}</span>
-              <span className="text-[#93A3B5]">
+              <span className="text-muted">
                 {' '}
                 — {titles.slice(0, 3).join(', ')}
                 {titles.length > 3 ? ` en ${titles.length - 3} andere` : ''}
@@ -87,7 +87,7 @@ export default function ExcludedGenreWarning({
             </span>
             <button
               onClick={() => onAllow(id)}
-              className="flex-shrink-0 text-xs font-medium rounded-full border border-[#E8A33D] text-[#E8A33D] px-3 py-1.5 touch-manipulation hover:bg-[#E8A33D]/10 transition-colors"
+              className="flex-shrink-0 text-xs font-medium rounded-full border border-accent text-accent px-3 py-1.5 touch-manipulation hover:bg-accent/10 transition-colors"
             >
               Weer toestaan
             </button>

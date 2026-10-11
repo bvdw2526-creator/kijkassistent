@@ -81,11 +81,11 @@ export default function TitleInfoSheet({
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-[#1A2330] border border-[#2A3644] rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
+        className="w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-[#3A4A5C]" />
+          <div className="w-10 h-1 rounded-full bg-control" />
         </div>
 
         <div className="p-6">
@@ -106,27 +106,27 @@ export default function TitleInfoSheet({
                 />
               </div>
             ) : (
-              <div className="w-24 aspect-[2/3] rounded-xl bg-[#212C3B] flex-shrink-0" />
+              <div className="w-24 aspect-[2/3] rounded-xl bg-surface-2 flex-shrink-0" />
             )}
             <div className="min-w-0">
               <h2 className="font-display text-xl leading-tight">{item.title}</h2>
-              <p className="text-sm text-[#93A3B5] mt-1.5">
+              <p className="text-sm text-muted mt-1.5">
                 {item.media_type === 'tv' ? 'Serie' : 'Film'}
                 {info?.year ? ` · ${info.year}` : ''}
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {info && info.voteAverage > 0 && (
-                  <span className="rounded-full bg-white/5 text-[#93A3B5] text-xs font-medium px-2.5 py-1">
+                  <span className="rounded-full bg-white/5 text-muted text-xs font-medium px-2.5 py-1">
                     ★ {info.voteAverage.toFixed(1)} TMDB
                   </span>
                 )}
                 {info?.isBookAdaptation && (
-                  <span className="rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                  <span className="rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
                     Gebaseerd op een boek
                   </span>
                 )}
                 {info?.isTrueStory && (
-                  <span className="rounded-full bg-[#52A9A0]/12 text-[#52A9A0] text-xs font-medium px-2.5 py-1">
+                  <span className="rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
                     Waargebeurd verhaal
                   </span>
                 )}
@@ -136,7 +136,7 @@ export default function TitleInfoSheet({
                   href={spotifySoundtrackUrl(item.title)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 flex items-center gap-1.5 text-sm font-medium text-[#93A3B5] hover:text-[#F2EFE9] transition-colors touch-manipulation"
+                  className="mt-3 flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground transition-colors touch-manipulation"
                 >
                   <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
                   Soundtrack op Spotify
@@ -147,20 +147,20 @@ export default function TitleInfoSheet({
 
           <TrailerLink mediaType={item.media_type} id={item.id} size="base" />
 
-          {!info && !failed && <div className="h-16 rounded-xl bg-[#212C3B] animate-skeleton mb-4" />}
-          {failed && <p className="text-sm text-[#93A3B5] mb-4">Kon de details niet laden.</p>}
+          {!info && !failed && <div className="h-16 rounded-xl bg-surface-2 animate-skeleton mb-4" />}
+          {failed && <p className="text-sm text-muted mb-4">Kon de details niet laden.</p>}
 
-          {info?.overview && <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-4">{info.overview}</p>}
+          {info?.overview && <p className="text-sm text-foreground/90 leading-relaxed mb-4">{info.overview}</p>}
 
           {info && info.genres.length > 0 && (
-            <p className="text-sm text-[#93A3B5] mb-2">{info.genres.join(' · ')}</p>
+            <p className="text-sm text-muted mb-2">{info.genres.join(' · ')}</p>
           )}
           {info && (
-            <div className="text-sm text-[#93A3B5] mb-5 flex flex-col gap-1">
+            <div className="text-sm text-muted mb-5 flex flex-col gap-1">
               <p>
                 {info.streaming.length > 0 ? (
                   <>
-                    Te zien op: <span className="text-[#E8A33D]">{info.streaming.join(', ')}</span>
+                    Te zien op: <span className="text-accent">{info.streaming.join(', ')}</span>
                   </>
                 ) : (
                   'Niet bij een streamingabonnement te zien in Nederland.'
@@ -168,7 +168,7 @@ export default function TitleInfoSheet({
               </p>
               {info.rentBuy.length > 0 && (
                 <p>
-                  Ook te huur of koop: <span className="text-[#F2EFE9]/85">{info.rentBuy.slice(0, 4).join(', ')}</span>
+                  Ook te huur of koop: <span className="text-foreground/85">{info.rentBuy.slice(0, 4).join(', ')}</span>
                 </p>
               )}
             </div>

@@ -9,14 +9,14 @@ export default function HideTitleConfirm({ title, onConfirm, onCancel }: { title
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-sm bg-[#1A2330] border border-[#2A3644] rounded-3xl p-6 animate-pop-in"
+        className="w-full max-w-sm bg-surface border border-line rounded-3xl p-6 animate-pop-in"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-display text-xl mb-2">Verbergen?</h2>
-        <p className="text-sm text-[#F2EFE9]/90 leading-relaxed mb-2">
+        <p className="text-sm text-foreground/90 leading-relaxed mb-2">
           <span className="font-semibold">{title}</span> verdwijnt uit je aanbevelingen.
         </p>
-        <p className="text-sm text-[#93A3B5] leading-relaxed mb-5">
+        <p className="text-sm text-muted leading-relaxed mb-5">
           Dit is geen beoordeling: het telt niet mee voor je smaak en verandert je aanbevelingen verder niet. Het geldt alleen
           voor jouw eigen lijsten, niet voor Samen. Terugzetten kan later via Instellingen.
         </p>

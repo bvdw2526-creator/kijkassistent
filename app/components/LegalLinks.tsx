@@ -5,7 +5,7 @@ import Link from 'next/link'
 // wettelijke pagina's — op één plek zodat inlog, registratie en instellingen hetzelfde tonen.
 export default function LegalLinks({ className = '' }: { className?: string }) {
   return (
-    <footer className={`text-xs text-[#5E6D80] leading-relaxed text-center ${className}`}>
+    <footer className={`text-xs text-faint leading-relaxed text-center ${className}`}>
       <p>
         Dit product gebruikt de TMDB API, maar wordt niet gesteund of gecertificeerd door TMDB.
         Streaminggegevens via JustWatch.
@@ -21,9 +21,9 @@ export default function LegalLinks({ className = '' }: { className?: string }) {
         <Image src="/tmdb-logo.jpg" alt="TMDB" width={344} height={147} className="h-7 w-auto" />
       </a>
       <p className="mt-2">
-        <Link href="/privacy" className="hover:text-[#93A3B5] underline underline-offset-2">Privacy</Link>
+        <Link href="/privacy" className="hover:text-muted underline underline-offset-2">Privacy</Link>
         {' · '}
-        <Link href="/voorwaarden" className="hover:text-[#93A3B5] underline underline-offset-2">Voorwaarden</Link>
+        <Link href="/voorwaarden" className="hover:text-muted underline underline-offset-2">Voorwaarden</Link>
       </p>
     </footer>
   )

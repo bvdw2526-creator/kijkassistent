@@ -26,22 +26,22 @@ export function WhatsNewSheet({ onClose, all = false }: { onClose: () => void; a
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md bg-[#1A2330] border border-[#2A3644] rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
+        className="w-full sm:max-w-md bg-surface border border-line rounded-t-3xl sm:rounded-3xl max-h-[88vh] overflow-y-auto animate-sheet-up sm:animate-pop-in safe-bottom"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-[#3A4A5C]" />
+          <div className="w-10 h-1 rounded-full bg-control" />
         </div>
         <div className="p-6">
           <h2 className="font-display text-2xl mb-4">Wat is er nieuw</h2>
           <div className="flex flex-col gap-5 mb-6">
             {releases.map((release) => (
               <div key={release.id}>
-                <p className="text-xs font-semibold tracking-wide uppercase text-[#E8A33D] mb-2">{release.date}</p>
+                <p className="text-xs font-semibold tracking-wide uppercase text-accent mb-2">{release.date}</p>
                 <ul className="flex flex-col gap-2">
                   {release.items.map((item) => (
-                    <li key={item} className="flex gap-2.5 text-sm text-[#F2EFE9]/90 leading-relaxed">
-                      <CheckIcon className="w-4 h-4 text-[#52A9A0] flex-shrink-0 mt-0.5" />
+                    <li key={item} className="flex gap-2.5 text-sm text-foreground/90 leading-relaxed">
+                      <CheckIcon className="w-4 h-4 text-teal flex-shrink-0 mt-0.5" />
                       <span>{item}</span>
                     </li>
                   ))}
@@ -84,12 +84,12 @@ export default function WhatsNew({ userId, createdAt }: { userId: string; create
   if (!visible) return null
   return (
     <>
-      <div className="flex items-center gap-3 rounded-2xl border border-[#E8A33D]/40 bg-[#E8A33D]/5 pl-4 pr-2 py-3 mb-5">
+      <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/5 pl-4 pr-2 py-3 mb-5">
         <button onClick={() => setOpen(true)} className="flex-1 text-left touch-manipulation min-w-0">
           <span className="block text-sm font-medium">Kijkassistent is bijgewerkt</span>
-          <span className="block text-xs text-[#E8A33D] mt-0.5">Bekijk wat er nieuw is</span>
+          <span className="block text-xs text-accent mt-0.5">Bekijk wat er nieuw is</span>
         </button>
-        <button onClick={dismiss} aria-label="Sluiten" className="text-[#93A3B5] hover:text-[#F2EFE9] transition-colors p-2 touch-manipulation">
+        <button onClick={dismiss} aria-label="Sluiten" className="text-muted hover:text-foreground transition-colors p-2 touch-manipulation">
           <span aria-hidden className="text-lg leading-none">×</span>
         </button>
       </div>
