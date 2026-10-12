@@ -17,7 +17,7 @@ export const RELEASES: Release[] = [
       "Halloween: zet bij Instellingen onder 'Uiterlijk' de Halloween-skin aan en je krijgt tot en met 1 november een rij Halloween-films op Voor jou, griezelig of gezellig eng. Bij Samen staat wat bij jullie allebei past.",
       "De app zoekt nu zelf films en series bij de thema's waar je het meest van houdt, zoals tijdreizen, boksen of spionnen.",
       'Voor jou opent voortaan op Puur mijn smaak.',
-      'Op een laptop of computer is Voor jou breder, met meer films en series naast elkaar.',
+      'Op een laptop of computer is de app breder, met meer films en series naast elkaar.',
     ],
   },
   {

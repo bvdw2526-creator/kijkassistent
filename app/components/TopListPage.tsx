@@ -15,12 +15,12 @@ export default async function TopListPage({ typeSlug, serviceSlug }: { typeSlug:
   const heading = items.length >= TOP_SIZE ? `Top ${TOP_SIZE}: de beste ${typeInfo.label}${where}` : `De beste ${typeInfo.label}${where}`
 
   return (
-    <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
+    <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/top-100" className="text-sm text-muted hover:text-foreground transition-colors">
         ← Alle lijsten
       </Link>
       <h1 className="font-display text-3xl mt-4 mb-2">{heading}</h1>
-      <p className="text-muted mb-6">
+      <p className="text-muted mb-6 laptop:max-w-2xl">
         {service
           ? `De best beoordeelde ${typeInfo.label} die je nu bij ${service.label} in Nederland kunt kijken (met een abonnement). `
           : `De best beoordeelde ${typeInfo.label}, ongeacht waar je ze kunt kijken. `}

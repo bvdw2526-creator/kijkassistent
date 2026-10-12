@@ -354,7 +354,7 @@ export default function Onboarding() {
 
   return (
     <>
-      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+      <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Zoeken en favorieten</h1>
         <p className="text-muted mb-5 leading-relaxed">
           Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
@@ -362,7 +362,7 @@ export default function Onboarding() {
 
         <Link
           href="/top-100"
-          className={`${card} flex items-center justify-between gap-3 px-4 py-3 mb-5 hover:border-line-strong transition-colors`}
+          className={`${card} flex items-center justify-between gap-3 px-4 py-3 mb-5 laptop:max-w-xl hover:border-line-strong transition-colors`}
         >
           <span>
             <span className="block text-sm font-medium">De beste films en series</span>
@@ -371,7 +371,7 @@ export default function Onboarding() {
           <span aria-hidden className="text-muted text-lg">›</span>
         </Link>
 
-        <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6">
+        <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6 laptop:max-w-xl">
           {SEGMENTS.map((s) => (
             <button
               key={s.id}
@@ -397,7 +397,7 @@ export default function Onboarding() {
         )}
 
         {segment === 'titels' && (
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 laptop:max-w-xl">
           <div className="relative flex-1">
             <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
             <input
@@ -417,12 +417,12 @@ export default function Onboarding() {
 
         {segment === 'boeken' && (
           <div className="mb-6">
-            <p className="text-muted text-sm mb-4 leading-relaxed">
+            <p className="text-muted text-sm mb-4 leading-relaxed laptop:max-w-2xl">
               Films en series die op een boek gebaseerd zijn, de populairste eerst. Wat je al beoordeeld, favoriet gemaakt of
               op je kijklijst gezet hebt, staat hier niet tussen. Gebaseerd op TMDB-trefwoorden, dus een enkele verfilming
               kan ontbreken.
             </p>
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 laptop:max-w-xl">
               <div className="relative flex-1">
                 <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
                 <input
@@ -482,7 +482,7 @@ export default function Onboarding() {
         {segment === 'titels' && searchNote && <p className="text-sm text-muted mb-3">{searchNote}</p>}
 
         {(segment === 'titels' ? results : visibleBooks).length > 0 && (
-          <div className="flex flex-col gap-2 mb-10">
+          <div className="flex flex-col gap-2 mb-10 laptop:grid laptop:grid-cols-2">
             {(segment === 'titels' ? results : visibleBooks).map((movie) => {
               const added = favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)
               const currentRating = ratings.get(ratingKey(movie))
@@ -557,7 +557,7 @@ export default function Onboarding() {
         {movieFavorites.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm text-muted mb-2">Films ({movieFavorites.length})</h3>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 laptop:grid laptop:grid-cols-2">
               {movieFavorites.map((movie) => (
                 <div key={`movie-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
                   <button onClick={() => setInfoItem(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
@@ -579,7 +579,7 @@ export default function Onboarding() {
         {tvFavorites.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm text-muted mb-2">Series ({tvFavorites.length})</h3>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 laptop:grid laptop:grid-cols-2">
               {tvFavorites.map((movie) => (
                 <div key={`tv-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
                   <button onClick={() => setInfoItem(movie)} className="flex-1 text-sm truncate text-left touch-manipulation">
@@ -605,7 +605,7 @@ export default function Onboarding() {
         )}
 
         {ratedMovies.length > 0 && (
-          <div className="flex flex-col gap-1.5 mb-6">
+          <div className="flex flex-col gap-1.5 mb-6 laptop:grid laptop:grid-cols-2">
             {/* De laatst beoordeelde bovenaan; de gekozen beoordeling staat aangevinkt in elke rij. */}
             {[...ratedMovies]
               .sort((a, b) => (b.rated_at ?? '').localeCompare(a.rated_at ?? ''))

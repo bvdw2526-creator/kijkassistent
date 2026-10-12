@@ -83,7 +83,7 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 const AUTOSAVE_DELAY_MS = 500
 
 function GroupTitle({ title }: { title: string }) {
-  return <h2 className="text-xs font-semibold uppercase tracking-wide text-muted mb-3 mt-10 first:mt-0">{title}</h2>
+  return <h2 className="text-xs font-semibold uppercase tracking-wide text-muted mb-3 mt-10 laptop:first:mt-0">{title}</h2>
 }
 
 function SectionTitle({ title, hint }: { title: string; hint?: string }) {
@@ -362,7 +362,7 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
+      <main className="max-w-sm laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
         <div className="h-7 w-40 rounded-lg bg-surface animate-skeleton mb-8" />
         <div className="flex flex-col gap-2">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -388,9 +388,9 @@ export default function Settings() {
 
   return (
     <>
-      <main className="max-w-sm mx-auto px-5 pt-6 pb-32">
+      <main className="max-w-sm laptop:max-w-5xl mx-auto px-5 pt-6 pb-32">
         <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
-        <p className="text-muted mb-6">Stel in wat je aanbevelingen beter maakt. Wijzigingen worden automatisch opgeslagen.</p>
+        <p className="text-muted mb-6 laptop:mb-8">Stel in wat je aanbevelingen beter maakt. Wijzigingen worden automatisch opgeslagen.</p>
 
         {!onboardingComplete && (
           <Link
@@ -410,261 +410,268 @@ export default function Settings() {
           </p>
         )}
 
-        <GroupTitle title="Wat je kijkt" />
-        <SectionTitle title="Streamingdiensten" hint="Selecteer waar je een abonnement op hebt. Pathé Thuis is huren per titel: aanvinken betekent dat titels die je daar kunt huren ook worden getoond." />
-        <div className="grid grid-cols-2 gap-2 mb-6">
-          {AVAILABLE_SERVICES.map((service) => {
-            const active = selected.includes(service.id)
-            return (
-              <button
-                key={service.id}
-                onClick={() => toggleService(service.id)}
-                className={`flex items-center gap-2 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.97] ${
-                  active ? 'border-accent text-accent bg-accent/10' : 'border-line hover:border-line-strong'
-                }`}
-              >
-                <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${
-                  active ? 'border-accent bg-accent' : 'border-control'
-                }`}>
-                  {active && <CheckIcon className="w-3 h-3 text-on-accent" />}
-                </span>
-                <span className="text-sm font-medium">{service.label}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        <Collapsible title="Genres uitsluiten" summary={genreSummary}>
-          <p className="text-muted text-sm mb-3 leading-relaxed">
-            Vink hier alleen aan wat je niet wilt zien. Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt.
-          </p>
-          <h4 className="text-sm text-muted mb-2">Films</h4>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {MOVIE_GENRES.map((genre) => (
-              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
-            ))}
-          </div>
-          <h4 className="text-sm text-muted mb-2">Series</h4>
-          <div className="flex flex-wrap gap-2">
-            {TV_GENRES.map((genre) => (
-              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
-            ))}
-          </div>
-        </Collapsible>
-
-        <div className="mt-4">
-          <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
-        </div>
-
-        <div className="mt-6">
-          <SectionTitle
-            title="Niet ouder dan"
-            hint="Films en series van vóór dit jaar komen niet in je aanbevelingen. Bij series telt het jaar van de eerste aflevering. Zoeken, de Top 100 en je kijklijst blijven alles tonen."
-          />
-          <div className="flex flex-wrap gap-2">
-            {[null, ...MIN_YEAR_OPTIONS].map((year) => {
-              const active = minYear === year
-              return (
-                <button
-                  key={year ?? 'alles'}
-                  onClick={() => chooseMinYear(year)}
-                  aria-pressed={active}
-                  className={`rounded-full border px-3.5 py-2 text-sm font-medium transition-all touch-manipulation active:scale-[0.96] ${
-                    active ? 'border-accent bg-accent/12 text-accent' : 'border-line text-muted hover:border-line-strong hover:text-foreground'
-                  }`}
-                >
-                  {year === null ? 'Alles' : `Vanaf ${year}`}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        <GroupTitle title="Mijn lijsten" />
-        <Link href="/onboarding" className={linkRow}>
-          <span>
-            <span className="block text-sm font-medium">Favorieten beheren</span>
-            <span className="block text-xs text-muted mt-0.5">Films, series, acteurs en regisseurs vind je bij Zoeken</span>
-          </span>
-        </Link>
-        <Link href="/verborgen" className={linkRow}>
-          <span>
-            <span className="block text-sm font-medium">Verborgen films of series beheren</span>
-            <span className="block text-xs text-muted mt-0.5">Bekijk wat je hebt verborgen en zet het terug</span>
-          </span>
-        </Link>
-        {/* Alleen op een computer: de export van Letterboxd haal je ook op een computer op. */}
-        <Link href="/import" className={`hidden [@media(pointer:fine)]:flex ${linkRow}`}>
-          <span>
-            <span className="block text-sm font-medium">Importeren uit Letterboxd</span>
-            <span className="block text-xs text-muted mt-0.5">Neem je films en beoordelingen over met je Letterboxd-export</span>
-          </span>
-        </Link>
-
-        <GroupTitle title="Samen kijken" />
-        <Collapsible title="Partner koppelen" summary={partnerSummary} openWhen={hasIncoming}>
-          <p className="text-muted text-sm mb-4 leading-relaxed">
-            Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf accepteren voordat jullie smaak wordt gecombineerd.
-          </p>
-
-          <div className="mb-5">
-            {!inviteLink ? (
-              <button onClick={createInviteLink} disabled={inviteLinkLoading} className={`${btnPrimary} w-full`}>
-                <UsersIcon className="w-4 h-4" />
-                {inviteLinkLoading ? 'Bezig...' : 'Uitnodigingslink maken'}
-              </button>
-            ) : (
-              <div className={`${card} p-4`}>
-                <p className="text-xs text-muted mb-2">Deel deze link met je partner. Hij werkt één keer en is 7 dagen geldig.</p>
-                <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} className={`${input} text-xs mb-3`} />
-                <div className="flex gap-2">
-                  <button onClick={shareInviteLink} className={`${btnPrimary} flex-1`}>
-                    {linkCopied ? <CheckIcon className="w-4 h-4" /> : null}
-                    {linkCopied ? 'Gekopieerd' : 'Delen'}
-                  </button>
-                  <button onClick={createInviteLink} disabled={inviteLinkLoading} className="text-sm text-muted px-3">
-                    Nieuwe link
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <p className="text-xs text-faint mb-2">Of nodig iemand uit die al een account heeft, via het e-mailadres:</p>
-          <div className="flex gap-2 mb-4">
-            <input
-              type="email"
-              value={partnerEmail}
-              onChange={(e) => setPartnerEmail(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendInvite()}
-              placeholder="E-mailadres van je partner"
-              className={`${input} flex-1`}
-            />
-            <button onClick={sendInvite} disabled={inviteLoading} className={btnPrimary}>
-              Uitnodigen
-            </button>
-          </div>
-
-          {connections.length === 0 && (
-            <p className="text-muted text-sm flex items-center gap-2">
-              <UsersIcon className="w-4 h-4 text-faint" />
-              Nog geen koppeling met een partner.
-            </p>
-          )}
-          {connections.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              {connections.map((c) => (
-                <div key={c.id} className={`${card} flex items-center gap-3 flex-wrap px-4 py-3`}>
-                  <span className="flex-1 text-sm min-w-[160px]">
-                    {c.other_email}
-                    <span className="block text-xs text-faint mt-0.5">
-                      {c.status === 'accepted'
-                        ? 'Gekoppeld'
-                        : c.direction === 'incoming'
-                          ? 'Wil koppelen'
-                          : 'Wacht op reactie'}
-                    </span>
-                  </span>
-                  <div className="flex gap-2">
-                    {c.status === 'pending' && c.direction === 'incoming' && (
-                      <button
-                        onClick={() => acceptConnection(c.id)}
-                        className="text-sm font-medium border border-teal text-teal rounded-full px-3.5 py-1.5 hover:bg-teal/10 transition-colors touch-manipulation active:scale-[0.96]"
-                      >
-                        Accepteren
-                      </button>
-                    )}
-                    <button
-                      onClick={() => removeConnection(c.id)}
-                      className="text-muted hover:text-coral transition-colors p-1.5"
-                      aria-label="Verwijderen"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Collapsible>
-
-        <GroupTitle title="Uiterlijk" />
-        <SectionTitle title="Skin" hint="Kies de kleuren van de app. De keuze geldt op dit apparaat." />
-        <div className="flex flex-col gap-2">
-          {SKINS.map((s) => {
-            const active = skin === s.id
-            return (
-              <button
-                key={s.id}
-                onClick={() => setSkin(s.id)}
-                aria-pressed={active}
-                className={`flex items-center gap-3 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.98] ${
-                  active ? 'border-accent bg-accent/10' : 'border-line hover:border-line-strong'
-                }`}
-              >
-                <span className="flex flex-shrink-0 -space-x-1.5" aria-hidden="true">
-                  {s.swatch.map((color) => (
-                    <span key={color} className="h-5 w-5 rounded-full border border-white/20" style={{ backgroundColor: color }} />
-                  ))}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-sm font-medium ${active ? 'text-accent' : ''}`}>{s.label}</span>
-                  <span className="block text-xs text-muted mt-0.5 leading-snug">{s.description}</span>
-                </span>
-                {active && <CheckIcon className="w-4 h-4 flex-shrink-0 text-accent" />}
-              </button>
-            )
-          })}
-        </div>
-
-        <GroupTitle title="Over de app" />
-        <button
-          onClick={() => setShowWhatsNew(true)}
-          className="w-full text-left rounded-xl border border-line px-4 py-3.5 mb-2 hover:border-line-strong transition-colors touch-manipulation"
-        >
-          <span className="block text-sm font-medium">Wat is er nieuw</span>
-          <span className="block text-xs text-muted mt-0.5">De laatste verbeteringen aan Kijkassistent</span>
-        </button>
-
-        {isAdmin && (
-          <Link href="/beheer" className={linkRow}>
-            <span>
-              <span className="block text-sm font-medium">Gebruiksoverzicht</span>
-              <span className="block text-xs text-muted mt-0.5">Wie de app gebruikt, per dag en per gebruiker (alleen voor jou)</span>
-            </span>
-          </Link>
-        )}
-
-        <div className="mt-10">
-          <Collapsible title="Account verwijderen" tone="danger">
-            <p className="text-muted text-sm mb-3 leading-relaxed">
-              Wist je account en al je gegevens (favorieten, beoordelingen, kijklijst en koppelingen). Dit kan niet ongedaan worden gemaakt.
-            </p>
-            {!confirmDelete ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="text-sm font-medium text-coral border border-coral/40 rounded-full px-4 py-2.5 hover:bg-coral/10 transition-colors touch-manipulation"
-              >
-                Account verwijderen
-              </button>
-            ) : (
-              <div className="rounded-xl border border-coral/40 bg-coral/5 p-4">
-                <p className="text-sm mb-3">Weet je het zeker? Alles wordt direct en definitief gewist.</p>
-                <div className="flex gap-2">
+        {/* Op laptop twee kolommen: links wat je kijkt en je lijsten, rechts de rest. Elders gewoon onder elkaar. */}
+        <div className="laptop:grid laptop:grid-cols-2 laptop:gap-x-12 laptop:items-start">
+          <div>
+            <GroupTitle title="Wat je kijkt" />
+            <SectionTitle title="Streamingdiensten" hint="Selecteer waar je een abonnement op hebt. Pathé Thuis is huren per titel: aanvinken betekent dat titels die je daar kunt huren ook worden getoond." />
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {AVAILABLE_SERVICES.map((service) => {
+                const active = selected.includes(service.id)
+                return (
                   <button
-                    onClick={handleDeleteAccount}
-                    disabled={deleting}
-                    className="text-sm font-semibold bg-coral text-on-accent rounded-full px-4 py-2.5 disabled:opacity-50 touch-manipulation"
+                    key={service.id}
+                    onClick={() => toggleService(service.id)}
+                    className={`flex items-center gap-2 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.97] ${
+                      active ? 'border-accent text-accent bg-accent/10' : 'border-line hover:border-line-strong'
+                    }`}
                   >
-                    {deleting ? 'Verwijderen...' : 'Ja, verwijder alles'}
+                    <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${
+                      active ? 'border-accent bg-accent' : 'border-control'
+                    }`}>
+                      {active && <CheckIcon className="w-3 h-3 text-on-accent" />}
+                    </span>
+                    <span className="text-sm font-medium">{service.label}</span>
                   </button>
-                  <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-sm text-muted px-4 py-2.5">
-                    Annuleren
-                  </button>
-                </div>
+                )
+              })}
+            </div>
+
+            <Collapsible title="Genres uitsluiten" summary={genreSummary}>
+              <p className="text-muted text-sm mb-3 leading-relaxed">
+                Vink hier alleen aan wat je niet wilt zien. Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt.
+              </p>
+              <h4 className="text-sm text-muted mb-2">Films</h4>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {MOVIE_GENRES.map((genre) => (
+                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
+                ))}
               </div>
+              <h4 className="text-sm text-muted mb-2">Series</h4>
+              <div className="flex flex-wrap gap-2">
+                {TV_GENRES.map((genre) => (
+                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
+                ))}
+              </div>
+            </Collapsible>
+
+            <div className="mt-4">
+              <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
+            </div>
+
+            <div className="mt-6">
+              <SectionTitle
+                title="Niet ouder dan"
+                hint="Films en series van vóór dit jaar komen niet in je aanbevelingen. Bij series telt het jaar van de eerste aflevering. Zoeken, de Top 100 en je kijklijst blijven alles tonen."
+              />
+              <div className="flex flex-wrap gap-2">
+                {[null, ...MIN_YEAR_OPTIONS].map((year) => {
+                  const active = minYear === year
+                  return (
+                    <button
+                      key={year ?? 'alles'}
+                      onClick={() => chooseMinYear(year)}
+                      aria-pressed={active}
+                      className={`rounded-full border px-3.5 py-2 text-sm font-medium transition-all touch-manipulation active:scale-[0.96] ${
+                        active ? 'border-accent bg-accent/12 text-accent' : 'border-line text-muted hover:border-line-strong hover:text-foreground'
+                      }`}
+                    >
+                      {year === null ? 'Alles' : `Vanaf ${year}`}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <GroupTitle title="Mijn lijsten" />
+            <Link href="/onboarding" className={linkRow}>
+              <span>
+                <span className="block text-sm font-medium">Favorieten beheren</span>
+                <span className="block text-xs text-muted mt-0.5">Films, series, acteurs en regisseurs vind je bij Zoeken</span>
+              </span>
+            </Link>
+            <Link href="/verborgen" className={linkRow}>
+              <span>
+                <span className="block text-sm font-medium">Verborgen films of series beheren</span>
+                <span className="block text-xs text-muted mt-0.5">Bekijk wat je hebt verborgen en zet het terug</span>
+              </span>
+            </Link>
+            {/* Alleen op een computer: de export van Letterboxd haal je ook op een computer op. */}
+            <Link href="/import" className={`hidden [@media(pointer:fine)]:flex ${linkRow}`}>
+              <span>
+                <span className="block text-sm font-medium">Importeren uit Letterboxd</span>
+                <span className="block text-xs text-muted mt-0.5">Neem je films en beoordelingen over met je Letterboxd-export</span>
+              </span>
+            </Link>
+          </div>
+
+          <div>
+            <GroupTitle title="Samen kijken" />
+            <Collapsible title="Partner koppelen" summary={partnerSummary} openWhen={hasIncoming}>
+              <p className="text-muted text-sm mb-4 leading-relaxed">
+                Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf accepteren voordat jullie smaak wordt gecombineerd.
+              </p>
+
+              <div className="mb-5">
+                {!inviteLink ? (
+                  <button onClick={createInviteLink} disabled={inviteLinkLoading} className={`${btnPrimary} w-full`}>
+                    <UsersIcon className="w-4 h-4" />
+                    {inviteLinkLoading ? 'Bezig...' : 'Uitnodigingslink maken'}
+                  </button>
+                ) : (
+                  <div className={`${card} p-4`}>
+                    <p className="text-xs text-muted mb-2">Deel deze link met je partner. Hij werkt één keer en is 7 dagen geldig.</p>
+                    <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} className={`${input} text-xs mb-3`} />
+                    <div className="flex gap-2">
+                      <button onClick={shareInviteLink} className={`${btnPrimary} flex-1`}>
+                        {linkCopied ? <CheckIcon className="w-4 h-4" /> : null}
+                        {linkCopied ? 'Gekopieerd' : 'Delen'}
+                      </button>
+                      <button onClick={createInviteLink} disabled={inviteLinkLoading} className="text-sm text-muted px-3">
+                        Nieuwe link
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-faint mb-2">Of nodig iemand uit die al een account heeft, via het e-mailadres:</p>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="email"
+                  value={partnerEmail}
+                  onChange={(e) => setPartnerEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendInvite()}
+                  placeholder="E-mailadres van je partner"
+                  className={`${input} flex-1`}
+                />
+                <button onClick={sendInvite} disabled={inviteLoading} className={btnPrimary}>
+                  Uitnodigen
+                </button>
+              </div>
+
+              {connections.length === 0 && (
+                <p className="text-muted text-sm flex items-center gap-2">
+                  <UsersIcon className="w-4 h-4 text-faint" />
+                  Nog geen koppeling met een partner.
+                </p>
+              )}
+              {connections.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {connections.map((c) => (
+                    <div key={c.id} className={`${card} flex items-center gap-3 flex-wrap px-4 py-3`}>
+                      <span className="flex-1 text-sm min-w-[160px]">
+                        {c.other_email}
+                        <span className="block text-xs text-faint mt-0.5">
+                          {c.status === 'accepted'
+                            ? 'Gekoppeld'
+                            : c.direction === 'incoming'
+                              ? 'Wil koppelen'
+                              : 'Wacht op reactie'}
+                        </span>
+                      </span>
+                      <div className="flex gap-2">
+                        {c.status === 'pending' && c.direction === 'incoming' && (
+                          <button
+                            onClick={() => acceptConnection(c.id)}
+                            className="text-sm font-medium border border-teal text-teal rounded-full px-3.5 py-1.5 hover:bg-teal/10 transition-colors touch-manipulation active:scale-[0.96]"
+                          >
+                            Accepteren
+                          </button>
+                        )}
+                        <button
+                          onClick={() => removeConnection(c.id)}
+                          className="text-muted hover:text-coral transition-colors p-1.5"
+                          aria-label="Verwijderen"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Collapsible>
+
+            <GroupTitle title="Uiterlijk" />
+            <SectionTitle title="Skin" hint="Kies de kleuren van de app. De keuze geldt op dit apparaat." />
+            <div className="flex flex-col gap-2">
+              {SKINS.map((s) => {
+                const active = skin === s.id
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSkin(s.id)}
+                    aria-pressed={active}
+                    className={`flex items-center gap-3 text-left rounded-xl border px-4 py-3 transition-all touch-manipulation active:scale-[0.98] ${
+                      active ? 'border-accent bg-accent/10' : 'border-line hover:border-line-strong'
+                    }`}
+                  >
+                    <span className="flex flex-shrink-0 -space-x-1.5" aria-hidden="true">
+                      {s.swatch.map((color) => (
+                        <span key={color} className="h-5 w-5 rounded-full border border-white/20" style={{ backgroundColor: color }} />
+                      ))}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-sm font-medium ${active ? 'text-accent' : ''}`}>{s.label}</span>
+                      <span className="block text-xs text-muted mt-0.5 leading-snug">{s.description}</span>
+                    </span>
+                    {active && <CheckIcon className="w-4 h-4 flex-shrink-0 text-accent" />}
+                  </button>
+                )
+              })}
+            </div>
+
+            <GroupTitle title="Over de app" />
+            <button
+              onClick={() => setShowWhatsNew(true)}
+              className="w-full text-left rounded-xl border border-line px-4 py-3.5 mb-2 hover:border-line-strong transition-colors touch-manipulation"
+            >
+              <span className="block text-sm font-medium">Wat is er nieuw</span>
+              <span className="block text-xs text-muted mt-0.5">De laatste verbeteringen aan Kijkassistent</span>
+            </button>
+
+            {isAdmin && (
+              <Link href="/beheer" className={linkRow}>
+                <span>
+                  <span className="block text-sm font-medium">Gebruiksoverzicht</span>
+                  <span className="block text-xs text-muted mt-0.5">Wie de app gebruikt, per dag en per gebruiker (alleen voor jou)</span>
+                </span>
+              </Link>
             )}
-          </Collapsible>
+
+            <div className="mt-10">
+              <Collapsible title="Account verwijderen" tone="danger">
+                <p className="text-muted text-sm mb-3 leading-relaxed">
+                  Wist je account en al je gegevens (favorieten, beoordelingen, kijklijst en koppelingen). Dit kan niet ongedaan worden gemaakt.
+                </p>
+                {!confirmDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="text-sm font-medium text-coral border border-coral/40 rounded-full px-4 py-2.5 hover:bg-coral/10 transition-colors touch-manipulation"
+                  >
+                    Account verwijderen
+                  </button>
+                ) : (
+                  <div className="rounded-xl border border-coral/40 bg-coral/5 p-4">
+                    <p className="text-sm mb-3">Weet je het zeker? Alles wordt direct en definitief gewist.</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleDeleteAccount}
+                        disabled={deleting}
+                        className="text-sm font-semibold bg-coral text-on-accent rounded-full px-4 py-2.5 disabled:opacity-50 touch-manipulation"
+                      >
+                        {deleting ? 'Verwijderen...' : 'Ja, verwijder alles'}
+                      </button>
+                      <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-sm text-muted px-4 py-2.5">
+                        Annuleren
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Collapsible>
+            </div>
+          </div>
         </div>
 
         <LegalLinks className="mt-10" />

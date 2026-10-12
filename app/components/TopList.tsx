@@ -150,7 +150,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
   return (
     <>
       {loggedIn === true && (
-        <div className={`${card} px-4 py-3 mb-5`}>
+        <div className={`${card} px-4 py-3 mb-5 laptop:max-w-xl`}>
           <p className="text-sm font-medium">
             Je hebt {seen} van de {items.length} gezien
           </p>
@@ -160,7 +160,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
         </div>
       )}
       {loggedIn === false && (
-        <div className={`${card} px-4 py-3 mb-5`}>
+        <div className={`${card} px-4 py-3 mb-5 laptop:max-w-xl`}>
           <p className="text-sm">
             Wil je zien welke je al gezien hebt en welke bij jou passen?{' '}
             <Link href="/register" className="text-accent underline underline-offset-2">
@@ -175,7 +175,8 @@ export default function TopList({ items }: { items: TopItem[] }) {
         </div>
       )}
 
-      <ol className="flex flex-col gap-2">
+      {/* Op laptop twee kolommen: 1 tot en met 50 links, de rest rechts. */}
+      <ol className="flex flex-col gap-2 laptop:block laptop:columns-2 laptop:gap-3 laptop:[&>li]:break-inside-avoid laptop:[&>li]:mb-2">
         {items.map((item, index) => {
           const mark = markOf(item)
           const row = (

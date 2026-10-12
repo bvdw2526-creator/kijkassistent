@@ -19,7 +19,7 @@ type ProfileStats = {
 
 function StatSkeleton() {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 laptop:grid laptop:grid-cols-2">
       <div className="h-24 rounded-2xl bg-surface animate-skeleton" />
       <div className="h-32 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: '80ms' }} />
       <div className="h-40 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: '160ms' }} />
@@ -113,7 +113,7 @@ export default function Profiel() {
 
   return (
     <>
-      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+      <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Stats</h1>
         <p className="text-muted mb-6">Wat je favorieten en beoordelingen over je smaak zeggen.</p>
 
@@ -133,7 +133,8 @@ export default function Profiel() {
         )}
 
         {!loading && stats && stats.totalWatched > 0 && (
-          <div className="flex flex-col gap-3">
+          // Op laptop twee kolommen waarin de blokken onder elkaar doorlopen, zodat er geen gaten vallen naast een lang blok.
+          <div className="flex flex-col gap-3 laptop:block laptop:columns-2 laptop:[&>*]:break-inside-avoid laptop:[&>*]:mb-3">
             {/* Grote cijfers */}
             <div className={`${card} p-5`}>
               <p className="font-display text-4xl text-accent leading-none">{stats.totalWatched}</p>

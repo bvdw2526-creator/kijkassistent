@@ -330,12 +330,12 @@ export default function Watchlist() {
 
   return (
     <>
-      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+      <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
         <h1 className="font-display text-2xl mb-1">Kijklijst</h1>
         <p className="text-muted mb-6">{scope === 'shared' ? 'Wat jullie samen nog willen zien.' : 'Wat je nog wilt zien.'}</p>
 
         {connectionId && (
-          <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-4">
+          <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-4 laptop:max-w-xl">
             {(['mine', 'shared'] as const).map((s) => (
               <button
                 key={s}
@@ -376,7 +376,7 @@ export default function Watchlist() {
         </div>
 
         {loading && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 laptop:grid laptop:grid-cols-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-28 rounded-2xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
             ))}
@@ -391,7 +391,7 @@ export default function Watchlist() {
           </p>
         )}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 laptop:grid laptop:grid-cols-2">
           {visible.map((item) => (
             <div key={`${item.media_type}-${item.id}`} className={`${card} p-3`}>
               <div className="flex gap-3">
