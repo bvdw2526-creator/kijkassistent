@@ -154,8 +154,8 @@ const RECOMMENDATIONS_CACHE_MAX_AGE_HOURS = 24 * 7
 // Plafond op het aantal titels dat als *bron* voor de smaak meetelt (recentste eerst). Alles wat
 // iemand beoordeeld heeft blijft wel meetellen als "al gezien" (uitsluiten), dus een profiel met
 // duizenden titels kost niet meer rekentijd dan een van ongeveer driehonderd.
-const MAX_FAVORITE_SOURCES = 100
-const MAX_LOVE_SOURCES = 150
+export const MAX_FAVORITE_SOURCES = 100
+export const MAX_LOVE_SOURCES = 150
 const MAX_OK_SOURCES = 100
 
 // Live ophalen bij TMDB gaat in kleine porties, en stopt na een tijdsbudget: zo wordt wat al
@@ -225,8 +225,8 @@ const CORE_SOURCE_DECAY = 0.75
 // de genre-voorkeur, de gemiddelde smaakvector, de verhaal-buren en de kenmerken. Gemeten op echte profielen (8 okt 2026):
 // favoriet 3 in plaats van 1 voorspelt je andere beoordelingen even goed (verhaal-buren 77,0% -> 78,0%, smaakvector
 // 66,6% -> 65,6%), dus het kost niets en volgt wat een favoriet betekent.
-const FAVORITE_SOURCE_WEIGHT = 3
-const LOVE_SOURCE_WEIGHT = 2
+export const FAVORITE_SOURCE_WEIGHT = 3
+export const LOVE_SOURCE_WEIGHT = 2
 const OK_SOURCE_WEIGHT = 0.5
 
 // "Niet voor mij" telt mee als negatief signaal (niet alleen als "deze ene titel niet meer tonen").
@@ -235,7 +235,7 @@ const OK_SOURCE_WEIGHT = 0.5
 // Gemeten op echte gebruikers is dit signaal zwakker dan het lijkt (afkeuringen en favorieten liggen vaak in
 // dezelfde hoek, bv. fantasy), daarom telt het pas mee voor zover het het positieve bewijs overstemt
 // (zie DISLIKE_VS_POSITIVE) en worden vervolgdelen van iets wat je leuk vond beschermd.
-const MAX_DISLIKE_SOURCES = 60
+export const MAX_DISLIKE_SOURCES = 60
 const DISLIKE_SOURCE_WEIGHT = 2
 // De straf is alleen het deel van het afkeur-bewijs dat meer is dan dit aandeel van het positieve bewijs.
 const DISLIKE_VS_POSITIVE = 0.6

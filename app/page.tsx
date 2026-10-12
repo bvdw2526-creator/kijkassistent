@@ -16,6 +16,7 @@ import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
+import HalloweenRow, { useHalloweenLists } from './components/HalloweenRow'
 import TooOldPrompt from './components/TooOldPrompt'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
@@ -43,6 +44,8 @@ type Movie = {
   // Titel die nog moet uitkomen: staat tussen de aanbevelingen met een "Binnenkort"-label.
   upcoming?: boolean
   release_date?: string
+  // Titel uit de Halloween-rij (zie app/components/HalloweenRow.tsx): geen gewone aanbeveling, dus zonder matchpercentage.
+  halloween?: 'scary' | 'cozy'
   // Onderdelen van de score, zoals de server ze meestuurt; alleen gebruikt om bij een beoordeling vast te leggen waarom de titel
   // werd aanbevolen (zie sourceInfoFor).
   coreScore?: number
@@ -128,7 +131,8 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
 function sourceInfoFor(movie: Movie, mode: RecommendationMode) {
   const round = (n: number | undefined) => (typeof n === 'number' ? Math.round(n * 100) / 100 : 0)
   return {
-    mode,
+    // Een titel uit de Halloween-rij krijgt een eigen naam: hij telt zo niet mee bij de tabbladen in de meting.
+    mode: movie.halloween ? (mode === 'samen' ? 'halloween-samen' : 'halloween') : mode,
     match: movie.matchPercent,
     basedOn: movie.basedOn ?? [],
     scores: {
@@ -306,6 +310,8 @@ export default function Home() {
   const [togetherComputing, setTogetherComputing] = useState(false)
   const [tipMood, setTipMood] = useState<TipMood>('alles')
   const [togetherMatch, setTogetherMatch] = useState<TasteMatch | null>(null)
+  // De Halloween-rij (alleen met de Halloween-skin aan): bij Samen de versie voor jullie twee, anders je eigen.
+  const halloween = useHalloweenLists(user?.id ?? null, mode === 'samen' ? (togetherConnected ? 'samen' : null) : 'personal')
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const togetherPollsRef = useRef(0)
@@ -565,6 +571,7 @@ export default function Home() {
       return next
     })
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
+    halloween.remove((m) => movieKey(m as Movie), ['personal', 'samen'])
   }
 
   // Alleen uit de eigen lijsten (Voor jou), niet uit Samen: verbergen geldt niet voor Samen.
@@ -579,11 +586,13 @@ export default function Home() {
       if (user) saveCachedRecommendations(user.id, next)
       return next
     })
+    halloween.remove((m) => movieKey(m as Movie), ['personal'])
   }
 
   function removeFromSamen(movieKey: (m: Movie) => boolean) {
     setByMode((current) => ({ ...current, samen: current.samen.filter((m) => !movieKey(m)) }))
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
+    halloween.remove((m) => movieKey(m as Movie), ['samen'])
   }
 
   async function handleAddToWatchlist(movie: Movie) {
@@ -627,7 +636,7 @@ export default function Home() {
       media_type: movie.media_type,
       watch_on: movie.watchOn ?? null,
       watch_url: movie.watchUrl ?? null,
-      source_mode: mode,
+      source_mode: movie.halloween ? 'halloween' : mode,
       source_info: sourceInfoFor(movie, mode),
     })
     if (error) {
@@ -924,6 +933,21 @@ export default function Home() {
           })}
         </div>
 
+        {halloween.active && (
+          <HalloweenRow
+            lists={halloween.lists}
+            loading={halloween.loading}
+            together={mode === 'samen'}
+            onSelect={(movie) => {
+              selectedAtRef.current = Date.now()
+              setActionError(null)
+              setSelected(movie)
+              checkBookAdaptation(movie)
+              checkHasSoundtrack(movie)
+            }}
+          />
+        )}
+
         <div className="flex items-center justify-between mb-5">
           <div className="flex gap-1 p-1 rounded-full bg-surface border border-line">
             <button
@@ -1212,6 +1236,11 @@ export default function Home() {
                   {selected.upcoming ? (
                     <span className="inline-block mt-2 rounded-full bg-teal/12 text-teal text-xs font-semibold px-2.5 py-1">
                       Binnenkort
+                    </span>
+                  ) : selected.halloween ? (
+                    // Uit de Halloween-rij: gesorteerd op smaak, maar geen gewone match.
+                    <span className="inline-block mt-2 rounded-full bg-accent/12 text-accent text-xs font-semibold px-2.5 py-1">
+                      Halloween
                     </span>
                   ) : mode === 'explore' ? null : (
                     // Bij Verras me geen percentage: daar gaat het om ontdekken (zie hideMatch in MovieCard).

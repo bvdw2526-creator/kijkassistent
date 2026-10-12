@@ -10,9 +10,11 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    id: '2026-10-12',
+    // Tweede update op dezelfde dag: een nieuw id, zodat ook wie de eerste al zag het kaartje nog een keer krijgt.
+    id: '2026-10-12b',
     date: '12 oktober 2026',
     items: [
+      "Halloween: zet bij Instellingen onder 'Uiterlijk' de Halloween-skin aan en je krijgt tot en met 1 november een rij Halloween-films op Voor jou, griezelig of gezellig eng. Bij Samen staat wat bij jullie allebei past.",
       "De app zoekt nu zelf films en series bij de thema's waar je het meest van houdt, zoals tijdreizen, boksen of spionnen.",
       'Voor jou opent voortaan op Puur mijn smaak.',
     ],

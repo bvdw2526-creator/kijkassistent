@@ -30,7 +30,7 @@ export const SKINS: Skin[] = [
   {
     id: 'halloween',
     label: 'Halloween',
-    description: 'Paars en pompoenoranje, met een maan en vleermuizen',
+    description: 'Paars en pompoenoranje, met een maan en vleermuizen. In oktober met Halloween-films bovenaan Voor jou',
     swatch: ['#0D0A12', '#F28C28', '#B18AE8'],
   },
   {
@@ -64,6 +64,13 @@ export const DEFAULT_SKIN: SkinId = 'standaard'
 export const SKIN_STORAGE_KEY = 'kijkassistent:skin'
 // De skin waarvan je de banner hebt weggeklikt (zie app/components/SkinBanner.tsx).
 export const SKIN_BANNER_DISMISSED_KEY = 'kijkassistent:skin-banner-weg'
+
+// Met de Halloween-skin aan staat er in oktober (tot en met 1 november, Nederlandse tijd) een rij Halloween-titels
+// op Voor jou: zie lib/halloween.ts en app/components/HalloweenRow.tsx.
+export function isHalloweenSeason(now: Date = new Date()): boolean {
+  const [, month, day] = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' }).split('-').map(Number)
+  return month === 10 || (month === 11 && day === 1)
+}
 
 export function isSkinId(value: unknown): value is SkinId {
   return SKINS.some((s) => s.id === value)

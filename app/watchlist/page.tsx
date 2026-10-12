@@ -8,7 +8,8 @@ import TitleInfoSheet from '../components/TitleInfoSheet'
 import { card, chip } from '../components/ui'
 import { TrashIcon, HeartIcon, OkIcon, DislikeIcon, StarIcon } from '../components/Icons'
 
-type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
+// 'halloween': vanaf de Halloween-rij op Voor jou (zie app/components/HalloweenRow.tsx).
+type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen' | 'halloween'
 
 type WatchlistItem = {
   id: number
@@ -33,6 +34,7 @@ const MODE_LABELS: Record<RecommendationMode, string> = {
   balanced: 'Mijn smaak, breder',
   explore: 'Verras me',
   samen: 'Samen',
+  halloween: 'Halloween',
 }
 
 export default function Watchlist() {
