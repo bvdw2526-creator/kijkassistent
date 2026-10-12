@@ -178,13 +178,13 @@ export default function SkinBanner({
     <>
       <section className="relative overflow-hidden rounded-2xl border border-line bg-surface mb-5 animate-fade-in">
         <button onClick={() => setShowInfo(true)} className="block w-full text-left touch-manipulation" aria-label={`Meer over ${data.title}`}>
-          <span className="relative block aspect-[16/8] w-full bg-surface-2">
+          <span className="relative block aspect-[16/8] laptop:aspect-[16/5] w-full bg-surface-2">
             {data.backdropPath && (
               <Image
-                src={`https://image.tmdb.org/t/p/w780${data.backdropPath}`}
+                src={`https://image.tmdb.org/t/p/w1280${data.backdropPath}`}
                 alt=""
                 fill
-                sizes="(max-width: 576px) 100vw, 576px"
+                sizes="(min-width: 1280px) 1024px, (max-width: 576px) 100vw, 576px"
                 // Staat bovenaan de pagina: meteen laden, niet wachten tot hij in beeld scrolt.
                 loading="eager"
                 className="object-cover"

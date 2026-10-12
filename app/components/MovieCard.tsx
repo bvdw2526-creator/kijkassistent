@@ -45,7 +45,7 @@ export default function MovieCard({
             src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
             alt={movie.title}
             fill
-            sizes="(min-width: 640px) 33vw, 50vw"
+            sizes="(min-width: 1280px) 200px, (min-width: 640px) 33vw, 50vw"
             priority={priority}
             className="object-cover transition-transform duration-300 group-active:scale-105"
           />

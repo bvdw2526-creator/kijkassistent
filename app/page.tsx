@@ -248,7 +248,7 @@ function explainTip(basedOn: string[] = []): string {
 
 function PosterSkeletonGrid() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 laptop:grid-cols-5 gap-3">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="aspect-[2/3] rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
       ))}
@@ -835,7 +835,7 @@ export default function Home() {
 
   if (loading && movies.length === 0 && !user) {
     return (
-      <main className="max-w-xl mx-auto px-6 py-10">
+      <main className="max-w-xl laptop:max-w-5xl mx-auto px-6 py-10">
         <PosterSkeletonGrid />
       </main>
     )
@@ -888,7 +888,7 @@ export default function Home() {
 
   return (
     <>
-      <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
+      <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
         <header className="flex items-center justify-between mb-5">
           <div>
             <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Kijkassistent</p>
@@ -1160,7 +1160,7 @@ export default function Home() {
         )}
 
         {!showSkeleton && visible.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 laptop:grid-cols-5 gap-3">
             {visible.map((movie, i) => (
               <MovieCard
                 key={`${movie.media_type}-${movie.id}`}

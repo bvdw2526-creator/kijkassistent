@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { authFetch } from '@/lib/supabase'
 import { isHalloweenSeason } from '@/lib/skins'
 import { useSkin } from '@/lib/useSkin'
 import MovieCard from './MovieCard'
 import { chip } from './ui'
+import { ChevronLeftIcon } from './Icons'
 
 type Flavour = 'scary' | 'cozy'
 
@@ -99,11 +100,36 @@ export default function HalloweenRow({
 }) {
   const [chosen, setChosen] = useState<Flavour>('scary')
   const available = FLAVOURS.filter((f) => (lists?.[f.id].length ?? 0) > 0)
-  if (!loading && available.length === 0) return null
   // Is de gekozen smaak leeg (bv. horror uitgesloten, of alles al gezien), dan de andere.
   const flavour = available.some((f) => f.id === chosen) ? chosen : available[0]?.id
   const items = flavour && lists ? lists[flavour] : []
 
+  // Met een muis kun je niet opzij vegen: dan staan er pijltjes op de rij (zie de knoppen hieronder), alleen aan de kant
+  // waar nog titels buiten beeld zijn.
+  const scroller = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState({ left: false, right: false })
+  function updateMore() {
+    const el = scroller.current
+    if (!el) return
+    const next = { left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 }
+    setMore((current) => (current.left === next.left && current.right === next.right ? current : next))
+  }
+  useEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    // Meldt zich meteen bij het aankoppelen, en daarna als de rij breder of smaller wordt.
+    const observer = new ResizeObserver(updateMore)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [flavour, items.length])
+  function scrollBy(direction: 1 | -1) {
+    const el = scroller.current
+    el?.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: 'smooth' })
+  }
+  const arrow =
+    'absolute top-1/2 -translate-y-1/2 z-10 hidden [@media(pointer:fine)]:flex h-9 w-9 items-center justify-center rounded-full border border-line bg-background/85 text-foreground shadow-lg hover:border-accent hover:text-accent transition-colors'
+
+  if (!loading && available.length === 0) return null
   return (
     <section className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mb-5 animate-fade-in">
       <div className="flex items-baseline justify-between gap-3">
@@ -124,16 +150,28 @@ export default function HalloweenRow({
         </div>
       )}
 
-      <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-4 px-4">
-        {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="w-28 flex-shrink-0 aspect-[2/3] rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
-            ))
-          : items.map((movie) => (
-              <div key={`${movie.media_type}-${movie.id}`} className="grid w-28 flex-shrink-0">
-                <MovieCard movie={movie} hideMatch badge={movie.media_type === 'tv' ? 'Serie' : undefined} onClick={() => onSelect(movie)} />
-              </div>
-            ))}
+      <div className="relative -mx-4">
+        {more.left && (
+          <button onClick={() => scrollBy(-1)} aria-label="Vorige titels" className={`${arrow} left-2`}>
+            <ChevronLeftIcon className="w-4 h-4" />
+          </button>
+        )}
+        {more.right && (
+          <button onClick={() => scrollBy(1)} aria-label="Volgende titels" className={`${arrow} right-2`}>
+            <ChevronLeftIcon className="w-4 h-4 rotate-180" />
+          </button>
+        )}
+        <div ref={scroller} onScroll={updateMore} className="flex gap-3 overflow-x-auto no-scrollbar px-4">
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="w-28 flex-shrink-0 aspect-[2/3] rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+              ))
+            : items.map((movie) => (
+                <div key={`${movie.media_type}-${movie.id}`} className="grid w-28 flex-shrink-0">
+                  <MovieCard movie={movie} hideMatch badge={movie.media_type === 'tv' ? 'Serie' : undefined} onClick={() => onSelect(movie)} />
+                </div>
+              ))}
+        </div>
       </div>
     </section>
   )

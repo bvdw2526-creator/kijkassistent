@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Laptop en desktop: een breed scherm dat je met een muis of trackpad bedient. Telefoons en iPads vallen hier buiten
+   (ook een grote iPad liggend: die is breed genoeg, maar heeft een aanraakscherm) en houden hun eigen weergave.
+   Gebruik: laptop:max-w-5xl. */
+@custom-variant laptop (@media (min-width: 1280px) and (pointer: fine));
+
 /* Alle kleuren van de app staan hier. Schermen gebruiken alleen de namen (bg-surface, text-muted, border-line, ...),
    zodat een skin het hele uiterlijk kan wisselen door dit rijtje te vervangen. */
 :root {
