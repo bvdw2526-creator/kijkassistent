@@ -1508,7 +1508,20 @@ const EMPTY_SORTED_BY_MODE: Record<RecommendationMode, RankedCandidate[]> = {
   explore: [],
 }
 
+// Uitleg voor één titel: welke stappen van de berekening hij doorkwam en waar hij afviel. Alleen gevuld als de
+// aanroeper om een titel vraagt (options.explainKey); bedoeld voor het beheerhulpmiddel, zie app/api/admin/waarom.
+export interface TitleExplanation {
+  key: string
+  steps: { name: string; passed: boolean; detail: string }[]
+  // De onderdelen van de score, als de titel een kandidaat was.
+  scores?: Record<string, number>
+  sources?: string[]
+  // Per tabblad: de plek tussen de kandidaten van dezelfde soort (film of serie), en of hij gekozen is.
+  tabs?: { mode: RecommendationMode; rank: number | null; of: number; score: number | null; chosen: boolean; chosenCount: number; lowestChosenScore: number | null }[]
+}
+
 export interface TasteProfile {
+  explanation?: TitleExplanation
   sortedByMode: Record<RecommendationMode, RankedCandidate[]>
   // Alle gescoorde kandidaten, ongefilterd door de per-genre weergavelimiet van
   // sortedByMode (die per tabblad maar 3-8 titels per genre toont). Bedoeld voor de
@@ -1539,8 +1552,12 @@ export async function computeTasteProfile(
   inputs: ProfileInputs,
   // availableOnSourceIds: alleen titels die op (een van) deze diensten te zien zijn komen in de tabbladen. De
   // controle gebeurt vóór het samenstellen per genre, zodat die plekken niet naar titels gaan die toch wegvallen.
-  options: { availableOnSourceIds?: Set<number> } = {}
+  // explainKey ("movie-123"): houd voor deze ene titel bij waar hij afvalt (zie TitleExplanation).
+  options: { availableOnSourceIds?: Set<number>; explainKey?: string } = {}
 ): Promise<TasteProfile> {
+  const explainKey = options.explainKey
+  let explainGenreSkipped = false
+  const explainTabs: NonNullable<TitleExplanation['tabs']> = []
   // Vroeger gaf dit al bij nul favorieten meteen niets terug, ook niet als iemand wél
   // al beoordelingen had gegeven — terwijl de onboarding-pagina expliciet zegt dat
   // beoordelen zonder favorieten toe te voegen ook meetelt. Nu pas leeg als er echt
@@ -1767,7 +1784,10 @@ export async function computeTasteProfile(
       if (excludeIds.has(key)) continue
       // Uitgesloten genres nooit als kandidaat laten instromen, ook niet via een
       // collectie- of titel-aanbeveling — zie excludedGenreIds hierboven.
-      if (item.genre_ids.some((g) => excludedGenreIds.has(g))) continue
+      if (item.genre_ids.some((g) => excludedGenreIds.has(g))) {
+        if (key === explainKey) explainGenreSkipped = true
+        continue
+      }
       const entry = ensureEntry(item)
       entry[field] += weight
       if (label) entry.basedOn.add(label)
@@ -1791,7 +1811,10 @@ export async function computeTasteProfile(
         if (excludeIds.has(candidateKey)) continue
         // Uitgesloten genres nooit als kandidaat laten instromen — zie excludedGenreIds
         // hierboven en dezelfde check in addScore hieronder.
-        if (item.genre_ids.some((g) => excludedGenreIds.has(g))) continue
+        if (item.genre_ids.some((g) => excludedGenreIds.has(g))) {
+          if (candidateKey === explainKey) explainGenreSkipped = true
+          continue
+        }
         let sourcesForCandidate = hitsByCandidate.get(candidateKey)
         if (!sourcesForCandidate) {
           sourcesForCandidate = new Map()
@@ -2082,6 +2105,8 @@ export async function computeTasteProfile(
 
   // Gevuld na de beschikbaarheidscontrole hieronder; tot die tijd (en zonder diensten) geldt geen filter.
   let watchableKeys: Set<string> | null = null
+  // Welke titels de beschikbaarheidscontrole heeft bekeken (alleen voor de uitleg per titel).
+  let availabilityPoolKeys: Set<string> | null = null
 
   function scoreCandidates(mode: RecommendationMode, excludeKeys: Set<string>): RankedCandidate[] {
     const modeConfig = MODE_CONFIG[mode]
@@ -2181,7 +2206,24 @@ export async function computeTasteProfile(
       longTailTvSlots
     )
 
-    return [...chosenMovies, ...longTailMovies, ...chosenTv, ...longTailTv]
+    const result = [...chosenMovies, ...longTailMovies, ...chosenTv, ...longTailTv]
+    if (explainKey) {
+      const mediaType = explainKey.startsWith('tv-') ? 'tv' : 'movie'
+      const keyOf = (m: RankedCandidate) => `${m.media_type}-${m.id}`
+      const sameType = allScored.filter((m) => m.media_type === mediaType).sort((a, b) => b.score - a.score)
+      const index = sameType.findIndex((m) => keyOf(m) === explainKey)
+      const chosenOfType = result.filter((m) => m.media_type === mediaType)
+      explainTabs.push({
+        mode,
+        rank: index >= 0 ? index + 1 : null,
+        of: sameType.length,
+        score: index >= 0 ? sameType[index].score : null,
+        chosen: chosenOfType.some((m) => keyOf(m) === explainKey),
+        chosenCount: chosenOfType.length,
+        lowestChosenScore: chosenOfType.length > 0 ? Math.min(...chosenOfType.map((m) => m.score)) : null,
+      })
+    }
+    return result
   }
 
   // De hele pool, nog zonder beschikbaarheidsfilter: de maatstaf voor het matchpercentage (zie addMatchPercent) en
@@ -2204,6 +2246,7 @@ export async function computeTasteProfile(
         })
     }
     const pool = Array.from(bestRank.values()).sort((a, b) => a.rank - b.rank).map((x) => x.item)
+    availabilityPoolKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`))
     const watchInfo = await resolveWatchInfo(supabase, pool, sourceIds, { maxLive: AVAILABILITY_LIVE_LIMIT })
     watchableKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`).filter((key) => watchInfo.get(key)))
   }
@@ -2270,7 +2313,96 @@ export async function computeTasteProfile(
 
   const allCandidates = addMatchPercent(scoredPool)
 
+  let explanation: TitleExplanation | undefined
+  if (explainKey) {
+    const steps: TitleExplanation['steps'] = []
+    const candidate = candidates.find((c) => `${c.media_type}-${c.id}` === explainKey)
+    const round = (n: number) => Math.round(n * 100) / 100
+    steps.push({
+      name: 'Nog niet gehad',
+      passed: !excludeIds.has(explainKey),
+      detail: excludeIds.has(explainKey)
+        ? 'Je hebt deze titel al beoordeeld, als favoriet, op je kijklijst of verborgen. Daarom komt hij niet meer in je aanbevelingen.'
+        : 'Niet beoordeeld, geen favoriet, niet op je kijklijst en niet verborgen.',
+    })
+    steps.push({
+      name: 'Gevonden als kandidaat',
+      passed: !!candidate,
+      detail: candidate
+        ? `Aangedragen door: ${[...candidate.basedOn].join(', ') || 'de bredere zoektocht'}.`
+        : explainGenreSkipped
+          ? 'Wel gevonden, maar hij heeft een genre dat je hebt uitgesloten.'
+          : blockedKeys.has(explainKey)
+            ? 'Hoort bij een reeks waarvan je meer delen afkeurde dan leuk vond.'
+            : 'Geen enkele bron draagt hem aan: hij staat niet in de "lijkt hierop"-lijsten van wat je leuk vond, hoort niet bij een reeks die je leuk vond, zit niet bij de populaire titels in je genres en niet bij de titels van je thema\'s.',
+    })
+    if (candidate) {
+      steps.push({
+        name: 'Verhaal past (voor titels die er alleen door een thema zijn)',
+        passed: !themeRejected.has(explainKey),
+        detail: themeRejected.has(explainKey)
+          ? `Hij is er alleen door een thema, en zijn verhaal-score (${round(candidate.embeddingBonus)}) ligt onder die van de middelste kandidaat (0).`
+          : (themePoints.get(explainKey) ?? 0) > 0
+            ? `Gevonden via een thema; verhaal-score ${round(candidate.embeddingBonus)}.`
+            : 'Niet van toepassing: hij is er niet alleen door een thema.',
+      })
+      const tooOld = isOlderThan(candidate.release_date, inputs.minYear)
+      steps.push({
+        name: 'Niet te oud',
+        passed: !tooOld,
+        detail: inputs.minYear
+          ? `Jouw grens is ${inputs.minYear}; deze titel is uit ${candidate.release_date?.slice(0, 4) ?? 'onbekend jaar'}.`
+          : 'Je hebt geen grens ingesteld.',
+      })
+      if (watchableKeys) {
+        const watchable = watchableKeys.has(explainKey)
+        const checked = availabilityPoolKeys?.has(explainKey) ?? false
+        steps.push({
+          name: 'Te zien op je diensten',
+          passed: watchable,
+          detail: watchable
+            ? 'Staat bij een van je diensten.'
+            : checked
+              ? 'Volgens de kijkinformatie staat hij nu niet bij een van je diensten.'
+              : `Niet gecontroleerd: hij scoorde te laag om bij de beste ${AVAILABILITY_POOL_PER_MODE} te horen, of viel bij een eerdere stap af.`,
+        })
+      }
+      const gateActive = learn >= FOCUSED_GATE_MIN_LEARN
+      const supported =
+        candidate.neighborMax >= FOCUSED_MIN_NEIGHBOR_SIM || candidate.collectionScore > 0 || candidate.actorScore > 0 || candidate.directorScore > 0
+      steps.push({
+        name: 'Mag in Puur mijn smaak',
+        passed: !gateActive || supported,
+        detail: !gateActive
+          ? 'De drempel geldt nog niet: de app heeft nog te weinig van je geleerd.'
+          : `Sterkste gelijkenis met een titel die je leuk vond: ${round(candidate.neighborMax)} (nodig: ${FOCUSED_MIN_NEIGHBOR_SIM}), of hij moet bij een reeks, favoriete acteur of favoriete regisseur horen.`,
+      })
+      explanation = {
+        key: explainKey,
+        steps,
+        scores: {
+          lijsten: round(candidate.coreScore),
+          lijstenOke: round(candidate.okScore),
+          zoektocht: round(candidate.discoverScore),
+          waarvanThema: themePoints.get(explainKey) ?? 0,
+          reeks: round(candidate.collectionScore),
+          verhaal: round(candidate.embeddingBonus),
+          buren: round(candidate.neighborScore),
+          kenmerken: round(candidate.featureScore),
+          acteur: round(candidate.actorScore),
+          regisseur: round(candidate.directorScore),
+          afkeuring: round(candidate.dislikeScore),
+        },
+        sources: [...candidate.contentLabels.slice(0, 1), ...candidate.basedOn],
+        tabs: explainTabs.map((t) => ({ ...t, score: t.score === null ? null : round(t.score), lowestChosenScore: t.lowestChosenScore === null ? null : round(t.lowestChosenScore) })),
+      }
+    } else {
+      explanation = { key: explainKey, steps }
+    }
+  }
+
   return {
+    ...(explanation ? { explanation } : {}),
     sortedByMode: {
       focused: addMatchPercent(focusedResults),
       balanced: addMatchPercent(balancedResults),

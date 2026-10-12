@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
+import WhyTitle from '../components/WhyTitle'
 import { card } from '../components/ui'
 
 type Totals = {
@@ -207,6 +208,9 @@ export default function Beheer() {
             </div>
           </div>
         )}
+
+        {/* Alleen als het overzicht laadde: dat lukt alleen voor de beheerder. De route controleert het zelf ook. */}
+        {data && <WhyTitle />}
       </main>
 
       <BottomNav />
