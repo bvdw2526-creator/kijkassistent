@@ -286,7 +286,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
   const [selected, setSelected] = useState<Movie | null>(null)
-  const [mode, setMode] = useState<RecommendationMode>('balanced')
+  // Je begint op Puur mijn smaak: de titels waar de app het zekerst van is.
+  const [mode, setMode] = useState<RecommendationMode>('focused')
   const [togetherConnected, setTogetherConnected] = useState<boolean | null>(null)
   const [togetherTier, setTogetherTier] = useState<TogetherTier | null>(null)
   const [togetherError, setTogetherError] = useState<string | null>(null)

@@ -10,6 +10,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-12',
+    date: '12 oktober 2026',
+    items: [
+      "De app zoekt nu zelf films en series bij de thema's waar je het meest van houdt, zoals tijdreizen, boksen of spionnen.",
+      'Voor jou opent voortaan op Puur mijn smaak.',
+    ],
+  },
+  {
     id: '2026-10-11',
     date: '11 oktober 2026',
     items: [

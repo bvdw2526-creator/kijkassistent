@@ -309,6 +309,84 @@ export function buildFeatureTaste(
   return taste
 }
 
+// Trefwoorden die geen onderwerp zijn maar een stemming of genre ("suspenseful", "thriller"): TMDB hangt die aan
+// heel veel titels, dus zoeken op zo'n woord levert willekeur op. Plaatsnamen ("paris, france") vallen ook af, zie
+// isSearchableTheme.
+const THEME_SKIP = new Set(
+  (
+    'admiring adoring aggressive ambiguous amused angry anxious appreciative awestruck baffled bold calm cautionary ' +
+    'celebratory cheerful clinical comforting complex critical curious defiant depressing desperate didactic ' +
+    'disheartening distressing dramatic dreams earnest ecstatic empathetic enchanting excited exhilarated familiar ' +
+    'foreboding frantic frightened frustrated ghoulish grand harsh hero hilarious hopeful hopeless horrified hostile ' +
+    'inspirational intense intimate joyful lighthearted love loving melodramatic mischievous mysterious optimistic ' +
+    'playful powerful provocative reflective romantic sarcastic satirical sentimental serious sincere suspenseful ' +
+    'sympathetic tense thoughtful tragic urgent vibrant whimsical witty zany ' +
+    'thriller drama comedy action adventure horror romance mystery crime fantasy suspense psychological murder ' +
+    'friendship family villain death'
+  ).split(' ')
+)
+// Hetzelfde voor trefwoorden van meer woorden die te vaag zijn om een thema te zijn: TMDB hangt "dying and death" aan
+// oorlogsfilms en aan Ice Age. Ook verhaalvormen (flashback), relaties en hoofdpersonen horen hierbij.
+const THEME_SKIP_PHRASES = new Set([
+  'dying and death', 'loss of loved one', 'suicide', 'violence', 'nudity', 'flashback', 'nonlinear timeline',
+  'voice over narration', 'sibling relationship', 'father son relationship', 'father daughter relationship',
+  'mother son relationship', 'mother daughter relationship', 'husband wife relationship', 'parent child relationship',
+  'family relationships', 'female protagonist', 'male protagonist', 'action hero', 'good versus evil', 'love triangle',
+  'new york city', 'los angeles', 'london', 'paris', 'fight', 'chase', 'explosion', 'rescue', 'escape', 'betrayal',
+])
+const isSearchableTheme = (name: string) => {
+  const lower = name.toLowerCase()
+  return !STRUCTURAL_KEYWORDS.has(lower) && !THEME_SKIP.has(lower) && !THEME_SKIP_PHRASES.has(lower) && !lower.includes(', ')
+}
+
+// Een thema telt pas als "van jou" als zoveel titels die je leuk vond het hebben.
+const THEME_MIN_TITLES = 4
+// Twee trefwoorden die grotendeels op dezelfde titels zitten (superhero / based on comic) zijn één thema: het tweede
+// valt af als meer dan dit deel van zijn titels het eerste ook heeft.
+const THEME_MAX_OVERLAP = 0.5
+
+// De thema's die het sterkst bij iemands smaak horen, om er zelf titels bij te gaan zoeken (zie de motor). Zelfde
+// weging als de kenmerkenscore: vaak bij wat je leuk vond, weinig bij wat je afkeurde of "oké" vond, en liever
+// onderscheidend dan algemeen. Overlappende trefwoorden tellen als één thema, zodat niet alle plekken naar varianten
+// van hetzelfde gaan.
+export function strongestThemes(
+  liked: { features: TitleFeatures; weight: number }[],
+  against: { disliked: TitleFeatures[]; ok: TitleFeatures[] },
+  limit: number
+): { id: number; name: string; label: string }[] {
+  const taste = buildFeatureTaste(liked, against, [...liked.map((l) => l.features), ...against.disliked, ...against.ok])
+  if (taste.total <= 0) return []
+  const names = new Map<number, string>()
+  const titlesWith = new Map<number, Set<number>>()
+  liked.forEach((source, index) => {
+    for (const k of source.features.keywords) {
+      names.set(k.id, k.name)
+      const set = titlesWith.get(k.id) ?? new Set<number>()
+      set.add(index)
+      titlesWith.set(k.id, set)
+    }
+  })
+  const ranked = [...titlesWith]
+    .filter(([id, set]) => set.size >= THEME_MIN_TITLES && isSearchableTheme(names.get(id) ?? ''))
+    .map(([id, set]) => ({ id, set, value: ((taste.keywordWeight.get(id) ?? 0) / taste.total) * (taste.idf.get(id) ?? 0) }))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+  const picked: typeof ranked = []
+  for (const candidate of ranked) {
+    if (picked.length >= limit) break
+    const sameAsPicked = picked.some((p) => {
+      let shared = 0
+      for (const title of candidate.set) if (p.set.has(title)) shared++
+      return shared / candidate.set.size > THEME_MAX_OVERLAP
+    })
+    if (!sameAsPicked) picked.push(candidate)
+  }
+  return picked.map((p) => {
+    const name = names.get(p.id) ?? ''
+    return { id: p.id, name, label: `thema ${KEYWORD_NL[name.toLowerCase()] ?? name}` }
+  })
+}
+
 // Score van één titel tegen je smaak, plus korte redenen voor in de uitleg ("regisseur …", "het thema …").
 export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { score: number; labels: string[] } {
   if (taste.total <= 0) return { score: 0, labels: [] }
@@ -336,8 +414,11 @@ export function scoreTitleFeatures(taste: FeatureTaste, f: TitleFeatures): { sco
   const labels: string[] = []
   if (directorMatches.length > 0 && directorMatches[0].w >= DIRECTOR_MIN_POSITIVE) labels.push(`regisseur ${directorMatches[0].d.name}`)
   // Alleen een trefwoord noemen dat echt opvalt: veel van je favorieten hebben het en weinig andere titels.
-  if (matches.length > 0 && matches[0].value >= 0.15) {
-    const name = matches[0].k.name
+  // Stemmingswoorden en plaatsen ("admiring", "new york city") tellen wel mee in de score, maar zijn geen reden die
+  // iemand iets zegt: dan het eerstvolgende echte thema noemen.
+  const themeMatch = matches.find((m) => isSearchableTheme(m.k.name))
+  if (themeMatch && themeMatch.value >= 0.15) {
+    const name = themeMatch.k.name
     // "thema" ervoor, zodat het in de uitleg niet voor een film of serie wordt aangezien.
     labels.push(`thema ${KEYWORD_NL[name.toLowerCase()] ?? name}`)
   }

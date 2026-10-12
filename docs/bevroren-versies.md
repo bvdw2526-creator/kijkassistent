@@ -80,6 +80,11 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   ongewijzigd; bij Samen geldt de strengste grens van beide partners. Nieuwe database-onderdelen: kolommen
   `hidden_titles.reason`, `hidden_titles.release_year` en `profiles.min_year` (migratie `20261011_te_oud.sql`).
   Voorvoegsels nu `u16` en `v24-te-oud`.
+- 12 okt 2026: de motor zoekt zelf titels bij je zes sterkste thema's (`strongestThemes` in `lib/titleFeatures.ts`,
+  `discoverByTheme` in de motor). Het is een extra bron van kandidaten; de weging van de bestaande signalen is
+  ongewijzigd (kenmerken-toets blijft 78,0 / 69,9 en 73,7 / 58,1). Aanleiding: een liefhebber van tijdreizen had 38
+  onbekende tijdreistitels op zijn diensten en zag er 2. Niet bij Samen. Voorvoegsels nu `u17` en `v25-themas`.
+  Terugzetten: de twee bestanden uit het label halen en de voorvoegsels ophogen.
 
 ## Afspraken bij verder sleutelen
 

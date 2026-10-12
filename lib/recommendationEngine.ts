@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getFeaturesBulk, buildFeatureTaste, scoreTitleFeatures } from './titleFeatures'
+import { getFeaturesBulk, buildFeatureTaste, scoreTitleFeatures, strongestThemes } from './titleFeatures'
 
 export type MediaType = 'movie' | 'tv'
 export type Tier = 'core' | 'ok'
@@ -302,6 +302,19 @@ const ROUND_ROBIN_GENRE_LIMIT = 10
 const DISCOVER_PAGES = [1, 2]
 // Gefilterd op iemands diensten valt er niets meer af, dus mag de zoektocht iets dieper: 60 titels per soort.
 const DISCOVER_PAGES_ON_SERVICES = [1, 2, 3]
+// Bij zoveel van je sterkste thema's (tijdreizen, boksen, ...) zoekt de motor zelf titels op je diensten. Zonder dit
+// gaf een thema alleen een bonus aan titels die al om een andere reden gevonden waren; een thema waar je van houdt
+// maar dat niet in de "lijkt hierop"-lijsten zit, kwam dan nauwelijks boven (gemeten 12 okt 2026: 38 tijdreistitels
+// op de diensten van een liefhebber, 2 in de lijsten).
+const THEME_SOURCE_LIMIT = 6
+// Zo zwaar telt "gevonden via een thema" mee als bredere zoektocht. De echte plek volgt uit de rest van de score.
+const THEME_DISCOVER_WEIGHT = 2
+// Per thema de bekendste titels, zoveel pagina's van twintig. Eén pagina was te weinig: van een thema waar je van
+// houdt heb je de twintig bekendste meestal al gezien.
+const THEME_PAGES = [1, 2, 3]
+// Een thema met meer titels dan dit bij TMDB (films en series samen) is te ruim om op te zoeken: "revenge" (ruim 800)
+// leverde willekeur op, "time travel" (360) en "based on comic" (614) niet.
+const THEME_MAX_TITLES = 700
 // 2 pagina's i.p.v. 3: pagina 3 van TMDB's per-titel-aanbevelingen voegt weinig relevantie
 // toe, maar bij veel favorieten/ratings (elk 3 losse TMDB-calls) telt dat wel flink op.
 const RECOMMENDATION_PAGES = [1, 2]
@@ -1318,6 +1331,68 @@ export async function discoverByGenres(
   return { results, label: `jouw voorkeur voor ${topGenres.slice(0, 3).map((g) => g.name).join(', ')}` }
 }
 
+// Hoeveel titels TMDB bij een trefwoord kent (films en series samen), om te ruime thema's over te slaan. Verandert
+// nauwelijks, dus onthouden zolang de server draait; lukt het ophalen niet, dan telt het thema als te ruim.
+const themeSizeCache = new Map<number, number>()
+async function themeSize(keywordId: number): Promise<number> {
+  const known = themeSizeCache.get(keywordId)
+  if (known !== undefined) return known
+  try {
+    const counts = await Promise.all(
+      (['movie', 'tv'] as MediaType[]).map(async (mediaType) => {
+        const res = await fetch(`https://api.themoviedb.org/3/discover/${mediaType}?with_keywords=${keywordId}&vote_count.gte=100`, {
+          headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
+        })
+        if (!res.ok) throw new Error(`TMDB gaf status ${res.status}`)
+        return ((await res.json()).total_results as number) ?? 0
+      })
+    )
+    const size = counts[0] + counts[1]
+    themeSizeCache.set(keywordId, size)
+    return size
+  } catch {
+    return Number.POSITIVE_INFINITY
+  }
+}
+
+// De bekendste titels met één trefwoord (thema) op de gegeven diensten, in de talen die je eerder keek. Deelt de cache
+// met discoverByGenres.
+async function discoverByTheme(
+  supabase: SupabaseClient,
+  mediaType: MediaType,
+  keywordId: number,
+  options: { providerIds: number[]; excludeGenreIds?: number[]; languages?: string[] }
+): Promise<TmdbItem[]> {
+  const providerIds = [...options.providerIds].sort((a, b) => a - b)
+  const excludeGenreIds = [...(options.excludeGenreIds ?? [])].sort((a, b) => a - b)
+  const languages = [...(options.languages ?? [])].sort()
+  const cacheKey =
+    `kw:${keywordId}|p:${providerIds.join('-')}` +
+    (excludeGenreIds.length > 0 ? `|x:${excludeGenreIds.join('-')}` : '') +
+    (languages.length > 0 ? `|l:${languages.join('-')}` : '')
+  const pages = await Promise.all(
+    THEME_PAGES.map((page) =>
+      getCachedDiscoverPage(supabase, mediaType, cacheKey, page, async () => {
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/discover/${mediaType}?with_keywords=${keywordId}&sort_by=vote_count.desc&vote_count.gte=100&language=nl-NL&page=${page}` +
+              `&watch_region=NL&with_watch_monetization_types=${monetizationTypesFor(providerIds)}&with_watch_providers=${providerIds.join('|')}` +
+              (excludeGenreIds.length > 0 ? `&without_genres=${excludeGenreIds.join(',')}` : '') +
+              (languages.length > 0 ? `&with_original_language=${languages.join('|')}` : ''),
+            { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+          )
+          if (!res.ok) return null
+          const data = await res.json()
+          return mapTmdbResults(data.results || [], mediaType)
+        } catch {
+          return null
+        }
+      })
+    )
+  )
+  return pages.flat()
+}
+
 // Vult vooraf de gedeelde caches voor een aantal titels (details, "lijkt hierop"-lijstjes en de
 // verhaal-vingerafdruk), zodat de eerste berekening na een grote import niet alles tegelijk
 // bij TMDB en Voyage hoeft op te halen. Bedoeld voor kleine porties tegelijk (zie de import-wizard).
@@ -1591,6 +1666,46 @@ export async function computeTasteProfile(
     options.availableOnSourceIds && options.availableOnSourceIds.size > 0
       ? { providerIds: [...options.availableOnSourceIds], pages: DISCOVER_PAGES_ON_SERVICES, excludeGenreIds: [...excludedGenreIds] }
       : undefined
+  // Thema's waar de motor zelf op zoekt (zie THEME_SOURCE_LIMIT). Alleen met bekende diensten en als de app al iets
+  // van je geleerd heeft; Samen geeft geen diensten mee en blijft zoals het was.
+  const sourceFeaturesEarly =
+    discoverOptions && learn > 0
+      ? await getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES })
+      : null
+  const themeCandidates = sourceFeaturesEarly
+    ? strongestThemes(
+        coreSources.flatMap((s) => {
+          const features = sourceFeaturesEarly.get(`${s.media_type}-${s.tmdb_id}`)
+          return features ? [{ features, weight: s.weight }] : []
+        }),
+        {
+          disliked: dislikedItems.flatMap((i) => sourceFeaturesEarly.get(`${i.media_type}-${i.tmdb_id}`) ?? []),
+          ok: okItems.flatMap((i) => sourceFeaturesEarly.get(`${i.media_type}-${i.tmdb_id}`) ?? []),
+        },
+        // Ruim genomen: een deel valt hieronder af omdat het thema te ruim is.
+        THEME_SOURCE_LIMIT * 2
+      )
+    : []
+  const themeSizes = await Promise.all(themeCandidates.map((theme) => themeSize(theme.id)))
+  const themes = themeCandidates.filter((_, index) => themeSizes[index] <= THEME_MAX_TITLES).slice(0, THEME_SOURCE_LIMIT)
+  // Alleen in talen waarin je al iets leuk vond: zoeken op "tijdreizen" gaf anders vooral Koreaanse dramaseries aan
+  // iemand die die nooit keek. Wie ze wel kijkt, krijgt ze gewoon.
+  const likedLanguages = [
+    ...new Set(coreSources.flatMap((s) => sourceFeaturesEarly?.get(`${s.media_type}-${s.tmdb_id}`)?.language ?? [])),
+  ]
+  const themeResults = await Promise.all(
+    themes.flatMap((theme) =>
+      (['movie', 'tv'] as MediaType[]).map(async (mediaType) => ({
+        label: theme.label,
+        results: await discoverByTheme(supabase, mediaType, theme.id, {
+          providerIds: discoverOptions!.providerIds,
+          excludeGenreIds: discoverOptions!.excludeGenreIds,
+          languages: likedLanguages,
+        }),
+      }))
+    )
+  )
+
   const [movieGenreResults, tvGenreResults, collectionResults, dislikedCollectionParts] = await Promise.all([
     discoverByGenres(supabase, 'movie', movieGenres, discoverOptions),
     discoverByGenres(supabase, 'tv', tvGenres, discoverOptions),
@@ -1702,6 +1817,15 @@ export async function computeTasteProfile(
 
   addScore(movieGenreResults.results, 'discoverScore', 1, movieGenreResults.label)
   addScore(tvGenreResults.results, 'discoverScore', 1, tvGenreResults.label)
+  // Per kandidaat hoeveel van zijn score uit de thema-zoektocht komt, om verderop te zien wie er alleen dáárdoor is.
+  const themePoints = new Map<string, number>()
+  for (const theme of themeResults) {
+    addScore(theme.results, 'discoverScore', THEME_DISCOVER_WEIGHT, theme.label)
+    for (const item of theme.results) {
+      const key = `${item.media_type}-${item.id}`
+      themePoints.set(key, (themePoints.get(key) ?? 0) + THEME_DISCOVER_WEIGHT)
+    }
+  }
   for (const collection of collectionResults) {
     addScore(collection.results, 'collectionScore', COLLECTION_WEIGHT, collection.label)
   }
@@ -1882,7 +2006,7 @@ export async function computeTasteProfile(
     const featurePool = [...candidates].sort((a, b) => featurePre(b) - featurePre(a)).slice(0, MAX_FEATURE_CANDIDATES)
     // Volgorde = voorrang bij het live ophalen: eerst wat je leuk vond, dan je afkeuringen, dan "oké".
     const [sourceFeatures, poolFeatures] = await Promise.all([
-      getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES }),
+      sourceFeaturesEarly ?? getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES }),
       getFeaturesBulk(
         supabase,
         featurePool.map((c) => ({ media_type: c.media_type, tmdb_id: c.id })),
@@ -1941,6 +2065,18 @@ export async function computeTasteProfile(
     }
   }
 
+  // Een titel die er alleen door een thema is (geen "lijkt hierop"-lijst, geen reeks, niet populair in je genres) moet
+  // ook qua verhaal bij je passen: minstens zo goed als de middelste kandidaat (verhaal-score 0 of hoger). Anders
+  // brengt een thema titels binnen die alleen het trefwoord delen.
+  const themeRejected = new Set<string>()
+  for (const candidate of candidates) {
+    const key = `${candidate.media_type}-${candidate.id}`
+    const fromTheme = themePoints.get(key) ?? 0
+    const onlyTheme =
+      fromTheme > 0 && candidate.coreScore === 0 && candidate.okScore === 0 && candidate.collectionScore === 0 && candidate.discoverScore <= fromTheme
+    if (onlyTheme && candidate.embeddingBonus < 0) themeRejected.add(key)
+  }
+
   const movieGenreIds = movieGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
   const tvGenreIds = tvGenres.slice(0, ROUND_ROBIN_GENRE_LIMIT).map((g) => g.id)
 
@@ -1956,7 +2092,8 @@ export async function computeTasteProfile(
       (item) =>
         !excludeKeys.has(`${item.media_type}-${item.id}`) &&
         (!watchableKeys || watchableKeys.has(`${item.media_type}-${item.id}`)) &&
-        !isOlderThan(item.release_date, inputs.minYear)
+        !isOlderThan(item.release_date, inputs.minYear) &&
+        !themeRejected.has(`${item.media_type}-${item.id}`)
     )
     // Puur mijn smaak: alleen titels die ook echt lijken op iets wat je leuk vond (zie FOCUSED_MIN_NEIGHBOR_SIM).
     let selectable = availableCandidates
@@ -1987,7 +2124,8 @@ export async function computeTasteProfile(
         // (zie addMatchPercent) herberekend t.o.v. de sterkste match in die uiteindelijke lijst.
         matchPercent: 0,
         // Eén reden uit de kenmerken (regisseur of thema) staat voorop, daarna de titels waar je van hield.
-        basedOn: [...item.contentLabels.slice(0, 1), ...Array.from(item.basedOn)].slice(0, 3),
+        // Zonder dubbelen: een thema kan zowel uit de kenmerken als uit de thema-zoektocht komen.
+        basedOn: [...new Set([...item.contentLabels.slice(0, 1), ...item.basedOn])].slice(0, 3),
       }
     })
   }
