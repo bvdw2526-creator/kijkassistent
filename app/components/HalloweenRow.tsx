@@ -42,7 +42,8 @@ const FLAVOURS: { id: Flavour; label: string }[] = [
 const cache = new Map<string, Lists>()
 
 // De Halloween-rij van deze gebruiker, alleen met de Halloween-skin aan en in het seizoen (zie isHalloweenSeason).
-// `remove` haalt een titel eruit zodra je hem hebt beoordeeld, op een lijst gezet of verborgen.
+// `remove` haalt een titel eruit zodra je hem hebt beoordeeld, op een lijst gezet of verborgen; `reload` haalt de rij
+// opnieuw op (bij Vernieuwen), bv. nadat je bij Instellingen horror hebt toegestaan of uitgesloten.
 export function useHalloweenLists(userId: string | null, scope: HalloweenScope | null) {
   const skin = useSkin()
   const active = skin === 'halloween' && isHalloweenSeason()
@@ -82,7 +83,14 @@ export function useHalloweenLists(userId: string | null, scope: HalloweenScope |
     })
   }
 
-  return { active, lists: known ?? null, loading: !!key && !known, remove }
+  function reload() {
+    if (!userId) return
+    const keys = (['personal', 'samen'] as const).map((s) => `${userId}:${s}`)
+    keys.forEach((k) => cache.delete(k))
+    setLoaded((current) => Object.fromEntries(Object.entries(current).filter(([k]) => !keys.includes(k))))
+  }
+
+  return { active, lists: known ?? null, loading: !!key && !known, remove, reload }
 }
 
 // Rij Halloween-titels op Voor jou, los van de gewone aanbevelingen. Zonder percentage: de volgorde is op smaak, maar

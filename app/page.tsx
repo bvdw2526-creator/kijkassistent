@@ -971,6 +971,7 @@ export default function Home() {
             onClick={() => {
               loadRecommendations()
               loadTogetherRecommendations()
+              halloween.reload()
             }}
             disabled={loading}
             className="text-xs font-medium text-muted hover:text-foreground transition-colors disabled:opacity-50"
