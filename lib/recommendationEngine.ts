@@ -1331,6 +1331,51 @@ export async function discoverByGenres(
   return { results, label: `jouw voorkeur voor ${topGenres.slice(0, 3).map((g) => g.name).join(', ')}` }
 }
 
+// Nieuw op je diensten: titels die de afgelopen maanden zijn verschenen. Zonder deze bron kwam een nieuwe titel pas in
+// beeld als hij populair genoeg was voor de bredere zoektocht of in de "lijkt hierop"-lijsten van TMDB stond; een
+// kleinere of niet-Engelstalige serie haalde dat laat of nooit (gemeten 13 okt 2026: The Polygamist, vier maanden op
+// Netflix, stond bij niemand en was door de app nooit gezien). Bewust niet op taal gefilterd.
+const NEW_RELEASE_MONTHS = 6
+const NEW_RELEASE_PAGES = [1, 2, 3]
+// Telt als een gewone treffer in de bredere zoektocht; de rest van de score bepaalt of hij in je lijsten komt.
+const NEW_RELEASE_WEIGHT = 1
+export const NEW_RELEASE_LABEL = 'nieuw op je diensten'
+
+// De bekendste titels van de afgelopen NEW_RELEASE_MONTHS maanden op de gegeven diensten. De begindatum is de eerste van
+// de maand, zodat de cache een maand lang dezelfde sleutel houdt. Deelt de cache met discoverByGenres.
+async function discoverNewReleases(
+  supabase: SupabaseClient,
+  mediaType: MediaType,
+  options: { providerIds: number[]; excludeGenreIds?: number[] }
+): Promise<TmdbItem[]> {
+  const providerIds = [...options.providerIds].sort((a, b) => a - b)
+  const excludeGenreIds = [...(options.excludeGenreIds ?? [])].sort((a, b) => a - b)
+  const now = new Date()
+  const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - NEW_RELEASE_MONTHS, 1)).toISOString().slice(0, 10)
+  const dateField = mediaType === 'tv' ? 'first_air_date' : 'primary_release_date'
+  const cacheKey = `new:${since}|p:${providerIds.join('-')}` + (excludeGenreIds.length > 0 ? `|x:${excludeGenreIds.join('-')}` : '')
+  const pages = await Promise.all(
+    NEW_RELEASE_PAGES.map((page) =>
+      getCachedDiscoverPage(supabase, mediaType, cacheKey, page, async () => {
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/discover/${mediaType}?${dateField}.gte=${since}&sort_by=vote_count.desc&vote_count.gte=20&language=nl-NL&page=${page}` +
+              `&watch_region=NL&with_watch_monetization_types=${monetizationTypesFor(providerIds)}&with_watch_providers=${providerIds.join('|')}` +
+              (excludeGenreIds.length > 0 ? `&without_genres=${excludeGenreIds.join(',')}` : ''),
+            { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+          )
+          if (!res.ok) return null
+          const data = await res.json()
+          return mapTmdbResults(data.results || [], mediaType)
+        } catch {
+          return null
+        }
+      })
+    )
+  )
+  return pages.flat()
+}
+
 // Hoeveel titels TMDB bij een trefwoord kent (films en series samen), om te ruime thema's over te slaan. Verandert
 // nauwelijks, dus onthouden zolang de server draait; lukt het ophalen niet, dan telt het thema als te ruim.
 const themeSizeCache = new Map<number, number>()
@@ -1723,6 +1768,17 @@ export async function computeTasteProfile(
     )
   )
 
+  // Nieuw op je diensten (zie NEW_RELEASE_MONTHS). Alleen met bekende diensten; Samen blijft zoals het was.
+  const newReleaseResults = discoverOptions
+    ? (
+        await Promise.all(
+          (['movie', 'tv'] as MediaType[]).map((mediaType) =>
+            discoverNewReleases(supabase, mediaType, { providerIds: discoverOptions.providerIds, excludeGenreIds: discoverOptions.excludeGenreIds })
+          )
+        )
+      ).flat()
+    : []
+
   const [movieGenreResults, tvGenreResults, collectionResults, dislikedCollectionParts] = await Promise.all([
     discoverByGenres(supabase, 'movie', movieGenres, discoverOptions),
     discoverByGenres(supabase, 'tv', tvGenres, discoverOptions),
@@ -1848,6 +1904,12 @@ export async function computeTasteProfile(
       const key = `${item.media_type}-${item.id}`
       themePoints.set(key, (themePoints.get(key) ?? 0) + THEME_DISCOVER_WEIGHT)
     }
+  }
+  // Nieuwe titels tellen hier mee: ook zij moeten qua verhaal passen als ze er alleen door deze zoektocht zijn.
+  addScore(newReleaseResults, 'discoverScore', NEW_RELEASE_WEIGHT, NEW_RELEASE_LABEL)
+  for (const item of newReleaseResults) {
+    const key = `${item.media_type}-${item.id}`
+    themePoints.set(key, (themePoints.get(key) ?? 0) + NEW_RELEASE_WEIGHT)
   }
   for (const collection of collectionResults) {
     addScore(collection.results, 'collectionScore', COLLECTION_WEIGHT, collection.label)
@@ -2334,17 +2396,17 @@ export async function computeTasteProfile(
           ? 'Wel gevonden, maar hij heeft een genre dat je hebt uitgesloten.'
           : blockedKeys.has(explainKey)
             ? 'Hoort bij een reeks waarvan je meer delen afkeurde dan leuk vond.'
-            : 'Geen enkele bron draagt hem aan: hij staat niet in de "lijkt hierop"-lijsten van wat je leuk vond, hoort niet bij een reeks die je leuk vond, zit niet bij de populaire titels in je genres en niet bij de titels van je thema\'s.',
+            : 'Geen enkele bron draagt hem aan: hij staat niet in de "lijkt hierop"-lijsten van wat je leuk vond, hoort niet bij een reeks die je leuk vond, zit niet bij de populaire titels in je genres, niet bij de titels van je thema\'s en niet bij de nieuwe titels op je diensten.',
     })
     if (candidate) {
       steps.push({
-        name: 'Verhaal past (voor titels die er alleen door een thema zijn)',
+        name: 'Verhaal past (voor titels die er alleen door een thema of als nieuwe titel zijn)',
         passed: !themeRejected.has(explainKey),
         detail: themeRejected.has(explainKey)
-          ? `Hij is er alleen door een thema, en zijn verhaal-score (${round(candidate.embeddingBonus)}) ligt onder die van de middelste kandidaat (0).`
+          ? `Hij is er alleen door een thema of omdat hij nieuw is, en zijn verhaal-score (${round(candidate.embeddingBonus)}) ligt onder die van de middelste kandidaat (0).`
           : (themePoints.get(explainKey) ?? 0) > 0
-            ? `Gevonden via een thema; verhaal-score ${round(candidate.embeddingBonus)}.`
-            : 'Niet van toepassing: hij is er niet alleen door een thema.',
+            ? `Gevonden via een thema of als nieuwe titel; verhaal-score ${round(candidate.embeddingBonus)}.`
+            : 'Niet van toepassing: hij is er niet alleen door een thema of omdat hij nieuw is.',
       })
       const tooOld = isOlderThan(candidate.release_date, inputs.minYear)
       steps.push({

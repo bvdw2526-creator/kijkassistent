@@ -19,7 +19,7 @@ const SCORE_NAMES: Record<string, string> = {
   lijsten: '"Lijkt hierop"-lijsten van wat je leuk vond',
   lijstenOke: '"Lijkt hierop"-lijsten van wat je oké vond',
   zoektocht: 'Bredere zoektocht (genres en thema\'s)',
-  waarvanThema: 'waarvan via een thema',
+  waarvanThema: 'waarvan via een thema of als nieuwe titel',
   reeks: 'Hoort bij een reeks',
   verhaal: 'Verhaal (0 = middelste kandidaat)',
   buren: 'Lijkt op losse titels die je leuk vond',

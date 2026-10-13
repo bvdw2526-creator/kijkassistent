@@ -85,6 +85,11 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   ongewijzigd (kenmerken-toets blijft 78,0 / 69,9 en 73,7 / 58,1). Aanleiding: een liefhebber van tijdreizen had 38
   onbekende tijdreistitels op zijn diensten en zag er 2. Niet bij Samen. Voorvoegsels nu `u17` en `v25-themas`.
   Terugzetten: de twee bestanden uit het label halen en de voorvoegsels ophogen.
+- 13 okt 2026: nieuwe bron "nieuw op je diensten" (`discoverNewReleases` in de motor): titels van de afgelopen zes
+  maanden op je diensten, niet op taal gefilterd; de gewone score bepaalt of ze in je lijsten komen, en een titel die er
+  alleen hierdoor is moet qua verhaal passen. Aanleiding: The Polygamist stond vier maanden op Netflix en was door de
+  app nooit gezien. Weging ongewijzigd (kenmerken-toets blijft 78,0 / 69,9 en 73,7 / 58,1). Niet bij Samen.
+  Voorvoegsel nu `u20`.
 
 ## Afspraken bij verder sleutelen
 
