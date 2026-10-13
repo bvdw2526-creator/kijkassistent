@@ -3,14 +3,23 @@ import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
   SOURCE_IDS,
   fetchProfileInputs,
+  getWatchProvidersBulk,
   isOlderThan,
   resolveWatchInfo,
   type ProfileInputs,
   type RecommendationItem,
+  type WatchProviderSource,
 } from '@/lib/recommendationEngine'
-import { HORROR_GENRE, fetchHalloweenCandidates, halloweenTaste, type HalloweenCandidate, type HalloweenFlavour } from '@/lib/halloween'
-import { scoreUpcoming } from '@/lib/upcomingTitles'
-import { isHalloweenSeason } from '@/lib/skins'
+import {
+  HORROR_GENRE,
+  fetchHalloweenCandidates,
+  fetchHalloweenClassics,
+  halloweenTaste,
+  type HalloweenCandidate,
+  type HalloweenFlavour,
+} from '@/lib/halloween'
+import { scoreUpcoming, type UpcomingCandidate } from '@/lib/upcomingTitles'
+import { isHalloweenDay, isHalloweenSeason } from '@/lib/skins'
 import { withLatinTitles } from '@/lib/titleFallback'
 
 // Bij een koude cache: vingerafdrukken maken voor Halloween-titels die nog nergens zijn aanbevolen.
@@ -22,10 +31,30 @@ const MAX_SERIES_PER_FLAVOUR = 4
 // Van zoveel best passende titels per smaak controleren we nog eens of ze echt op de diensten staan.
 const AVAILABILITY_POOL = 30
 const AVAILABILITY_LIVE_LIMIT = 40
+// Op Halloween zelf (?dag=1) vult de lijst heel Voor jou: veel meer titels, en geen grens aan het aantal series, want de
+// app toont films en series dan apart.
+const DAY_MAX_PER_FLAVOUR = 60
+const DAY_AVAILABILITY_LIVE_LIMIT = 150
+// Op Halloween zelf telt naast smaak ook mee hoe bekend een titel is, half om half: anders staan de titels die iedereen
+// bij Halloween verwacht (Scream, It, The Conjuring) ergens achteraan als ze niet precies je smaak zijn.
+const DAY_FAME_WEIGHT = 0.5
+// Hoeveel een pure horrorfilm erbij krijgt bij "griezelig" (de scores lopen van 0 tot 1).
+const PURE_HORROR_BONUS = 0.2
 
-type HalloweenItem = RecommendationItem & { halloween: HalloweenFlavour }
+// 'classic': uit de rij Halloween-klassiekers (zie fetchHalloweenClassics), kan ook buiten je diensten staan.
+type HalloweenItem = RecommendationItem & { halloween: HalloweenFlavour | 'classic' }
 
-function toItem(c: HalloweenCandidate, fit: number): HalloweenItem {
+// Waar een klassieker te zien is als hij niet op je eigen diensten staat. Een gewone streamingdienst gaat voor het aanbod
+// van een kabelaar (Ziggo TV) of een kanaal binnen een andere dienst ("... Amazon Channel", "Plex Channel"): daar zoekt
+// niemand een film.
+function whereElse(sources: WatchProviderSource[]): string {
+  const subscriptions = sources.filter((s) => s.type === 'sub')
+  const subscription = subscriptions.find((s) => !/ziggo|channel/i.test(s.name)) ?? subscriptions[0]
+  if (subscription) return `Bij ${subscription.name}`
+  return sources.length > 0 ? 'Alleen te huur' : 'Nu nergens te streamen'
+}
+
+function toItem(c: UpcomingCandidate, fit: number, kind: HalloweenItem['halloween']): HalloweenItem {
   return {
     id: c.id,
     title: c.title,
@@ -46,19 +75,24 @@ function toItem(c: HalloweenCandidate, fit: number): HalloweenItem {
     embeddingBonus: 0,
     actorScore: 0,
     directorScore: 0,
-    halloween: c.flavour,
+    halloween: kind,
   }
 }
 
 // De Halloween-rij voor wie de Halloween-skin aan heeft (zie lib/halloween.ts): Halloween-titels op je eigen diensten,
 // de best passende eerst. Met ?samen=1 de versie voor Samen: op de diensten van jullie beiden, zonder wat een van jullie
 // al kent, en gesorteerd op wie van de twee de titel het minst ligt, zodat hij bij jullie allebei past.
+// Met ?dag=1 de lijst voor Halloween zelf (31 oktober): dan is dit het hele aanbod op Voor jou. Uitgesloten genres
+// gelden die dag niet, ook horror niet; "Niet ouder dan" en wat je al kent wel. Bekende titels staan dan verder vooraan
+// (zie DAY_FAME_WEIGHT), en er komt een rij klassiekers bij.
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'halloween', LIMITS.halloween)
   if (!guard.ok) return guard.response
   const { supabase, user } = guard
 
   const together = request.nextUrl.searchParams.get('samen') === '1'
+  // Buiten 31 oktober alleen bij het ontwikkelen, om het vooraf te kunnen bekijken.
+  const day = request.nextUrl.searchParams.get('dag') === '1' && (isHalloweenDay() || process.env.NODE_ENV === 'development')
   const apiKey = process.env.TMDB_API_KEY
   if (!apiKey || !isHalloweenSeason()) return NextResponse.json({ scary: [], cozy: [] })
 
@@ -94,7 +128,7 @@ export async function GET(request: NextRequest) {
       }
     }
     // Bij Samen geldt de strengste keuze van jullie twee, net als in de gewone Samen-lijst.
-    const excludedGenreIds = new Set(people.flatMap((p) => [...p.excludedGenreIds]))
+    const excludedGenreIds = day ? new Set<number>() : new Set(people.flatMap((p) => [...p.excludedGenreIds]))
     const minYear = Math.max(...people.map((p) => p.minYear ?? 0)) || null
     const providerIds = Array.from(new Set(people.flatMap((p) => p.streamingServices).map((s) => SOURCE_IDS[s]).filter(Boolean)))
 
@@ -121,37 +155,76 @@ export async function GET(request: NextRequest) {
       }
       fits = joint
     }
-    const fitOf = (c: HalloweenCandidate) => fits?.get(`${c.media_type}-${c.id}`)
+    const keyOf = (c: { media_type: string; id: number }) => `${c.media_type}-${c.id}`
+    if (day && fits) {
+      // Bekendheid als plek tussen de andere titels van dezelfde smaak en soort (0 = minste stemmen, 1 = meeste), zodat
+      // het op dezelfde schaal staat als de smaakscore.
+      const taste = fits
+      const mixed = new Map<string, number>()
+      for (const flavour of ['scary', 'cozy'] as const) {
+        for (const type of ['movie', 'tv'] as const) {
+          const group = candidates.filter((c) => c.flavour === flavour && c.media_type === type && taste.has(keyOf(c)))
+          for (const c of group) {
+            const fame = group.length > 1 ? group.filter((other) => other.votes < c.votes).length / (group.length - 1) : 0.5
+            mixed.set(keyOf(c), (1 - DAY_FAME_WEIGHT) * taste.get(keyOf(c))! + DAY_FAME_WEIGHT * fame)
+          }
+        }
+      }
+      fits = mixed
+    }
+    // Een film die bij TMDB horror als eerste genre heeft (The Conjuring, It) is enger dan een thriller of drama met een
+    // horrorkant (Black Swan, The Purge) en komt daarom verder vooraan bij "griezelig".
+    for (const c of candidates) {
+      const fit = fits?.get(keyOf(c))
+      if (fit !== undefined && c.flavour === 'scary' && c.media_type === 'movie' && c.genre_ids[0] === HORROR_GENRE) {
+        fits!.set(keyOf(c), fit + PURE_HORROR_BONUS)
+      }
+    }
+    const fitOf = (c: HalloweenCandidate) => fits?.get(keyOf(c))
 
     const ranked = (flavour: HalloweenFlavour) =>
       candidates
         .filter((c) => c.flavour === flavour && fitOf(c) !== undefined)
         .sort((a, b) => fitOf(b)! - fitOf(a)!)
-        .slice(0, AVAILABILITY_POOL)
+        .slice(0, day ? DAY_MAX_PER_FLAVOUR : AVAILABILITY_POOL)
     const pools = { scary: ranked('scary'), cozy: ranked('cozy') }
 
     const sourceIds = new Set(providerIds)
     const watchInfo =
       sourceIds.size > 0
-        ? await resolveWatchInfo(supabase, [...pools.scary, ...pools.cozy], sourceIds, { maxLive: AVAILABILITY_LIVE_LIMIT })
+        ? await resolveWatchInfo(supabase, [...pools.scary, ...pools.cozy], sourceIds, { maxLive: day ? DAY_AVAILABILITY_LIVE_LIMIT : AVAILABILITY_LIVE_LIMIT })
         : null
 
     const pick = (pool: HalloweenCandidate[]): HalloweenItem[] => {
       const out: HalloweenItem[] = []
       let series = 0
       for (const c of pool) {
-        if (out.length >= MAX_PER_FLAVOUR) break
+        if (!day && out.length >= MAX_PER_FLAVOUR) break
         const info = watchInfo?.get(`${c.media_type}-${c.id}`)
         if (watchInfo && !info) continue
-        if (c.media_type === 'tv' && series >= MAX_SERIES_PER_FLAVOUR) continue
+        if (!day && c.media_type === 'tv' && series >= MAX_SERIES_PER_FLAVOUR) continue
         if (c.media_type === 'tv') series++
-        out.push({ ...toItem(c, fitOf(c)!), ...(info ?? {}) })
+        out.push({ ...toItem(c, fitOf(c)!, c.flavour), ...(info ?? {}) })
       }
       return out
     }
 
+    // De klassiekers, alleen op Halloween zelf: in hun vaste volgorde, zonder wat je al kent. "Niet ouder dan" geldt hier
+    // niet (een klassieker is oud), en ze hoeven niet op je diensten te staan: dan staat erbij waar ze wel te zien zijn.
+    let classics: HalloweenItem[] = []
+    if (day) {
+      const fresh = (await fetchHalloweenClassics(apiKey)).filter((c) => !seenKeys.has(keyOf(c)))
+      const allSources = await getWatchProvidersBulk(supabase, fresh.map((c) => ({ mediaType: c.media_type, tmdbId: c.id })))
+      const own = sourceIds.size > 0 ? await resolveWatchInfo(supabase, fresh, sourceIds, { cacheOnly: true }) : null
+      classics = fresh.map((c) => {
+        const sources = allSources.get(keyOf(c)) ?? []
+        const where = own?.get(keyOf(c)) ?? { watchOn: whereElse(sources), ...(sources[0] ? { watchUrl: sources[0].web_url } : {}) }
+        return { ...toItem(c, 0, 'classic'), ...where }
+      })
+    }
+
     const [scary, cozy] = await Promise.all([withLatinTitles(pick(pools.scary)), withLatinTitles(pick(pools.cozy))])
-    return NextResponse.json({ ...(together ? { connected: true } : {}), scary, cozy })
+    return NextResponse.json({ ...(together ? { connected: true } : {}), scary, cozy, ...(day ? { classics } : {}) })
   } catch (err) {
     console.error('Halloween-titels ophalen mislukt:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van Halloween-titels' }, { status: 500 })

@@ -16,7 +16,7 @@ import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
-import HalloweenRow, { useHalloweenLists } from './components/HalloweenRow'
+import HalloweenRow, { DAY_FLAVOURS, HalloweenClassics, HalloweenDayFlavours, HalloweenDayHeader, useHalloweenLists } from './components/HalloweenRow'
 import TooOldPrompt from './components/TooOldPrompt'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
@@ -45,7 +45,8 @@ type Movie = {
   upcoming?: boolean
   release_date?: string
   // Titel uit de Halloween-rij (zie app/components/HalloweenRow.tsx): geen gewone aanbeveling, dus zonder matchpercentage.
-  halloween?: 'scary' | 'cozy'
+  // 'classic' = uit de rij klassiekers op Halloween zelf.
+  halloween?: 'scary' | 'cozy' | 'classic'
   // Onderdelen van de score, zoals de server ze meestuurt; alleen gebruikt om bij een beoordeling vast te leggen waarom de titel
   // werd aanbevolen (zie sourceInfoFor).
   coreScore?: number
@@ -312,6 +313,8 @@ export default function Home() {
   const [togetherMatch, setTogetherMatch] = useState<TasteMatch | null>(null)
   // De Halloween-rij (alleen met de Halloween-skin aan): bij Samen de versie voor jullie twee, anders je eigen.
   const halloween = useHalloweenLists(user?.id ?? null, mode === 'samen' ? (togetherConnected ? 'samen' : null) : 'personal')
+  // Op Halloween zelf (halloween.day): welke van de twee smaken er getoond wordt.
+  const [dayChoice, setDayChoice] = useState<'cozy' | 'scary'>('cozy')
   const requestIdRef = useRef(0)
   const togetherRequestIdRef = useRef(0)
   const togetherPollsRef = useRef(0)
@@ -828,7 +831,28 @@ export default function Home() {
     setUser(null)
   }
 
-  const movies = byMode[mode]
+  // Op Halloween zelf (31 oktober, met de Halloween-skin aan) staan hier alleen Halloween-titels in plaats van het gewone
+  // advies: gesorteerd op smaak, zonder percentage, en ook uit genres die je anders uitsluit (zie app/api/halloween).
+  const dayFlavours = DAY_FLAVOURS.map((f) => f.id).filter((f) => (halloween.lists?.[f].length ?? 0) > 0)
+  const dayFlavour = dayFlavours.includes(dayChoice) ? dayChoice : dayFlavours[0]
+  const movies: Movie[] = halloween.day ? (dayFlavour && halloween.lists ? halloween.lists[dayFlavour] : []) : byMode[mode]
+  // Een titel uit de Halloween-rij of de klassiekers openen in de gewone popup.
+  const openHalloweenTitle = (movie: Movie) => {
+    selectedAtRef.current = Date.now()
+    setActionError(null)
+    setSelected(movie)
+    checkBookAdaptation(movie)
+    checkHasSoundtrack(movie)
+  }
+  // De extra blokken van Samen (tip van vanavond, smaakmatch, vraagjes) horen bij het gewone advies.
+  const samenExtras = mode === 'samen' && !halloween.day
+  // Op Halloween zelf zijn er maar twee keuzes: voor jezelf of samen.
+  const modeButtons: { mode: RecommendationMode; label: string; hint: string; active: boolean }[] = halloween.day
+    ? [
+        { mode: 'focused', label: 'Voor mij', hint: 'Halloween op mijn smaak', active: mode !== 'samen' },
+        { mode: 'samen', label: 'Samen', hint: 'Halloween voor ons allebei', active: mode === 'samen' },
+      ]
+    : (Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => ({ mode: m, ...MODE_LABELS[m], active: mode === m }))
   // De knop "Te oud": alleen in je eigen tabbladen, bij titels van vóór TOO_OLD_BEFORE (series: jaar van de eerste aflevering).
   const selectedYear = selected && !selected.upcoming ? yearOf(selected.release_date) : null
   const canMarkTooOld = mode !== 'samen' && selectedYear !== null && selectedYear < TOO_OLD_BEFORE
@@ -867,7 +891,7 @@ export default function Home() {
   // Titels die nog moeten uitkomen tellen niet mee in Films (x) / Series (x) en komen tussen de rest.
   const upcomingOfTab = movies.filter((m) => m.upcoming && m.media_type === tab).sort((a, b) => b.matchPercent - a.matchPercent)
   const visible = interleaveUpcoming(tab === 'movie' ? movieResults : tvResults, upcomingOfTab)
-  const showSkeleton = loading && movies.length === 0
+  const showSkeleton = (halloween.day ? halloween.loading : loading) && movies.length === 0
   // Bij Samen weten we pas na het eerste antwoord of er een partner is en wat er te tonen valt; tot die tijd
   // is "nog geen gedeelde aanbevelingen" onjuist, dus dan liever de laadweergave.
   const togetherLoading = mode === 'samen' && togetherConnected === null && !togetherError
@@ -912,8 +936,7 @@ export default function Home() {
 
         {/* Mode-slicer */}
         <div className="flex gap-2 mb-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1 [@media(pointer:fine)]:flex-wrap">
-          {(Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => {
-            const active = mode === m
+          {modeButtons.map(({ mode: m, label, hint, active }) => {
             return (
               <button
                 key={m}
@@ -925,26 +948,28 @@ export default function Home() {
                 }`}
               >
                 <p className={`text-sm font-semibold ${active ? 'text-accent' : 'text-foreground'}`}>
-                  {MODE_LABELS[m].label}
+                  {label}
                 </p>
-                <p className="text-[11px] text-muted mt-0.5 whitespace-nowrap">{MODE_LABELS[m].hint}</p>
+                <p className="text-[11px] text-muted mt-0.5 whitespace-nowrap">{hint}</p>
               </button>
             )
           })}
         </div>
 
-        {halloween.active && (
+        {halloween.day && (
+          <>
+            <HalloweenDayHeader together={mode === 'samen'} />
+            <HalloweenClassics items={halloween.lists?.classics ?? []} together={mode === 'samen'} onSelect={openHalloweenTitle} />
+            <HalloweenDayFlavours flavours={dayFlavours} chosen={dayFlavour} onChoose={setDayChoice} />
+          </>
+        )}
+
+        {halloween.active && !halloween.day && (
           <HalloweenRow
             lists={halloween.lists}
             loading={halloween.loading}
             together={mode === 'samen'}
-            onSelect={(movie) => {
-              selectedAtRef.current = Date.now()
-              setActionError(null)
-              setSelected(movie)
-              checkBookAdaptation(movie)
-              checkHasSoundtrack(movie)
-            }}
+            onSelect={openHalloweenTitle}
           />
         )}
 
@@ -988,21 +1013,21 @@ export default function Home() {
 
         {/* De tip van de week staat alleen bij "Verras me": een populaire titel buiten je eigen lijst past daar
             het best. Bij Samen staat de eigen "tip van vanavond". */}
-        {mode === 'explore' && (
+        {mode === 'explore' && !halloween.day && (
           <WeeklyTip
             mediaType={tab}
             onRemoved={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)}
           />
         )}
 
-        {mode === 'samen' && togetherComputing && byMode.samen.length === 0 && (
+        {samenExtras && togetherComputing && byMode.samen.length === 0 && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-6 mb-5 text-center leading-relaxed">
             Jullie Samen-lijst wordt op de achtergrond samengesteld. Dat duurt de eerste keer even, meestal een minuutje.
             Je hoeft niets te doen: hij verschijnt vanzelf.
           </p>
         )}
 
-        {mode === 'samen' && togetherConnected && togetherConnectionId && (
+        {samenExtras && togetherConnected && togetherConnectionId && (
           <PartnerRated
             connectionId={togetherConnectionId}
             onRated={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)}
@@ -1025,14 +1050,14 @@ export default function Home() {
           </p>
         )}
 
-        {mode === 'samen' && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
+        {samenExtras && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
           <p className="text-sm text-muted border border-dashed border-line rounded-2xl px-4 py-3 mb-5">
             Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
             zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
           </p>
         )}
 
-        {mode === 'samen' && togetherConnected && rankedForTab.length > 0 && (
+        {samenExtras && togetherConnected && rankedForTab.length > 0 && (
           <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mb-5">
             <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-3">
               {tab === 'movie' ? 'Filmtip' : 'Serietip'} van vanavond
@@ -1113,7 +1138,7 @@ export default function Home() {
           </div>
         )}
 
-        {mode === 'samen' && togetherConnected && togetherMatch && (
+        {samenExtras && togetherConnected && togetherMatch && (
           <div className="rounded-2xl border border-line bg-surface p-4 mb-5">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-sm font-medium">Jullie smaakmatch</p>
@@ -1146,13 +1171,15 @@ export default function Home() {
           </div>
         )}
 
-        {mode === 'samen' && togetherConnected && <PartnerPicks mediaType={tab} />}
+        {samenExtras && togetherConnected && <PartnerPicks mediaType={tab} />}
 
         {(showSkeleton || togetherLoading) && <PosterSkeletonGrid />}
 
         {!showSkeleton && !togetherLoading && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center leading-relaxed">
-            {mode === 'samen'
+            {halloween.day
+              ? `Geen Halloween-${tab === 'movie' ? 'films' : 'series'} gevonden op ${mode === 'samen' ? 'jullie' : 'jouw'} streamingdiensten die je nog niet kent.`
+              : mode === 'samen'
               ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
               : tab === 'movie'
                 ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
@@ -1168,9 +1195,9 @@ export default function Home() {
                 movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? 'Nieuwe serie' : 'In de bioscoop' } : movie}
                 upcomingLabel={movie.upcoming ? `Binnenkort · ${formatReleaseDate(movie.release_date)}` : undefined}
                 priority={i < 4}
-                isNew={mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
-                alsoSamen={mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
-                hideMatch={mode === 'explore'}
+                isNew={!halloween.day && mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
+                alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
+                hideMatch={mode === 'explore' || halloween.day}
                 onClick={() => {
                   selectedAtRef.current = Date.now()
                   setActionError(null)

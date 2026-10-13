@@ -30,7 +30,7 @@ export const SKINS: Skin[] = [
   {
     id: 'halloween',
     label: 'Halloween',
-    description: 'Paars en pompoenoranje, met een maan en vleermuizen. In oktober met Halloween-films bovenaan Voor jou',
+    description: 'Paars en pompoenoranje, met een maan en vleermuizen. In oktober met Halloween-films op Voor jou, op 31 oktober alleen Halloween',
     swatch: ['#0D0A12', '#F28C28', '#B18AE8'],
   },
   {
@@ -68,8 +68,20 @@ export const SKIN_BANNER_DISMISSED_KEY = 'kijkassistent:skin-banner-weg'
 // Met de Halloween-skin aan staat er in oktober (tot en met 1 november, Nederlandse tijd) een rij Halloween-titels
 // op Voor jou: zie lib/halloween.ts en app/components/HalloweenRow.tsx.
 export function isHalloweenSeason(now: Date = new Date()): boolean {
-  const [, month, day] = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' }).split('-').map(Number)
+  const { month, day } = amsterdamDay(now)
   return month === 10 || (month === 11 && day === 1)
+}
+
+// Op Halloween zelf (31 oktober) toont Voor jou met de Halloween-skin alleen nog Halloween-titels, ook uit genres die je
+// hebt uitgesloten. De dag erna staat het gewone advies er weer.
+export function isHalloweenDay(now: Date = new Date()): boolean {
+  const { month, day } = amsterdamDay(now)
+  return month === 10 && day === 31
+}
+
+function amsterdamDay(now: Date): { month: number; day: number } {
+  const [, month, day] = now.toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' }).split('-').map(Number)
+  return { month, day }
 }
 
 export function isSkinId(value: unknown): value is SkinId {

@@ -10,6 +10,15 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-13',
+    date: '13 oktober 2026',
+    items: [
+      'Op Halloween zelf (31 oktober) staan er met de Halloween-skin aan alleen Halloween-films en -series op Voor jou en bij Samen, ook uit genres die je anders uitsluit. De dag erna staat je gewone advies er weer.',
+      "Die dag is er ook een rij Halloween-klassiekers, zoals Halloween en Hocus Pocus. Staat een film niet op jouw diensten, dan zie je waar je hem wel kunt kijken.",
+      "'Griezelig' in de Halloween-rij is enger geworden: spoken, bezetenheid en slashers in plaats van actiefilms met een horrorrandje.",
+    ],
+  },
+  {
     // Tweede update op dezelfde dag: een nieuw id, zodat ook wie de eerste al zag het kaartje nog een keer krijgt.
     id: '2026-10-12b',
     date: '12 oktober 2026',

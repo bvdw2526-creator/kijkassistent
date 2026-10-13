@@ -20,7 +20,8 @@ import {
 import type { UpcomingCandidate, UpcomingTaste } from '@/lib/upcomingTitles'
 
 export type HalloweenFlavour = 'scary' | 'cozy'
-export type HalloweenCandidate = UpcomingCandidate & { flavour: HalloweenFlavour }
+// votes: het aantal stemmen bij TMDB, als maat voor hoe bekend een titel is.
+export type HalloweenCandidate = UpcomingCandidate & { flavour: HalloweenFlavour; votes: number }
 
 // TMDB-genre Horror. Bestaat alleen bij films; griezelige series vinden we via trefwoorden.
 export const HORROR_GENRE = 27
@@ -40,24 +41,68 @@ const KW = {
   horror: 315058,
   slasher: 12339,
   christmas: 207317,
+  supernaturalHorror: 256183,
+  psychologicalHorror: 295907,
+  bodyHorror: 283085,
+  folkHorror: 209568,
+  survivalHorror: 50009,
+  demon: 15001,
+  possession: 9712,
+  demonicPossession: 161261,
+  exorcism: 2626,
+  haunting: 10224,
+  paranormal: 9853,
+  curse: 10541,
+  evilSpirit: 10114,
+  foundFootage: 163053,
+  gore: 10292,
 }
 
+// Wat een titel echt eng maakt: spoken, bezetenheid, slashers, zombies. Het horror-genre alleen is te ruim (daar vallen
+// ook actie- en sciencefictionfilms als World War Z en Prometheus onder).
+const SCARY_KEYWORDS = [
+  KW.supernaturalHorror,
+  KW.psychologicalHorror,
+  KW.bodyHorror,
+  KW.folkHorror,
+  KW.survivalHorror,
+  KW.demon,
+  KW.possession,
+  KW.demonicPossession,
+  KW.exorcism,
+  KW.haunting,
+  KW.paranormal,
+  KW.evilSpirit,
+  KW.slasher,
+  KW.hauntedHouse,
+  KW.zombie,
+  KW.halloween,
+]
+
 // Per smaak en soort: wat we TMDB vragen, de bekendste titels eerst. De ondergrens aan stemmen houdt onbekende en
-// rommelige titels weg. Uitgeprobeerd op 12 okt 2026; "gezellig eng" geeft dan onder meer Coco, Hocus Pocus, Beetlejuice
-// en The Addams Family, "griezelig" onder meer The Conjuring, Get Out en Scream.
+// rommelige titels weg. Uitgeprobeerd op 12 en 13 okt 2026; "gezellig eng" geeft dan onder meer Coco, Hocus Pocus,
+// Beetlejuice en The Addams Family, "griezelig" onder meer It, The Conjuring, The Nun, Midsommar en Scream.
 const QUERIES: { flavour: HalloweenFlavour; mediaType: MediaType; pages: number[]; params: Record<string, string> }[] = [
   {
     flavour: 'scary',
     mediaType: 'movie',
     pages: [1, 2, 3],
-    params: { with_genres: String(HORROR_GENRE), 'vote_count.gte': '500', 'vote_average.gte': '6' },
+    params: {
+      with_genres: String(HORROR_GENRE),
+      with_keywords: [...SCARY_KEYWORDS, KW.curse, KW.foundFootage, KW.gore, KW.ghost].join('|'),
+      // Zonder actie en avontuur (dat zijn zelden de enge), en zonder komedie, familie en animatie.
+      without_genres: '28,12,35,10751,16',
+      'vote_count.gte': '400',
+      'vote_average.gte': '5.8',
+    },
   },
   {
     flavour: 'scary',
     mediaType: 'tv',
     pages: [1, 2],
     params: {
-      with_keywords: [KW.horror, KW.halloween, KW.hauntedHouse, KW.zombie, KW.vampire, KW.ghost, KW.slasher].join('|'),
+      // Zonder "vampier" en "spook" los: die brengen vooral tienerseries mee (The Vampire Diaries, Legacies).
+      with_keywords: [KW.horror, ...SCARY_KEYWORDS].join('|'),
       // Zonder komedie, familie, animatie en kinderseries: die horen bij "gezellig eng".
       without_genres: '35,10751,16,10762',
       'vote_count.gte': '150',
@@ -102,6 +147,7 @@ interface RawItem {
   release_date?: string
   first_air_date?: string
   vote_average?: number
+  vote_count?: number
   popularity?: number
 }
 
@@ -151,10 +197,65 @@ export async function fetchHalloweenCandidates(apiKey: string, providerIds: numb
         vote_average: item.vote_average ?? 0,
         popularity: item.popularity ?? 0,
         flavour: query.flavour,
+        votes: item.vote_count ?? 0,
       })
     }
   }
   return Array.from(out.values())
+}
+
+// Halloween-klassiekers (films bij TMDB), in de volgorde waarin ze getoond worden. Op Halloween zelf staan ze in een eigen
+// rij, ook als ze niet op je diensten staan: erbij staat dan waar ze wel te zien zijn. Zelf gekozen, griezelig en
+// gezellig eng door elkaar.
+const HALLOWEEN_CLASSIC_IDS = [
+  948, // Halloween (1978)
+  10439, // Hocus Pocus
+  4232, // Scream (1996)
+  9479, // The Nightmare Before Christmas
+  424139, // Halloween (2018)
+  4011, // Beetlejuice
+  440021, // Happy Death Day
+  694, // The Shining
+  620, // Ghostbusters (1984)
+  377, // A Nightmare on Elm Street (1984)
+  2907, // The Addams Family (1991)
+  9552, // The Exorcist
+  4488, // Friday the 13th (1980)
+  23202, // Trick 'r Treat
+  346364, // It: Chapter One
+  138843, // The Conjuring
+]
+
+// De gegevens van de klassiekers, in de vaste volgorde. Voor iedereen gelijk en een halve dag hergebruikt door Next; een
+// titel die niet op te halen is, valt weg.
+export async function fetchHalloweenClassics(apiKey: string): Promise<UpcomingCandidate[]> {
+  const found = await Promise.all(
+    HALLOWEEN_CLASSIC_IDS.map(async (id): Promise<UpcomingCandidate | null> => {
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/movie/${id}?language=nl-NL`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          next: { revalidate: 60 * 60 * 12 },
+        })
+        if (!res.ok) return null
+        const data = await res.json()
+        if (!data.poster_path) return null
+        return {
+          id,
+          media_type: 'movie',
+          title: data.title || '',
+          poster_path: data.poster_path,
+          release_date: data.release_date || '',
+          overview: data.overview || '',
+          genre_ids: ((data.genres || []) as { id: number }[]).map((g) => g.id),
+          vote_average: data.vote_average ?? 0,
+          popularity: data.popularity ?? 0,
+        }
+      } catch {
+        return null
+      }
+    })
+  )
+  return found.filter((c): c is UpcomingCandidate => c !== null)
 }
 
 // Iemands smaak in het klein: de genres en de gemiddelde verhaal-vingerafdruk van wat diegene leuk vond, en van wat
