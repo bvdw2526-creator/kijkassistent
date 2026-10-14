@@ -98,6 +98,13 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   dan de getallen dubbel), en bij precies gelijke afstand kiest de buren-functie op volgorde van aanlevering (de oude
   willekeurig). Voorvoegsels ongewijzigd (`u20`, `v25-themas`), opgeslagen lijsten blijven geldig. Terugzetten: in
   `lib/recommendationEngine.ts` bij `SIMILARITY_RPC` en `NEIGHBORS_RPC` de toevoeging `_v2` weghalen.
+- 14 okt 2026: snelheid, geen wijziging aan de scores. Bij "Voor jou" geldt kijkinformatie die ouder is dan 72 uur als
+  bruikbaar (tot 14 dagen oud) en wordt die pas na het antwoord ververst (`onStale` in `getWatchProvidersBulk`,
+  `refreshWatchProviders`, `after` in `app/api/recommendations/route.ts`); titels waarvan nog niets bekend is of waarvan
+  de informatie ouder is dan 14 dagen, worden nog tijdens de berekening opgehaald. Gevolg: een titel die net van een dienst is verdwenen, kan één berekening langer zichtbaar zijn.
+  Samen, Halloween en de andere routes zijn ongewijzigd. Daarnaast worden de delen van reeksen in een paar vragen gelezen
+  in plaats van één per reeks (`getCollectionPartsBulk`), met dezelfde uitkomst. Voorvoegsels ongewijzigd. Terugzetten:
+  in de route `onStaleAvailability` en `onStale` weglaten (dan werkt alles weer zoals eerst).
 
 ## Afspraken bij verder sleutelen
 

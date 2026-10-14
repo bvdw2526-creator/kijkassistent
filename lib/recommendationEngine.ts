@@ -146,6 +146,12 @@ const AVAILABILITY_POOL_PER_MODE = 2000
 // Van die titels halen we er maximaal zoveel live bij TMDB op als ze niet (vers) in de cache staan. De rest wordt
 // alleen uit de cache gelezen; een volgende berekening vult het aan.
 const AVAILABILITY_LIVE_LIMIT = 150
+// Zoveel verouderde titels verversen we na het antwoord (zie refreshWatchProviders), de best scorende eerst. Ruimer dan
+// AVAILABILITY_LIVE_LIMIT: niemand wacht erop, en het tijdsbudget van fetchLiveInChunks houdt het binnen de 60 seconden.
+const AVAILABILITY_BACKGROUND_LIMIT = 300
+// Tot deze leeftijd mag verouderde kijkinformatie gebruikt worden in afwachting van het verversen; wat ouder is, wordt nog
+// tijdens de berekening opgehaald (binnen AVAILABILITY_LIVE_LIMIT). Op 14 okt 2026 was 94% van de rijen jonger.
+const WATCH_PROVIDERS_STALE_OK_MAX_AGE_DAYS = 14
 const TMDB_DETAILS_CACHE_MAX_AGE_HOURS = 24 * 7
 // Een "lijkt hierop"-lijst van TMDB verandert nauwelijks; 24 uur betekende dat elke dag voor elke
 // bron alles opnieuw werd opgehaald. Nieuwe uitgaves komen via de discover-stap binnen, niet hier.
@@ -417,12 +423,46 @@ async function fetchWatchProvidersLive(mediaType: MediaType, tmdbId: number): Pr
 // losse SELECT + eventuele upsert (bij 250+ titels al gauw 250+ losse round trips), lezen
 // we de cache in twee .in()-queries (movie/tv) en doen we alleen live TMDB-calls + één
 // gebundelde upsert voor de titels die niet of verouderd in de cache staan.
+type WatchProviderItem = { mediaType: MediaType; tmdbId: number }
+
+// Haalt de kijkproviders van deze titels live bij TMDB op en bewaart ze, in porties met een tijdsbudget. Een mislukte
+// aanroep geeft null en wordt niet bewaard.
+async function fetchAndStoreWatchProviders(supabase: SupabaseClient, items: WatchProviderItem[]) {
+  return fetchLiveInChunks(
+    items,
+    async (item) => ({
+      key: `${item.mediaType}-${item.tmdbId}`,
+      mediaType: item.mediaType,
+      tmdbId: item.tmdbId,
+      sources: await fetchWatchProvidersLive(item.mediaType, item.tmdbId),
+    }),
+    async (done) => {
+      const upserts = done
+        .filter((f) => f.sources !== null)
+        .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
+      if (upserts.length > 0) await supabase.from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    }
+  )
+}
+
+// Ververst verouderde kijkinformatie, bedoeld voor ná het antwoord (zie onStale in getWatchProvidersBulk). Hooguit
+// AVAILABILITY_BACKGROUND_LIMIT titels, in de meegegeven volgorde.
+export async function refreshWatchProviders(supabase: SupabaseClient, items: WatchProviderItem[]): Promise<number> {
+  const unique = new Map<string, WatchProviderItem>()
+  for (const item of items) unique.set(`${item.mediaType}-${item.tmdbId}`, item)
+  const fetched = await fetchAndStoreWatchProviders(supabase, Array.from(unique.values()).slice(0, AVAILABILITY_BACKGROUND_LIMIT))
+  return fetched.filter((f) => f.sources !== null).length
+}
+
 export async function getWatchProvidersBulk(
   supabase: SupabaseClient,
-  items: { mediaType: MediaType; tmdbId: number }[],
+  items: WatchProviderItem[],
   // cacheOnly: geen live TMDB-calls meer (bv. omdat de tijd bijna op is); wat niet in de cache staat blijft leeg.
   // maxLive: hooguit zoveel titels (in de volgorde van `items`) live ophalen; de rest komt uit de cache.
-  options: { cacheOnly?: boolean; maxLive?: number } = {}
+  // onStale: verouderde rijen (tot WATCH_PROVIDERS_STALE_OK_MAX_AGE_DAYS oud) gelden als bruikbaar en worden niet live
+  // opgehaald; ze worden (in de volgorde van `items`) aan deze functie gemeld, zodat de aanroeper ze na het antwoord kan
+  // verversen. Titels zonder rij of met een nog oudere rij gaan live, zoals zonder onStale.
+  options: { cacheOnly?: boolean; maxLive?: number; onStale?: (items: WatchProviderItem[]) => void } = {}
 ): Promise<Map<string, WatchProviderSource[]>> {
   const result = new Map<string, WatchProviderSource[]>()
   const staleFallback = new Map<string, WatchProviderSource[]>()
@@ -442,15 +482,30 @@ export async function getWatchProvidersBulk(
   }
   const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
+  const staleOkCutoffMs = Date.now() - WATCH_PROVIDERS_STALE_OK_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+  const staleKeys = new Set<string>()
   for (const [mediaType, rows] of [['movie', movieRows], ['tv', tvRows]] as const) {
     for (const row of rows) {
       const key = `${mediaType}-${row.tmdb_id}`
+      const fetchedMs = new Date(row.fetched_at).getTime()
       staleFallback.set(key, row.sources)
-      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, row.sources)
+      if (fetchedMs >= cutoffMs) result.set(key, row.sources)
+      else if (options.onStale && fetchedMs >= staleOkCutoffMs) {
+        result.set(key, row.sources)
+        staleKeys.add(key)
+      }
     }
   }
+  if (options.onStale && staleKeys.size > 0) {
+    const stale = new Map<string, WatchProviderItem>()
+    for (const i of items) {
+      const key = `${i.mediaType}-${i.tmdbId}`
+      if (staleKeys.has(key)) stale.set(key, i)
+    }
+    options.onStale(Array.from(stale.values()))
+  }
 
-  const missingByKey = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  const missingByKey = new Map<string, WatchProviderItem>()
   for (const i of items) {
     const key = `${i.mediaType}-${i.tmdbId}`
     if (!result.has(key)) missingByKey.set(key, i)
@@ -461,21 +516,7 @@ export async function getWatchProvidersBulk(
   if (options.cacheOnly) {
     for (const key of missingByKey.keys()) result.set(key, staleFallback.get(key) ?? [])
   } else if (missing.length > 0) {
-    const fetched = await fetchLiveInChunks(
-      missing,
-      async (item) => ({
-        key: `${item.mediaType}-${item.tmdbId}`,
-        mediaType: item.mediaType,
-        tmdbId: item.tmdbId,
-        sources: await fetchWatchProvidersLive(item.mediaType, item.tmdbId),
-      }),
-      async (done) => {
-        const upserts = done
-          .filter((f) => f.sources !== null)
-          .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
-        if (upserts.length > 0) await supabase.from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
-      }
-    )
+    const fetched = await fetchAndStoreWatchProviders(supabase, missing)
 
     for (const key of missingByKey.keys()) {
       // Niet meer gehaald binnen het tijdsbudget: de laatst bekende (evt. verouderde) rij, anders leeg.
@@ -500,7 +541,7 @@ export async function resolveWatchInfo(
   supabase: SupabaseClient,
   items: { media_type: MediaType; id: number }[],
   userSourceIds: Set<number>,
-  options: { cacheOnly?: boolean; maxLive?: number } = {}
+  options: Parameters<typeof getWatchProvidersBulk>[2] = {}
 ): Promise<Map<string, { watchOn: string; watchUrl: string } | null>> {
   const providersByKey = await getWatchProvidersBulk(
     supabase,
@@ -948,16 +989,38 @@ async function fetchCollectionParts(collectionId: number): Promise<TmdbItem[] | 
   }
 }
 
-function getCachedCollectionParts(supabase: SupabaseClient, collectionId: number): Promise<TmdbItem[]> {
-  return getCached(
-    supabase,
-    'tmdb_collection_cache',
-    { collection_id: collectionId },
-    'parts',
-    COLLECTION_CACHE_MAX_AGE_HOURS,
-    () => fetchCollectionParts(collectionId),
-    []
+// De delen van een aantal reeksen, met dezelfde regels als getCached (vers uit de cache, anders live; mislukt live dan de
+// oude rij of niets), maar in een paar .in()-queries in plaats van één per reeks. Bij een groot profiel waren dat er ~100
+// tegelijk, die elkaar ophielden (gemeten 14 okt 2026: mediaan 412 ms per vraag).
+async function getCollectionPartsBulk(supabase: SupabaseClient, collectionIds: number[]): Promise<Map<number, TmdbItem[]>> {
+  const result = new Map<number, TmdbItem[]>()
+  const stale = new Map<number, TmdbItem[]>()
+  const cutoffMs = Date.now() - COLLECTION_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
+  const ids = [...new Set(collectionIds)]
+
+  type Row = { collection_id: number; parts: TmdbItem[]; fetched_at: string }
+  const parts = await Promise.all(
+    chunked(ids, CACHE_READ_CHUNK).map((part) =>
+      supabase.from('tmdb_collection_cache').select('collection_id, parts, fetched_at').in('collection_id', part)
+    )
   )
+  for (const part of parts) {
+    for (const row of (part.data || []) as Row[]) {
+      stale.set(row.collection_id, row.parts)
+      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(row.collection_id, row.parts)
+    }
+  }
+
+  const missing = ids.filter((id) => !result.has(id))
+  if (missing.length > 0) {
+    const fetched = await Promise.all(missing.map(async (id) => ({ id, parts: await fetchCollectionParts(id) })))
+    const upserts = fetched
+      .filter((f) => f.parts !== null)
+      .map((f) => ({ collection_id: f.id, parts: f.parts, fetched_at: new Date().toISOString() }))
+    if (upserts.length > 0) await supabase.from('tmdb_collection_cache').upsert(upserts, { onConflict: 'collection_id' })
+    for (const f of fetched) result.set(f.id, f.parts ?? stale.get(f.id) ?? [])
+  }
+  return result
 }
 
 async function embedTexts(texts: string[]): Promise<number[][]> {
@@ -1600,7 +1663,13 @@ export async function computeTasteProfile(
   // availableOnSourceIds: alleen titels die op (een van) deze diensten te zien zijn komen in de tabbladen. De
   // controle gebeurt vóór het samenstellen per genre, zodat die plekken niet naar titels gaan die toch wegvallen.
   // explainKey ("movie-123"): houd voor deze ene titel bij waar hij afvalt (zie TitleExplanation).
-  options: { availableOnSourceIds?: Set<number>; explainKey?: string } = {}
+  // onStaleAvailability: verouderde kijkinformatie geldt dan als bruikbaar in plaats van live opgehaald te worden; de
+  // betreffende titels komen hier binnen om na het antwoord te verversen (zie onStale in getWatchProvidersBulk).
+  options: {
+    availableOnSourceIds?: Set<number>
+    explainKey?: string
+    onStaleAvailability?: (items: { mediaType: MediaType; tmdbId: number }[]) => void
+  } = {}
 ): Promise<TasteProfile> {
   const explainKey = options.explainKey
   let explainGenreSkipped = false
@@ -1781,17 +1850,16 @@ export async function computeTasteProfile(
       ).flat()
     : []
 
-  const [movieGenreResults, tvGenreResults, collectionResults, dislikedCollectionParts] = await Promise.all([
+  const [movieGenreResults, tvGenreResults, partsByCollection] = await Promise.all([
     discoverByGenres(supabase, 'movie', movieGenres, discoverOptions),
     discoverByGenres(supabase, 'tv', tvGenres, discoverOptions),
-    Promise.all(
-      Array.from(uniqueCollections.entries()).map(async ([collectionId, collectionName]) => {
-        const parts = await getCachedCollectionParts(supabase, collectionId)
-        return { results: parts, label: `Onderdeel van ${collectionName}` }
-      })
-    ),
-    Promise.all(Array.from(dislikedCollectionIds).map((collectionId) => getCachedCollectionParts(supabase, collectionId))),
+    getCollectionPartsBulk(supabase, [...uniqueCollections.keys(), ...dislikedCollectionIds]),
   ])
+  const collectionResults = Array.from(uniqueCollections.entries()).map(([collectionId, collectionName]) => ({
+    results: partsByCollection.get(collectionId) ?? [],
+    label: `Onderdeel van ${collectionName}`,
+  }))
+  const dislikedCollectionParts = Array.from(dislikedCollectionIds).map((collectionId) => partsByCollection.get(collectionId) ?? [])
 
   // Keurde je (meer) delen van een franchise af dan je er leuk vond, dan komt de rest van die franchise niet
   // meer terug (bv. na drie keer "niet voor mij" bij The Hobbit geen vervolg of spin-off). Vond je er ook
@@ -2311,7 +2379,10 @@ export async function computeTasteProfile(
     }
     const pool = Array.from(bestRank.values()).sort((a, b) => a.rank - b.rank).map((x) => x.item)
     availabilityPoolKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`))
-    const watchInfo = await resolveWatchInfo(supabase, pool, sourceIds, { maxLive: AVAILABILITY_LIVE_LIMIT })
+    const watchInfo = await resolveWatchInfo(supabase, pool, sourceIds, {
+      maxLive: AVAILABILITY_LIVE_LIMIT,
+      onStale: options.onStaleAvailability,
+    })
     watchableKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`).filter((key) => watchInfo.get(key)))
   }
 

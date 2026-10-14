@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
@@ -9,6 +9,8 @@ import {
   MATCH_PERCENT_METHOD,
   computeTasteProfile,
   resolveWatchInfo,
+  refreshWatchProviders,
+  type MediaType,
   type RecommendationMode,
   type RankedCandidate,
   type RecommendationItem,
@@ -80,10 +82,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const computeStartedAt = Date.now()
   const userSourceIds = new Set(inputs.streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
+  // Verouderde kijkinformatie (ouder dan 72 uur) gebruiken we zoals hij is, in plaats van de gebruiker te laten wachten
+  // tot hij live bij TMDB is opgehaald; dat gebeurt na het antwoord (zie after hieronder). Wat er niet verandert: een titel
+  // waarvan nog niets bekend is, wordt nog steeds meteen opgehaald. Gemeten 13 okt 2026: het live verversen kostte 2 tot
+  // 6,5 seconden van een berekening, afhankelijk van hoeveel er verouderd was.
+  const staleAvailability = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  const onStale = (items: { mediaType: MediaType; tmdbId: number }[]) => {
+    for (const item of items) staleAvailability.set(`${item.mediaType}-${item.tmdbId}`, item)
+  }
+
   // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
-  const taste = await computeTasteProfile(supabase, inputs, { availableOnSourceIds: userSourceIds })
+  const taste = await computeTasteProfile(supabase, inputs, { availableOnSourceIds: userSourceIds, onStaleAvailability: onStale })
   const { sortedByMode } = taste
 
   // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts).
@@ -123,7 +135,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const watchInfoMap = await resolveWatchInfo(supabase, Array.from(allCandidateItems.values()), userSourceIds)
+  const watchInfoMap = await resolveWatchInfo(supabase, Array.from(allCandidateItems.values()), userSourceIds, { onStale })
 
   const result: Record<RecommendationMode, RecommendationItem[]> = { focused: [], balanced: [], explore: [] }
   for (const mode of MODES) {
@@ -142,5 +154,27 @@ export async function GET(request: NextRequest) {
   for (const mode of MODES) result[mode] = await withLatinTitles(result[mode])
 
   await cacheRecommendationsResult(supabase, user.id, profileSignature, result)
+
+  console.log('Voor jou berekend', {
+    seconden: Math.round((Date.now() - computeStartedAt) / 100) / 10,
+    kijkinformatieVerouderd: staleAvailability.size,
+  })
+  // Na het antwoord: de verouderde kijkinformatie verversen, zodat een volgende berekening (van wie dan ook, de cache is
+  // gedeeld) weer verse gegevens heeft. Het opgeslagen resultaat van nu blijft zoals het is.
+  if (staleAvailability.size > 0) {
+    after(async () => {
+      const startedAt = Date.now()
+      try {
+        const refreshed = await refreshWatchProviders(supabase, Array.from(staleAvailability.values()))
+        console.log('Kijkinformatie op de achtergrond ververst', {
+          titels: refreshed,
+          verouderd: staleAvailability.size,
+          seconden: Math.round((Date.now() - startedAt) / 100) / 10,
+        })
+      } catch (err) {
+        console.error('Kijkinformatie verversen op de achtergrond mislukt:', err)
+      }
+    })
+  }
   return NextResponse.json(result)
 }
