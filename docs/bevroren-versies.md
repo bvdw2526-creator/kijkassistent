@@ -90,6 +90,14 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   alleen hierdoor is moet qua verhaal passen. Aanleiding: The Polygamist stond vier maanden op Netflix en was door de
   app nooit gezien. Weging ongewijzigd (kenmerken-toets blijft 78,0 / 69,9 en 73,7 / 58,1). Niet bij Samen.
   Voorvoegsel nu `u20`.
+- 13 okt 2026: snelheid, geen wijziging aan de berekening. De motor roept `embedding_similarities_en_v2` en
+  `embedding_taste_neighbors_en_v2` aan (migratie `20261013_embedding_functions_v2.sql`); de oude functies staan er nog.
+  Zelfde uitkomst, gecontroleerd door oud en nieuw naast elkaar te draaien: de verhaal-vergelijking op alle 8.964 titels
+  (met 2 en met 6 vectoren) en de buren op 5.000 titels tegen de twee grootste profielen, overal 0 verschillen. Twee
+  randgevallen wijken bewust af: een titel die dubbel in de kandidatenlijst staat komt er één keer goed uit (de oude gaf
+  dan de getallen dubbel), en bij precies gelijke afstand kiest de buren-functie op volgorde van aanlevering (de oude
+  willekeurig). Voorvoegsels ongewijzigd (`u20`, `v25-themas`), opgeslagen lijsten blijven geldig. Terugzetten: in
+  `lib/recommendationEngine.ts` bij `SIMILARITY_RPC` en `NEIGHBORS_RPC` de toevoeging `_v2` weghalen.
 
 ## Afspraken bij verder sleutelen
 

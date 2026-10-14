@@ -175,8 +175,10 @@ const VOYAGE_MODEL = 'voyage-4-lite'
 export type EmbeddingVersion = 'nl' | 'en'
 export const EMBEDDING_VERSION: EmbeddingVersion = 'en'
 const EMBEDDING_TABLE: Record<EmbeddingVersion, string> = { nl: 'title_embeddings', en: 'title_embeddings_en' }
-const SIMILARITY_RPC: Record<EmbeddingVersion, string> = { nl: 'embedding_similarities', en: 'embedding_similarities_en' }
-const NEIGHBORS_RPC: Record<EmbeddingVersion, string> = { nl: 'embedding_taste_neighbors', en: 'embedding_taste_neighbors_en' }
+// De _v2-functies geven dezelfde uitkomst als embedding_similarities_en en embedding_taste_neighbors_en, maar veel sneller
+// (zie supabase/migrations/20261013_embedding_functions_v2.sql). Terugzetten: "_v2" hier weghalen; de oude staan er nog.
+const SIMILARITY_RPC: Record<EmbeddingVersion, string> = { nl: 'embedding_similarities', en: 'embedding_similarities_en_v2' }
+const NEIGHBORS_RPC: Record<EmbeddingVersion, string> = { nl: 'embedding_taste_neighbors', en: 'embedding_taste_neighbors_en_v2' }
 // Bij 'en' komt de Engelse tekst van titels zonder vingerafdruk uit de kenmerken-cache; zoveel halen we per aanroep live op.
 const ENGLISH_TEXT_LIVE_LIMIT = 300
 // Gewicht van de verhaal-score (embeddingBonus): hoeveel meer het verhaal van een kandidaat lijkt op wat je leuk vond dan op
