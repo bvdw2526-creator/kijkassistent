@@ -8,7 +8,7 @@ import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
-import LegalLinks from './components/LegalLinks'
+import Landing from './components/Landing'
 import PartnerPicks from './components/PartnerPicks'
 import PartnerRated from './components/PartnerRated'
 import DateNight from './components/DateNight'
@@ -890,21 +890,7 @@ export default function Home() {
   }
 
   if (!user && !loading) {
-    return (
-      <main className="min-h-screen flex flex-col justify-center max-w-md mx-auto px-6 py-16">
-        <p className="font-display text-sm tracking-[0.2em] uppercase text-accent mb-3">Kijkassistent</p>
-        <h1 className="font-display text-4xl leading-tight mb-3">
-          Weten wat je vanavond gaat kijken.
-        </h1>
-        <p className="text-muted mb-8 leading-relaxed">
-          Persoonlijke films- en series-aanbevelingen, op basis van wat jij mooi vindt.
-        </p>
-        <a href="/login" className={btnPrimary}>
-          Log in of registreer
-        </a>
-        <LegalLinks className="mt-12" />
-      </main>
-    )
+    return <Landing />
   }
 
   // Hoogste match% bovenaan, ongeacht de volgorde waarin de aanbevelingsengine ze
