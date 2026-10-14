@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { authFetch } from '@/lib/supabase'
-import { btnGhost } from './ui'
+import { btnGhost, btnSecondary } from './ui'
 import { useBackToClose } from './useBackToClose'
 import { CloseIcon } from './Icons'
 
@@ -44,15 +45,18 @@ function ageLabel(birthday: string, deathday: string | null) {
 }
 
 // Infopopup voor een acteur of regisseur uit zoekresultaten of favorietenlijsten;
-// `children` is voor pagina-eigen acties (bv. favoriet maken).
+// `children` is voor pagina-eigen acties (bv. favoriet maken). `filmographyHref`: knop naar alle films en series van deze
+// persoon (app/persoon/[id]); weggelaten in de wizard, waar je niet halverwege weg moet.
 export default function PersonInfoSheet({
   person,
   onClose,
   children,
+  filmographyHref,
 }: {
   person: PersonInfoItem
   onClose: () => void
   children?: React.ReactNode
+  filmographyHref?: string
 }) {
   useBackToClose(true, onClose)
   const [info, setInfo] = useState<Info | null>(null)
@@ -157,6 +161,12 @@ export default function PersonInfoSheet({
                 ))}
               </ul>
             </div>
+          )}
+
+          {filmographyHref && (
+            <Link href={filmographyHref} className={`${btnSecondary} w-full mb-2`}>
+              Alle films en series
+            </Link>
           )}
 
           {children}

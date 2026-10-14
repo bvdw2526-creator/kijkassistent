@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
@@ -305,6 +306,9 @@ export default function Home() {
   const [bookTitles, setBookTitles] = useState<Set<string>>(new Set())
   const [trueStoryTitles, setTrueStoryTitles] = useState<Set<string>>(new Set())
   const [soundtrackTitles, setSoundtrackTitles] = useState<Set<string>>(new Set())
+  // Je favoriete acteurs en regisseurs op naam: in de uitleg bij een titel ("Aanbevolen omdat je hield van: …") wordt hun
+  // naam een link naar al hun films en series (app/persoon/[id]). De motor geeft alleen de naam mee.
+  const [favoritePeople, setFavoritePeople] = useState<Map<string, { id: number; role: 'acteur' | 'regisseur' }>>(new Map())
   useBackToClose(selected !== null, () => setSelected(null))
   const [refreshError, setRefreshError] = useState<string | null>(null)
   const [tipSkips, setTipSkips] = useState(0)
@@ -336,6 +340,24 @@ export default function Home() {
   useEffect(() => {
     if (user) rememberSeen(user.id, shownKeys)
   }, [user, shownKeys])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    Promise.all([
+      supabase.from('favorite_people').select('person_id, name').eq('user_id', user.id),
+      supabase.from('favorite_directors').select('person_id, name').eq('user_id', user.id),
+    ]).then(([actors, directors]) => {
+      if (cancelled) return
+      const byName = new Map<string, { id: number; role: 'acteur' | 'regisseur' }>()
+      for (const p of directors.data || []) byName.set(p.name, { id: p.person_id, role: 'regisseur' })
+      for (const p of actors.data || []) byName.set(p.name, { id: p.person_id, role: 'acteur' })
+      setFavoritePeople(byName)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   useEffect(() => {
     getCurrentUser().then(async (currentUser) => {
@@ -1334,7 +1356,24 @@ export default function Home() {
                   <div className="text-sm text-muted mb-6 space-y-1">
                     {liked.length > 0 && (
                       <p>
-                        Aanbevolen omdat je hield van: <span className="text-accent">{liked.join(', ')}</span>
+                        Aanbevolen omdat je hield van:{' '}
+                        <span className="text-accent">
+                          {liked.map((name, i) => {
+                            const person = favoritePeople.get(name)
+                            return (
+                              <span key={name}>
+                                {i > 0 && ', '}
+                                {person ? (
+                                  <Link href={`/persoon/${person.id}?rol=${person.role}`} className="underline underline-offset-2">
+                                    {name}
+                                  </Link>
+                                ) : (
+                                  name
+                                )}
+                              </span>
+                            )
+                          })}
+                        </span>
                       </p>
                     )}
                     {traits.length > 0 && (

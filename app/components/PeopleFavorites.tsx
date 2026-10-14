@@ -199,7 +199,11 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
       )}
 
       {infoPerson && (
-        <PersonInfoSheet person={infoPerson} onClose={() => setInfoPerson(null)}>
+        <PersonInfoSheet
+          person={infoPerson}
+          onClose={() => setInfoPerson(null)}
+          filmographyHref={`/persoon/${infoPerson.id}?rol=${kind === 'director' ? 'regisseur' : 'acteur'}`}
+        >
           {favorites.some((p) => p.person_id === infoPerson.id) ? (
             <button
               onClick={async () => {
