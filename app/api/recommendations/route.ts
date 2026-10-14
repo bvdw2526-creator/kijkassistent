@@ -27,7 +27,9 @@ export const maxDuration = 60
 // hergebruikt wordt zolang favorieten/ratings/watchlist/streamingdiensten niet zijn
 // gewijzigd. Dit is de belangrijkste knop voor "voelt de app-start lokaal aan": een
 // cache-hit slaat de hele scoring-pijplijn over en kost maar één Supabase-rondje.
-const RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 6
+// Was 6 uur; op 13 okt 2026 had maar 4 van de 26 gebruikers een lijst die jonger was, dus vrijwel elk bezoek wachtte op een
+// nieuwe berekening. Wie iets nieuws wil, drukt op Vernieuwen: die vraagt met ?vers=1 altijd een verse berekening.
+const RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 24
 
 async function cacheRecommendationsResult(
   supabase: SupabaseClient,
@@ -71,7 +73,9 @@ export async function GET(request: NextRequest) {
     .eq('user_id', user.id)
     .single()
 
-  if (cachedResult && cachedResult.signature === profileSignature) {
+  // ?vers=1 (de knop Vernieuwen): de opgeslagen lijst overslaan, ook als hij nog geldig is.
+  const wantsFresh = request.nextUrl.searchParams.get('vers') === '1'
+  if (!wantsFresh && cachedResult && cachedResult.signature === profileSignature) {
     const ageHours = (Date.now() - new Date(cachedResult.fetched_at).getTime()) / (1000 * 60 * 60)
     if (ageHours < RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS) {
       return NextResponse.json({

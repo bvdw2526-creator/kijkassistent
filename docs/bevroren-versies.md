@@ -105,6 +105,11 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   Samen, Halloween en de andere routes zijn ongewijzigd. Daarnaast worden de delen van reeksen in een paar vragen gelezen
   in plaats van één per reeks (`getCollectionPartsBulk`), met dezelfde uitkomst. Voorvoegsels ongewijzigd. Terugzetten:
   in de route `onStaleAvailability` en `onStale` weglaten (dan werkt alles weer zoals eerst).
+- 14 okt 2026: een opgeslagen lijst van "Voor jou" blijft 24 uur geldig in plaats van 6
+  (`RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS`), en de knop Vernieuwen rekent altijd opnieuw (`?vers=1`). Bij het
+  openen van de app krijg je dus vaker meteen de opgeslagen lijst; beoordelen, verbergen of iets op je kijklijst zetten
+  maakt hem nog steeds direct ongeldig. De berekening zelf is ongewijzigd; Samen blijft op 6 uur. Terugzetten: het getal
+  terug naar 6 en `loadRecommendations(true)` bij de knop in `app/page.tsx` terug naar `loadRecommendations()`.
 
 ## Afspraken bij verder sleutelen
 

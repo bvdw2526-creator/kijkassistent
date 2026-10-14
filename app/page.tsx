@@ -396,7 +396,9 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router])
 
-  async function loadRecommendations() {
+  // forceFresh: de opgeslagen lijst op de server overslaan en opnieuw rekenen (de knop Vernieuwen). Zonder forceFresh krijg je de
+  // opgeslagen lijst zolang die geldig is, zie RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS in app/api/recommendations.
+  async function loadRecommendations(forceFresh = false) {
     const requestId = ++requestIdRef.current
     setLoading(true)
     // Zonder try/catch bleef de knop bij een mislukte aanvraag (bv. de verbinding die
@@ -414,7 +416,7 @@ export default function Home() {
         return
       }
       userId = session.user.id
-      res = await fetch('/api/recommendations', {
+      res = await fetch(forceFresh ? '/api/recommendations?vers=1' : '/api/recommendations', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       data = await res.json()
@@ -994,7 +996,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => {
-              loadRecommendations()
+              loadRecommendations(true)
               loadTogetherRecommendations()
               halloween.reload()
             }}
