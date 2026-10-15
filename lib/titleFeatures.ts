@@ -175,10 +175,12 @@ async function fetchFeaturesLive(mediaType: MediaType, tmdbId: number): Promise<
 // volgorde van `items`. De rest valt terug op de oude rij of ontbreekt; een volgende berekening vult het aan.
 // needEnglishText: rijen zonder Engelse titel/samenvatting (van vóór 9 okt 2026) gelden als ontbrekend en worden opnieuw
 // opgehaald, voor de Engelse verhaal-vingerafdruk.
+// writer: de verbinding om live opgehaalde kenmerken mee op te slaan (de serververbinding, zie cacheWriter in
+// lib/supabaseAdmin.ts); zonder writer de gewone. Bewust als optie en niet als import: de smaaktoets laadt dit bestand los in.
 export async function getFeaturesBulk(
   supabase: SupabaseClient,
   items: { media_type: MediaType; tmdb_id: number }[],
-  options: { maxLive: number; needEnglishText?: boolean }
+  options: { maxLive: number; needEnglishText?: boolean; writer?: SupabaseClient }
 ): Promise<Map<string, TitleFeatures>> {
   const result = new Map<string, TitleFeatures>()
   const stale = new Map<string, TitleFeatures>()
@@ -249,7 +251,7 @@ export async function getFeaturesBulk(
         overview_en: d.features!.overviewEn,
         fetched_at: new Date().toISOString(),
       }))
-    if (upserts.length > 0) await supabase.from('tmdb_features_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    if (upserts.length > 0) await (options.writer ?? supabase).from('tmdb_features_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
     for (const d of done) if (d.features) result.set(d.key, d.features)
   }
 

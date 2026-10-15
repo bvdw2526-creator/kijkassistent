@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { cacheWriter } from './supabaseAdmin'
 import { getFeaturesBulk, buildFeatureTaste, scoreTitleFeatures, strongestThemes } from './titleFeatures'
 
 export type MediaType = 'movie' | 'tv'
@@ -385,7 +386,7 @@ async function getCached<T>(
     return cached ? cached[column] : fallback
   }
 
-  await supabase.from(table).upsert(
+  await cacheWriter(supabase).from(table).upsert(
     { ...match, [column]: fresh, fetched_at: new Date().toISOString() },
     { onConflict: Object.keys(match).join(',') }
   )
@@ -443,7 +444,7 @@ async function fetchAndStoreWatchProviders(supabase: SupabaseClient, items: Watc
       const upserts = done
         .filter((f) => f.sources !== null)
         .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
-      if (upserts.length > 0) await supabase.from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
     }
   )
 }
@@ -669,7 +670,7 @@ export async function getCreditsBulk(
             directors: f.credits!.directors,
             fetched_at: new Date().toISOString(),
           }))
-        if (upserts.length > 0) await supabase.from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+        if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
       }
     )
 
@@ -742,7 +743,7 @@ export async function getCachedDetails(supabase: SupabaseClient, mediaType: Medi
     return EMPTY_DETAILS
   }
 
-  await supabase.from('tmdb_details_cache').upsert(
+  await cacheWriter(supabase).from('tmdb_details_cache').upsert(
     {
       media_type: mediaType,
       tmdb_id: tmdbId,
@@ -851,7 +852,7 @@ export async function getCachedDetailsBulk(
             collection_name: f.details!.collectionName,
             fetched_at: new Date().toISOString(),
           }))
-        if (upserts.length > 0) await supabase.from('tmdb_details_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+        if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_details_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
       }
     )
     for (const f of fetched) {
@@ -944,7 +945,7 @@ async function getRecommendationPagesBulk(
         const upserts = done
           .filter((f) => f.results !== null)
           .map((f) => ({ media_type: f.item.mediaType, tmdb_id: f.item.tmdbId, page: f.item.page, results: f.results, fetched_at: new Date().toISOString() }))
-        if (upserts.length > 0) await supabase.from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
+        if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
       }
     )
 
@@ -1020,7 +1021,7 @@ async function getCollectionPartsBulk(supabase: SupabaseClient, collectionIds: n
     const upserts = fetched
       .filter((f) => f.parts !== null)
       .map((f) => ({ collection_id: f.id, parts: f.parts, fetched_at: new Date().toISOString() }))
-    if (upserts.length > 0) await supabase.from('tmdb_collection_cache').upsert(upserts, { onConflict: 'collection_id' })
+    if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_collection_cache').upsert(upserts, { onConflict: 'collection_id' })
     for (const f of fetched) result.set(f.id, f.parts ?? stale.get(f.id) ?? [])
   }
   return result
@@ -1092,7 +1093,7 @@ async function embedAndStore(
 ): Promise<{ media_type: MediaType; tmdb_id: number; embedding: number[] }[]> {
   let withText = missing.filter((m) => m.text)
   if (version === 'en') {
-    const features = await getFeaturesBulk(supabase, missing, { maxLive: ENGLISH_TEXT_LIVE_LIMIT, needEnglishText: true })
+    const features = await getFeaturesBulk(supabase, missing, { maxLive: ENGLISH_TEXT_LIVE_LIMIT, needEnglishText: true, writer: cacheWriter(supabase) })
     withText = missing.flatMap((m) => {
       const f = features.get(`${m.media_type}-${m.tmdb_id}`)
       return f?.overviewEn ? [{ ...m, text: `${f.titleEn ?? ''}. ${f.overviewEn}` }] : []
@@ -1106,7 +1107,7 @@ async function embedAndStore(
   if (rows.length > 0) {
     // Bestaande titels overslaan (ON CONFLICT DO NOTHING): de tabel staat alleen toevoegen toe, en een titel die al bestaat
     // (bv. door twee berekeningen tegelijk) liet anders het hele groepje met een 403 mislukken.
-    await supabase.from(EMBEDDING_TABLE[version]).upsert(rows, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
+    await cacheWriter(supabase).from(EMBEDDING_TABLE[version]).upsert(rows, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
   }
   return rows
 }
@@ -1806,7 +1807,7 @@ export async function computeTasteProfile(
   // van je geleerd heeft; Samen geeft geen diensten mee en blijft zoals het was.
   const sourceFeaturesEarly =
     discoverOptions && learn > 0
-      ? await getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES })
+      ? await getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES, writer: cacheWriter(supabase) })
       : null
   const themeCandidates = sourceFeaturesEarly
     ? strongestThemes(
@@ -2164,11 +2165,11 @@ export async function computeTasteProfile(
     const featurePool = [...candidates].sort((a, b) => featurePre(b) - featurePre(a)).slice(0, MAX_FEATURE_CANDIDATES)
     // Volgorde = voorrang bij het live ophalen: eerst wat je leuk vond, dan je afkeuringen, dan "oké".
     const [sourceFeatures, poolFeatures] = await Promise.all([
-      sourceFeaturesEarly ?? getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES }),
+      sourceFeaturesEarly ?? getFeaturesBulk(supabase, [...coreSources, ...dislikedItems, ...okItems], { maxLive: FEATURE_LIVE_SOURCES, writer: cacheWriter(supabase) }),
       getFeaturesBulk(
         supabase,
         featurePool.map((c) => ({ media_type: c.media_type, tmdb_id: c.id })),
-        { maxLive: FEATURE_LIVE_CANDIDATES }
+        { maxLive: FEATURE_LIVE_CANDIDATES, writer: cacheWriter(supabase) }
       ),
     ])
     const sourcesWithFeatures = coreSources

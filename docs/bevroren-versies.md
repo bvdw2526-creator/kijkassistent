@@ -110,6 +110,13 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   openen van de app krijg je dus vaker meteen de opgeslagen lijst; beoordelen, verbergen of iets op je kijklijst zetten
   maakt hem nog steeds direct ongeldig. De berekening zelf is ongewijzigd; Samen blijft op 6 uur. Terugzetten: het getal
   terug naar 6 en `loadRecommendations(true)` bij de knop in `app/page.tsx` terug naar `loadRecommendations()`.
+- 15 okt 2026: beveiliging, geen wijziging aan de berekening. De gedeelde caches (`tmdb_*_cache`, `title_embeddings`,
+  `title_embeddings_en`) worden door de server geschreven met de service role-sleutel (`cacheWriter` in
+  `lib/supabaseAdmin.ts`, Vercel-instelling `SUPABASE_SERVICE_ROLE_KEY`) in plaats van met de sleutel van de gebruiker.
+  Daarna zet migratie `20261015_lock_shared_caches.sql` het schrijven voor gebruikers dicht; lezen blijft gelijk. Dit is
+  een bewuste uitzondering op "alleen toevoegen": er wordt iets weggehaald omdat iedereen met een account de caches kon
+  aanpassen of wissen. De bevroren code kan na die migratie geen nieuwe cacherijen meer opslaan, maar rekent nog wel met
+  wat er is.
 
 ## Afspraken bij verder sleutelen
 
