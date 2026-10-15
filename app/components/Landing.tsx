@@ -8,7 +8,7 @@ import { CheckIcon, UsersIcon, HeartIcon, StarIcon, InstagramIcon, FacebookIcon,
 // blik laten zien wat je krijgt, vóórdat iemand een e-mailadres moet invullen.
 // De schermafbeeldingen in /public/start komen uit store-assets/screenshots (verkleind naar webp).
 
-const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', 'NPO Start', 'Pathé Thuis']
+const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', 'Apple TV', 'SkyShowtime', 'Viaplay', 'NPO Start', 'Pathé Thuis']
 
 // Bewust klein onderaan: de pagina moet bezoekers naar een account sturen, niet weg naar sociale media.
 const SOCIALS = [

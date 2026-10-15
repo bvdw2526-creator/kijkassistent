@@ -15,6 +15,9 @@ const SERVICE_LABELS: Record<string, string> = {
   disney_plus: 'Disney+',
   amazon_prime: 'Prime Video',
   hbo_max: 'HBO Max',
+  apple_tv: 'Apple TV',
+  skyshowtime: 'SkyShowtime',
+  viaplay: 'Viaplay',
   npo_start: 'NPO Start',
 }
 

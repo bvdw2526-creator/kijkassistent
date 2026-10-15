@@ -6,7 +6,7 @@ import { card } from '../components/ui'
 
 export const metadata: Metadata = {
   title: 'De beste films en series per streamingdienst',
-  description: 'De best beoordeelde films en series op Netflix, Videoland, Disney+, Amazon Prime Video en HBO Max in Nederland.',
+  description: 'De best beoordeelde films en series op Netflix, Videoland, Disney+, Amazon Prime Video, HBO Max, Apple TV en SkyShowtime in Nederland.',
 }
 
 export default function Top100Hub() {

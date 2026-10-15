@@ -120,6 +120,9 @@ export const SOURCE_IDS: Record<string, number> = {
   disney_plus: 337,
   amazon_prime: 119,
   hbo_max: 1899,
+  apple_tv: 350,
+  skyshowtime: 1773,
+  viaplay: 76,
   npo_start: 360,
   pathe_thuis: 71,
 }

@@ -17,6 +17,9 @@ export const TOP_SERVICES: Record<string, { providerId: number; label: string }>
   'disney-plus': { providerId: 337, label: 'Disney+' },
   'amazon-prime': { providerId: 119, label: 'Amazon Prime Video' },
   'hbo-max': { providerId: 1899, label: 'HBO Max' },
+  'apple-tv': { providerId: 350, label: 'Apple TV' },
+  skyshowtime: { providerId: 1773, label: 'SkyShowtime' },
+  // Viaplay bewust niet: met ongeveer 100 films blijven er na de stemmendrempel maar een paar over.
 }
 
 export interface TopItem {
