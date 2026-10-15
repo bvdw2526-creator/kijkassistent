@@ -150,7 +150,7 @@ const AVAILABILITY_POOL_PER_MODE = 2000
 // Van die titels halen we er maximaal zoveel live bij TMDB op als ze niet (vers) in de cache staan. De rest wordt
 // alleen uit de cache gelezen; een volgende berekening vult het aan.
 const AVAILABILITY_LIVE_LIMIT = 150
-// Zoveel verouderde titels verversen we na het antwoord (zie refreshWatchProviders), de best scorende eerst. Ruimer dan
+// Zoveel verouderde titels verversen we na het antwoord (zie StaleCacheRefresher), de best scorende eerst. Ruimer dan
 // AVAILABILITY_LIVE_LIMIT: niemand wacht erop, en het tijdsbudget van fetchLiveInChunks houdt het binnen de 60 seconden.
 const AVAILABILITY_BACKGROUND_LIMIT = 300
 // Tot deze leeftijd mag verouderde kijkinformatie gebruikt worden in afwachting van het verversen; wat ouder is, wordt nog
@@ -173,6 +173,27 @@ const MAX_OK_SOURCES = 100
 // koude cache niet vast op de 60 seconden van Vercel.
 const LIVE_FETCH_CHUNK = 25
 const LIVE_FETCH_BUDGET_MS = 30_000
+
+// Verlopen "lijkt hierop"-lijsten, rolverdelingen en details mogen tot zo oud gebruikt worden in afwachting van het
+// verversen na het antwoord (zie StaleCacheRefresher). Ze veranderen bij TMDB nauwelijks. Wat ouder is, gaat live.
+const STALE_OK_MAX_AGE_DAYS = 30
+// Rijen die op dezelfde dag zijn opgehaald, verliepen tot 15 okt 2026 ook op dezelfde dag: bij een grote import werd een
+// week later alles tegelijk opnieuw opgehaald (400+ "lijkt hierop"-lijsten in een uur, en de berekening liep vast). Nu
+// ligt de geldigheid per titel vast tussen 1x en 1,43x de standaardduur, voor een week dus tussen 7 en 10 dagen.
+const CACHE_AGE_SPREAD = 3 / 7
+
+function spreadMaxAgeMs(maxAgeHours: number, key: string): number {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
+  return maxAgeHours * 60 * 60 * 1000 * (1 + CACHE_AGE_SPREAD * ((hash % 1000) / 1000))
+}
+
+// Is een cacherij nog vers ('fresh'), verlopen maar bruikbaar tot het verversen ('stale'), of te oud ('expired')?
+function cacheRowAge(fetchedAt: string, maxAgeHours: number, key: string): 'fresh' | 'stale' | 'expired' {
+  const ageMs = Date.now() - new Date(fetchedAt).getTime()
+  if (ageMs < spreadMaxAgeMs(maxAgeHours, key)) return 'fresh'
+  return ageMs < STALE_OK_MAX_AGE_DAYS * 24 * 60 * 60 * 1000 ? 'stale' : 'expired'
+}
 // Grootte van .in()-lijsten bij het lezen uit de cache; Supabase geeft standaard maximaal 1000 rijen terug.
 const CACHE_READ_CHUNK = 200
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
@@ -431,7 +452,7 @@ type WatchProviderItem = { mediaType: MediaType; tmdbId: number }
 
 // Haalt de kijkproviders van deze titels live bij TMDB op en bewaart ze, in porties met een tijdsbudget. Een mislukte
 // aanroep geeft null en wordt niet bewaard.
-async function fetchAndStoreWatchProviders(supabase: SupabaseClient, items: WatchProviderItem[]) {
+async function fetchAndStoreWatchProviders(supabase: SupabaseClient, items: WatchProviderItem[], budgetMs?: number) {
   return fetchLiveInChunks(
     items,
     async (item) => ({
@@ -445,17 +466,9 @@ async function fetchAndStoreWatchProviders(supabase: SupabaseClient, items: Watc
         .filter((f) => f.sources !== null)
         .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
       if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
-    }
+    },
+    budgetMs
   )
-}
-
-// Ververst verouderde kijkinformatie, bedoeld voor ná het antwoord (zie onStale in getWatchProvidersBulk). Hooguit
-// AVAILABILITY_BACKGROUND_LIMIT titels, in de meegegeven volgorde.
-export async function refreshWatchProviders(supabase: SupabaseClient, items: WatchProviderItem[]): Promise<number> {
-  const unique = new Map<string, WatchProviderItem>()
-  for (const item of items) unique.set(`${item.mediaType}-${item.tmdbId}`, item)
-  const fetched = await fetchAndStoreWatchProviders(supabase, Array.from(unique.values()).slice(0, AVAILABILITY_BACKGROUND_LIMIT))
-  return fetched.filter((f) => f.sources !== null).length
 }
 
 export async function getWatchProvidersBulk(
@@ -613,13 +626,44 @@ async function fetchCreditsLive(mediaType: MediaType, tmdbId: number): Promise<C
 // daarna. Wordt alleen aangeroepen als er favoriete acteurs/actrices en/of favoriete
 // regisseurs zijn ingesteld, zodat gebruikers zonder die voorkeuren geen extra
 // TMDB-calls kosten.
+type CacheItem = { mediaType: MediaType; tmdbId: number }
+
+async function fetchAndStoreCredits(supabase: SupabaseClient, items: CacheItem[], budgetMs?: number) {
+  return fetchLiveInChunks(
+    items,
+    async (item) => ({
+      key: `${item.mediaType}-${item.tmdbId}`,
+      mediaType: item.mediaType,
+      tmdbId: item.tmdbId,
+      credits: await fetchCreditsLive(item.mediaType, item.tmdbId),
+    }),
+    async (done) => {
+      const upserts = done
+        .filter((f) => f.credits !== null)
+        .map((f) => ({
+          media_type: f.mediaType,
+          tmdb_id: f.tmdbId,
+          cast_members: f.credits!.cast,
+          directors: f.credits!.directors,
+          fetched_at: new Date().toISOString(),
+        }))
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    },
+    budgetMs
+  )
+}
+
 export async function getCreditsBulk(
   supabase: SupabaseClient,
-  items: { mediaType: MediaType; tmdbId: number }[]
+  items: CacheItem[],
+  // onStale: verlopen rijen (tot STALE_OK_MAX_AGE_DAYS) gelden als bruikbaar en worden aan deze functie gemeld om na het
+  // antwoord te verversen. maxLive (alleen samen met onStale): hooguit zoveel ontbrekende titels live; de rest wordt ook
+  // gemeld en staat er tot dan zonder rolverdeling bij.
+  options: { onStale?: (items: CacheItem[]) => void; maxLive?: number } = {}
 ): Promise<Map<string, CreditsResult>> {
   const result = new Map<string, CreditsResult>()
   const staleFallback = new Map<string, CreditsResult>()
-  const cutoffMs = Date.now() - TMDB_CREDITS_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
+  const later = new Map<string, CacheItem>()
 
   const movieIds = items.filter((i) => i.mediaType === 'movie').map((i) => i.tmdbId)
   const tvIds = items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId)
@@ -635,44 +679,31 @@ export async function getCreditsBulk(
   }
   const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
+  const byKey = new Map(items.map((i) => [`${i.mediaType}-${i.tmdbId}`, i]))
   for (const [mediaType, rows] of [['movie', movieRows], ['tv', tvRows]] as const) {
     for (const row of rows) {
       const key = `${mediaType}-${row.tmdb_id}`
       const credits: CreditsResult = { cast: row.cast_members, directors: row.directors || [] }
       staleFallback.set(key, credits)
-      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, credits)
+      const age = cacheRowAge(row.fetched_at, TMDB_CREDITS_CACHE_MAX_AGE_HOURS, key)
+      if (age === 'fresh' || (age === 'stale' && options.onStale)) result.set(key, credits)
+      if (age === 'stale' && options.onStale && byKey.has(key)) later.set(key, byKey.get(key)!)
     }
   }
 
-  const missingByKey = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  const missingByKey = new Map<string, CacheItem>()
   for (const i of items) {
     const key = `${i.mediaType}-${i.tmdbId}`
     if (!result.has(key)) missingByKey.set(key, i)
   }
-  const missing = Array.from(missingByKey.values())
+  const missingAll = Array.from(missingByKey.values())
+  const limited = options.onStale && options.maxLive !== undefined
+  const missing = limited ? missingAll.slice(0, options.maxLive) : missingAll
+  if (limited) for (const item of missingAll.slice(options.maxLive)) later.set(`${item.mediaType}-${item.tmdbId}`, item)
+  if (options.onStale && later.size > 0) options.onStale(Array.from(later.values()))
 
-  if (missing.length > 0) {
-    const fetched = await fetchLiveInChunks(
-      missing,
-      async (item) => ({
-        key: `${item.mediaType}-${item.tmdbId}`,
-        mediaType: item.mediaType,
-        tmdbId: item.tmdbId,
-        credits: await fetchCreditsLive(item.mediaType, item.tmdbId),
-      }),
-      async (done) => {
-        const upserts = done
-          .filter((f) => f.credits !== null)
-          .map((f) => ({
-            media_type: f.mediaType,
-            tmdb_id: f.tmdbId,
-            cast_members: f.credits!.cast,
-            directors: f.credits!.directors,
-            fetched_at: new Date().toISOString(),
-          }))
-        if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
-      }
-    )
+  if (missingAll.length > 0) {
+    const fetched = missing.length > 0 ? await fetchAndStoreCredits(supabase, missing) : []
 
     for (const key of missingByKey.keys()) {
       result.set(key, staleFallback.get(key) ?? { cast: [], directors: [] })
@@ -773,12 +804,13 @@ function chunked<T>(items: T[], size: number): T[][] {
 async function fetchLiveInChunks<T, R>(
   items: T[],
   fetchOne: (item: T) => Promise<R>,
-  saveChunk: (done: R[]) => Promise<void>
+  saveChunk: (done: R[]) => Promise<void>,
+  budgetMs: number = LIVE_FETCH_BUDGET_MS
 ): Promise<R[]> {
   const started = Date.now()
   const all: R[] = []
   for (const part of chunked(items, LIVE_FETCH_CHUNK)) {
-    if (Date.now() - started > LIVE_FETCH_BUDGET_MS) break
+    if (Date.now() - started > budgetMs) break
     const done = await Promise.all(part.map(fetchOne))
     await saveChunk(done)
     all.push(...done)
@@ -790,13 +822,39 @@ async function fetchLiveInChunks<T, R>(
 // live ophalen van ontbrekende titels in porties met een tijdsbudget. Titels die niet meer
 // gehaald werden ontbreken in het resultaat; de aanroeper valt dan terug op "geen details" en
 // een volgende berekening haalt ze alsnog op.
+async function fetchAndStoreDetails(supabase: SupabaseClient, items: CacheItem[], budgetMs?: number) {
+  return fetchLiveInChunks(
+    items,
+    async (item) => ({ key: `${item.mediaType}-${item.tmdbId}`, item, details: await fetchDetails(item.mediaType, item.tmdbId) }),
+    async (done) => {
+      const upserts = done
+        .filter((f) => f.details !== null)
+        .map((f) => ({
+          media_type: f.item.mediaType,
+          tmdb_id: f.item.tmdbId,
+          genres: f.details!.genres,
+          overview: f.details!.overview,
+          collection_id: f.details!.collectionId,
+          collection_name: f.details!.collectionName,
+          fetched_at: new Date().toISOString(),
+        }))
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_details_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    },
+    budgetMs
+  )
+}
+
 export async function getCachedDetailsBulk(
   supabase: SupabaseClient,
-  items: { mediaType: MediaType; tmdbId: number }[]
+  items: CacheItem[],
+  // onStale: verlopen rijen (tot STALE_OK_MAX_AGE_DAYS) gelden als bruikbaar en worden gemeld om na het antwoord te
+  // verversen; ontbrekende titels gaan zoals altijd live.
+  options: { onStale?: (items: CacheItem[]) => void } = {}
 ): Promise<Map<string, TitleDetails>> {
   const result = new Map<string, TitleDetails>()
   const stale = new Map<string, TitleDetails>()
-  const cutoffMs = Date.now() - TMDB_DETAILS_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
+  const later = new Map<string, CacheItem>()
+  const byKey = new Map(items.map((i) => [`${i.mediaType}-${i.tmdbId}`, i]))
 
   type Row = {
     tmdb_id: number
@@ -825,36 +883,22 @@ export async function getCachedDetailsBulk(
           collectionName: row.collection_name,
         }
         stale.set(key, details)
-        if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, details)
+        const age = cacheRowAge(row.fetched_at, TMDB_DETAILS_CACHE_MAX_AGE_HOURS, key)
+        if (age === 'fresh' || (age === 'stale' && options.onStale)) result.set(key, details)
+        if (age === 'stale' && options.onStale && byKey.has(key)) later.set(key, byKey.get(key)!)
       }
     }
   }
+  if (options.onStale && later.size > 0) options.onStale(Array.from(later.values()))
 
-  const missing = new Map<string, { mediaType: MediaType; tmdbId: number }>()
+  const missing = new Map<string, CacheItem>()
   for (const item of items) {
     const key = `${item.mediaType}-${item.tmdbId}`
     if (!result.has(key)) missing.set(key, item)
   }
 
   if (missing.size > 0) {
-    const fetched = await fetchLiveInChunks(
-      Array.from(missing.entries()),
-      async ([key, item]) => ({ key, item, details: await fetchDetails(item.mediaType, item.tmdbId) }),
-      async (done) => {
-        const upserts = done
-          .filter((f) => f.details !== null)
-          .map((f) => ({
-            media_type: f.item.mediaType,
-            tmdb_id: f.item.tmdbId,
-            genres: f.details!.genres,
-            overview: f.details!.overview,
-            collection_id: f.details!.collectionId,
-            collection_name: f.details!.collectionName,
-            fetched_at: new Date().toISOString(),
-          }))
-        if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_details_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
-      }
-    )
+    const fetched = await fetchAndStoreDetails(supabase, Array.from(missing.values()))
     for (const f of fetched) {
       // Een mislukte live fetch mag niet als "geen genres" gecached worden: dan de oude rij, of niets.
       if (f.details) result.set(f.key, f.details)
@@ -883,13 +927,48 @@ function mapTmdbResults(results: RawTmdbItem[], mediaType: MediaType): TmdbItem[
 // Bulk-variant van dezelfde getCached-caching, maar dan in twee .in()-queries i.p.v.
 // één losse SELECT (+ eventuele upsert) per bron × pagina — zelfde reden als bij
 // getWatchProvidersBulk hierboven.
+type RecommendationPageItem = { mediaType: MediaType; tmdbId: number; page: number }
+
+async function fetchAndStoreRecommendationPages(supabase: SupabaseClient, items: RecommendationPageItem[], budgetMs?: number) {
+  return fetchLiveInChunks(
+    items,
+    async (item) => {
+      const key = `${item.mediaType}-${item.tmdbId}-${item.page}`
+      const endpoint = item.mediaType === 'tv' ? 'tv' : 'movie'
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/${endpoint}/${item.tmdbId}/recommendations?language=nl-NL&page=${item.page}`,
+          { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
+        )
+        if (!res.ok) return { key, item, results: null as TmdbItem[] | null }
+        const data = await res.json()
+        return { key, item, results: mapTmdbResults(data.results || [], item.mediaType) }
+      } catch {
+        return { key, item, results: null as TmdbItem[] | null }
+      }
+    },
+    // Elke portie meteen opslaan, zodat een afgebroken berekening niets kwijtraakt.
+    async (done) => {
+      const upserts = done
+        .filter((f) => f.results !== null)
+        .map((f) => ({ media_type: f.item.mediaType, tmdb_id: f.item.tmdbId, page: f.item.page, results: f.results, fetched_at: new Date().toISOString() }))
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
+    },
+    budgetMs
+  )
+}
+
 async function getRecommendationPagesBulk(
   supabase: SupabaseClient,
-  items: { mediaType: MediaType; tmdbId: number; page: number }[]
+  items: RecommendationPageItem[],
+  // onStale: verlopen lijsten (tot STALE_OK_MAX_AGE_DAYS) gelden als bruikbaar en worden gemeld om na het antwoord te
+  // verversen; ontbrekende gaan zoals altijd live.
+  options: { onStale?: (items: RecommendationPageItem[]) => void } = {}
 ): Promise<Map<string, TmdbItem[]>> {
   const result = new Map<string, TmdbItem[]>()
   const staleFallback = new Map<string, TmdbItem[]>()
-  const cutoffMs = Date.now() - RECOMMENDATIONS_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000
+  const later = new Map<string, RecommendationPageItem>()
+  const byKey = new Map(items.map((i) => [`${i.mediaType}-${i.tmdbId}-${i.page}`, i]))
 
   const movieIds = [...new Set(items.filter((i) => i.mediaType === 'movie').map((i) => i.tmdbId))]
   const tvIds = [...new Set(items.filter((i) => i.mediaType === 'tv').map((i) => i.tmdbId))]
@@ -911,43 +990,24 @@ async function getRecommendationPagesBulk(
     for (const row of rows) {
       const key = `${mediaType}-${row.tmdb_id}-${row.page}`
       staleFallback.set(key, row.results)
-      if (new Date(row.fetched_at).getTime() >= cutoffMs) result.set(key, row.results)
+      // Beide pagina's van een titel verlopen samen (zelfde sleutel voor de spreiding).
+      const age = cacheRowAge(row.fetched_at, RECOMMENDATIONS_CACHE_MAX_AGE_HOURS, `${mediaType}-${row.tmdb_id}`)
+      if (age === 'fresh' || (age === 'stale' && options.onStale)) result.set(key, row.results)
+      if (age === 'stale' && options.onStale && byKey.has(key)) later.set(key, byKey.get(key)!)
     }
   }
+  if (options.onStale && later.size > 0) options.onStale(Array.from(later.values()))
 
   // Dedupliceren: dezelfde titel kan meerdere keren als bron voorkomen (favoriet én
   // beoordeeld), dan hoeft dezelfde pagina maar één keer opgehaald te worden.
-  const missingByKey = new Map<string, { mediaType: MediaType; tmdbId: number; page: number }>()
+  const missingByKey = new Map<string, RecommendationPageItem>()
   for (const item of items) {
     const key = `${item.mediaType}-${item.tmdbId}-${item.page}`
     if (!result.has(key)) missingByKey.set(key, item)
   }
 
   if (missingByKey.size > 0) {
-    const fetched = await fetchLiveInChunks(
-      Array.from(missingByKey.entries()),
-      async ([key, item]) => {
-        const endpoint = item.mediaType === 'tv' ? 'tv' : 'movie'
-        try {
-          const res = await fetch(
-            `https://api.themoviedb.org/3/${endpoint}/${item.tmdbId}/recommendations?language=nl-NL&page=${item.page}`,
-            { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` } }
-          )
-          if (!res.ok) return { key, item, results: null as TmdbItem[] | null }
-          const data = await res.json()
-          return { key, item, results: mapTmdbResults(data.results || [], item.mediaType) }
-        } catch {
-          return { key, item, results: null as TmdbItem[] | null }
-        }
-      },
-      // Elke portie meteen opslaan, zodat een afgebroken berekening niets kwijtraakt.
-      async (done) => {
-        const upserts = done
-          .filter((f) => f.results !== null)
-          .map((f) => ({ media_type: f.item.mediaType, tmdb_id: f.item.tmdbId, page: f.item.page, results: f.results, fetched_at: new Date().toISOString() }))
-        if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
-      }
-    )
+    const fetched = await fetchAndStoreRecommendationPages(supabase, Array.from(missingByKey.values()))
 
     for (const f of fetched) {
       if (f.results !== null) result.set(f.key, f.results)
@@ -959,6 +1019,65 @@ async function getRecommendationPagesBulk(
   }
 
   return result
+}
+
+// Hooguit zoveel verlopen rijen per soort verversen we na één antwoord; bij een grote golf gaat het zo vanzelf over een paar
+// berekeningen verspreid.
+const BACKGROUND_REFRESH_LIMITS = { watchProviders: AVAILABILITY_BACKGROUND_LIMIT, recommendationPages: 200, credits: 300, details: 100 }
+// Zoveel tijd krijgt het verversen na het antwoord in totaal (de functie mag 60 seconden duren, inclusief de berekening).
+const BACKGROUND_REFRESH_BUDGET_MS = 35_000
+// Bij de rolverdeling hooguit zoveel ontbrekende titels live tijdens de berekening; de rest na het antwoord.
+export const CREDITS_LIVE_LIMIT = 150
+
+// Verzamelt tijdens een berekening welke cacherijen verlopen zijn (of bij de rolverdeling nog niet opgehaald), zodat de
+// route ze ná het antwoord kan verversen (met after). Zo wacht niemand op een golf verlopen gegevens. Geef de on…-functies
+// mee als onStale aan getWatchProvidersBulk, getRecommendationPagesBulk, getCreditsBulk en getCachedDetailsBulk.
+export class StaleCacheRefresher {
+  private readonly watchProviders = new Map<string, WatchProviderItem>()
+  private readonly recommendationPages = new Map<string, RecommendationPageItem>()
+  private readonly credits = new Map<string, CacheItem>()
+  private readonly details = new Map<string, CacheItem>()
+
+  readonly onWatchProviders = (items: WatchProviderItem[]) => {
+    for (const i of items) this.watchProviders.set(`${i.mediaType}-${i.tmdbId}`, i)
+  }
+  readonly onRecommendationPages = (items: RecommendationPageItem[]) => {
+    for (const i of items) this.recommendationPages.set(`${i.mediaType}-${i.tmdbId}-${i.page}`, i)
+  }
+  readonly onCredits = (items: CacheItem[]) => {
+    for (const i of items) this.credits.set(`${i.mediaType}-${i.tmdbId}`, i)
+  }
+  readonly onDetails = (items: CacheItem[]) => {
+    for (const i of items) this.details.set(`${i.mediaType}-${i.tmdbId}`, i)
+  }
+
+  get counts() {
+    return {
+      kijkinformatie: this.watchProviders.size,
+      lijktHierop: this.recommendationPages.size,
+      rolverdeling: this.credits.size,
+      details: this.details.size,
+    }
+  }
+
+  get size() {
+    return this.watchProviders.size + this.recommendationPages.size + this.credits.size + this.details.size
+  }
+
+  // Na elkaar, met één gezamenlijk tijdsbudget: zo blijven het aantal gelijktijdige aanroepen bij TMDB en de belasting van de
+  // database beperkt. Geeft per soort het aantal ververste rijen terug.
+  async refresh(supabase: SupabaseClient) {
+    const deadline = Date.now() + BACKGROUND_REFRESH_BUDGET_MS
+    const left = () => Math.max(0, deadline - Date.now())
+    const L = BACKGROUND_REFRESH_LIMITS
+    const ok = <T extends { [k: string]: unknown }>(rows: T[], field: keyof T) => rows.filter((r) => r[field] !== null).length
+    const result = { kijkinformatie: 0, lijktHierop: 0, rolverdeling: 0, details: 0 }
+    result.lijktHierop = ok(await fetchAndStoreRecommendationPages(supabase, [...this.recommendationPages.values()].slice(0, L.recommendationPages), left()), 'results')
+    if (left() > 0) result.kijkinformatie = ok(await fetchAndStoreWatchProviders(supabase, [...this.watchProviders.values()].slice(0, L.watchProviders), left()), 'sources')
+    if (left() > 0) result.rolverdeling = ok(await fetchAndStoreCredits(supabase, [...this.credits.values()].slice(0, L.credits), left()), 'credits')
+    if (left() > 0) result.details = ok(await fetchAndStoreDetails(supabase, [...this.details.values()].slice(0, L.details), left()), 'details')
+    return result
+  }
 }
 
 function getCachedDiscoverPage(
@@ -1667,12 +1786,12 @@ export async function computeTasteProfile(
   // availableOnSourceIds: alleen titels die op (een van) deze diensten te zien zijn komen in de tabbladen. De
   // controle gebeurt vóór het samenstellen per genre, zodat die plekken niet naar titels gaan die toch wegvallen.
   // explainKey ("movie-123"): houd voor deze ene titel bij waar hij afvalt (zie TitleExplanation).
-  // onStaleAvailability: verouderde kijkinformatie geldt dan als bruikbaar in plaats van live opgehaald te worden; de
-  // betreffende titels komen hier binnen om na het antwoord te verversen (zie onStale in getWatchProvidersBulk).
+  // staleRefresher: verlopen cacherijen (kijkinformatie, "lijkt hierop", rolverdeling, details) gelden dan als bruikbaar in
+  // plaats van live opgehaald te worden; ze worden verzameld om na het antwoord te verversen (zie StaleCacheRefresher).
   options: {
     availableOnSourceIds?: Set<number>
     explainKey?: string
-    onStaleAvailability?: (items: { mediaType: MediaType; tmdbId: number }[]) => void
+    staleRefresher?: StaleCacheRefresher
   } = {}
 ): Promise<TasteProfile> {
   const explainKey = options.explainKey
@@ -1735,7 +1854,8 @@ export async function computeTasteProfile(
   const [detailsBundle, recommendationPagesByKey] = await Promise.all([
     getCachedDetailsBulk(
       supabase,
-      [...coreSources, ...dislikedItems].map((source) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id }))
+      [...coreSources, ...dislikedItems].map((source) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id })),
+      { onStale: options.staleRefresher?.onDetails }
     ).then((detailsByKey) => ({
       sourceDetails: coreSources.map(
         (source): SourceDetail => ({
@@ -1754,7 +1874,8 @@ export async function computeTasteProfile(
       supabase,
       [...profileSources, ...dislikedItems].flatMap((source) =>
         RECOMMENDATION_PAGES.map((page) => ({ mediaType: source.media_type, tmdbId: source.tmdb_id, page }))
-      )
+      ),
+      { onStale: options.staleRefresher?.onRecommendationPages }
     ),
   ])
   const { sourceDetails, dislikeDetails } = detailsBundle
@@ -2203,7 +2324,8 @@ export async function computeTasteProfile(
   if (favoritePersonNames.size > 0 || favoriteDirectorNames.size > 0) {
     const creditsByKey = await getCreditsBulk(
       supabase,
-      candidates.map((c) => ({ mediaType: c.media_type, tmdbId: c.id }))
+      candidates.map((c) => ({ mediaType: c.media_type, tmdbId: c.id })),
+      options.staleRefresher ? { onStale: options.staleRefresher.onCredits, maxLive: CREDITS_LIVE_LIMIT } : {}
     )
 
     for (const candidate of candidates) {
@@ -2385,7 +2507,7 @@ export async function computeTasteProfile(
     availabilityPoolKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`))
     const watchInfo = await resolveWatchInfo(supabase, pool, sourceIds, {
       maxLive: AVAILABILITY_LIVE_LIMIT,
-      onStale: options.onStaleAvailability,
+      onStale: options.staleRefresher?.onWatchProviders,
     })
     watchableKeys = new Set(pool.map((i) => `${i.media_type}-${i.id}`).filter((key) => watchInfo.get(key)))
   }

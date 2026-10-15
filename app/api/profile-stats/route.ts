@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import {
   getCachedDetailsBulk,
@@ -6,6 +6,8 @@ import {
   getWatchProvidersBulk,
   SOURCE_IDS,
   RENT_ONLY_SOURCE_IDS,
+  StaleCacheRefresher,
+  CREDITS_LIVE_LIMIT,
   type MediaType,
 } from '@/lib/recommendationEngine'
 
@@ -85,21 +87,26 @@ export async function GET(request: NextRequest) {
     const loved = Array.from(lovedMap.values())
 
     // De vier opzoekingen hebben niets met elkaar te maken, dus tegelijk: ze lezen uit de cache en halen bij een koude
-    // cache live bij TMDB op, en na elkaar tellen die wachttijden op.
+    // cache live bij TMDB op, en na elkaar tellen die wachttijden op. Verlopen rijen worden gebruikt en na het antwoord
+    // ververst (zie StaleCacheRefresher), zodat de Stats-pagina niet wacht op een golf verlopen gegevens.
+    const stale = new StaleCacheRefresher()
     const [detailsByKey, creditsByKey, providersByKey, { data: profile }] = await Promise.all([
       getCachedDetailsBulk(
         supabase,
-        likedTitles.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
+        likedTitles.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id })),
+        { onStale: stale.onDetails }
       ),
       // Favoriete acteurs/actrices in dit overzicht gaan over wie je toevallig het vaakst tegenkomt in wat je hebt gezien,
       // dus over alles, ook "niet voor mij"-titels.
       getCreditsBulk(
         supabase,
-        watched.map((w) => ({ mediaType: w.media_type, tmdbId: w.tmdb_id }))
+        watched.map((w) => ({ mediaType: w.media_type, tmdbId: w.tmdb_id })),
+        { onStale: stale.onCredits, maxLive: CREDITS_LIVE_LIMIT }
       ),
       getWatchProvidersBulk(
         supabase,
-        loved.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id }))
+        loved.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id })),
+        { onStale: stale.onWatchProviders }
       ),
       supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
     ])
@@ -148,6 +155,16 @@ export async function GET(request: NextRequest) {
         ).length,
       }))
       .sort((a, b) => b.count - a.count)
+
+    if (stale.size > 0) {
+      after(async () => {
+        try {
+          console.log('Stats: verlopen gegevens ververst', await stale.refresh(supabase))
+        } catch (err) {
+          console.error('Stats: verlopen gegevens verversen mislukt:', err)
+        }
+      })
+    }
 
     return NextResponse.json({
       totalWatched: watched.length,

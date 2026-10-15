@@ -117,6 +117,13 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   een bewuste uitzondering op "alleen toevoegen": er wordt iets weggehaald omdat iedereen met een account de caches kon
   aanpassen of wissen. De bevroren code kan na die migratie geen nieuwe cacherijen meer opslaan, maar rekent nog wel met
   wat er is.
+- 15 okt 2026: snelheid, geen wijziging aan de scores. "Lijkt hierop"-lijsten, rolverdelingen en details verlopen per
+  titel tussen 7 en 10 dagen in plaats van allemaal na precies 7 (`cacheRowAge`, `spreadMaxAgeMs`), en bij Voor jou en
+  Stats worden verlopen rijen (tot 30 dagen oud) direct gebruikt en pas na het antwoord ververst (`StaleCacheRefresher`,
+  samen met de kijkinformatie). Bij de rolverdeling gaan tijdens de berekening hooguit 150 ontbrekende titels live
+  (`CREDITS_LIVE_LIMIT`); de rest volgt na het antwoord, dus een titel kan één berekening lang zonder acteur- of
+  regisseursbonus staan. Aanleiding: een golf van 400+ verlopen "lijkt hierop"-lijsten liet de berekening vastlopen.
+  Samen ongewijzigd. Terugzetten: in de routes `staleRefresher` en de `onStale`-opties weglaten.
 
 ## Afspraken bij verder sleutelen
 
