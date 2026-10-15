@@ -195,3 +195,30 @@ export function ClockIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function InstagramIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function FacebookIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="M14.5 8H17V4.5h-2.5a4 4 0 0 0-4 4V11H8v3.5h2.5V21H14v-6.5h2.5L17 11h-3V9a1 1 0 0 1 1-1Z" />
+    </svg>
+  )
+}
+
+export function TikTokIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5" />
+      <path d="M14 4c.4 2.4 2 4 4.5 4.3" />
+    </svg>
+  )
+}

@@ -2,13 +2,20 @@ import Image from 'next/image'
 import Link from 'next/link'
 import LegalLinks from './LegalLinks'
 import { btnPrimary, btnSecondary, card } from './ui'
-import { CheckIcon, UsersIcon, HeartIcon, StarIcon } from './Icons'
+import { CheckIcon, UsersIcon, HeartIcon, StarIcon, InstagramIcon, FacebookIcon, TikTokIcon } from './Icons'
 
 // De startpagina voor bezoekers zonder account (vaak via Instagram of Facebook). Doel: in één
 // blik laten zien wat je krijgt, vóórdat iemand een e-mailadres moet invullen.
 // De schermafbeeldingen in /public/start komen uit store-assets/screenshots (verkleind naar webp).
 
 const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', 'NPO Start', 'Pathé Thuis']
+
+// Bewust klein onderaan: de pagina moet bezoekers naar een account sturen, niet weg naar sociale media.
+const SOCIALS = [
+  { label: 'Instagram', href: 'https://www.instagram.com/kijkassistent/', Icon: InstagramIcon },
+  { label: 'Facebook', href: 'https://www.facebook.com/Kijkassistent/', Icon: FacebookIcon },
+  { label: 'TikTok', href: 'https://www.tiktok.com/@kijkassistent', Icon: TikTokIcon },
+]
 
 const STEPS = [
   { title: 'Kies je streamingdiensten', text: 'Je krijgt alleen tips voor wat je ook echt kunt kijken.' },
@@ -164,7 +171,23 @@ export default function Landing() {
         </Link>
       </section>
 
-      <LegalLinks className="mt-12" />
+      <div className="mt-12 flex items-center justify-center gap-4">
+        <span className="text-sm text-faint">Volg ons</span>
+        {SOCIALS.map(({ label, href, Icon }) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Kijkassistent op ${label}`}
+            className="w-10 h-10 inline-flex items-center justify-center rounded-full border border-line text-muted hover:text-accent hover:border-accent transition-colors"
+          >
+            <Icon className="w-5 h-5" />
+          </a>
+        ))}
+      </div>
+
+      <LegalLinks className="mt-8" />
     </main>
   )
 }
