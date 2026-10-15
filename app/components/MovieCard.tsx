@@ -19,6 +19,8 @@ export default function MovieCard({
   isNew,
   alsoSamen,
   hideMatch,
+  seenRef,
+  seenKey,
 }: {
   movie: MovieCardMovie
   onClick: () => void
@@ -33,9 +35,14 @@ export default function MovieCard({
   // Geen matchpercentage tonen (bij Verras me: daar gaat het om ontdekken, en het percentage zou er laag en ontmoedigend
   // uitvallen).
   hideMatch?: boolean
+  // Om te tellen dat de kaart in beeld kwam (zie useSeenTracker in lib/recommendationEvents.ts).
+  seenRef?: (el: HTMLElement | null) => void | (() => void)
+  seenKey?: string
 }) {
   return (
     <button
+      ref={seenRef}
+      data-seen-key={seenKey}
       onClick={onClick}
       className="group text-left touch-manipulation active:scale-[0.97] transition-transform"
     >

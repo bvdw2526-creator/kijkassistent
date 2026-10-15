@@ -21,6 +21,7 @@ import HalloweenRow, { DAY_FLAVOURS, HalloweenClassics, HalloweenDayFlavours, Ha
 import TooOldPrompt from './components/TooOldPrompt'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
+import { logRecommendationEvent, useSeenTracker, type RecommendationEvent } from '@/lib/recommendationEvents'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon, UsersIcon, ClockIcon } from './components/Icons'
 import HideTitleConfirm from './components/HideTitleConfirm'
@@ -149,6 +150,28 @@ function sourceInfoFor(movie: Movie, mode: RecommendationMode) {
       director: round(movie.directorScore),
       dislike: round(movie.dislikeScore),
     },
+  }
+}
+
+// Getoond of geopend op Voor jou (tabel recommendation_events); plek 1 = bovenaan. Het tabblad heet hetzelfde als in
+// source_info, zodat de gebeurtenissen en de uitkomsten bij elkaar passen.
+function recommendationEventFor(
+  movie: Movie,
+  mode: RecommendationMode,
+  event: 'getoond' | 'geopend',
+  position: number,
+  connectionId: string | null
+): RecommendationEvent {
+  return {
+    event,
+    screen: 'voor_jou',
+    mode: sourceInfoFor(movie, mode).mode,
+    media_type: movie.media_type,
+    tmdb_id: movie.id,
+    position,
+    match: movie.matchPercent,
+    upcoming: !!movie.upcoming,
+    connection_id: mode === 'samen' ? connectionId : null,
   }
 }
 
@@ -340,6 +363,12 @@ export default function Home() {
   useEffect(() => {
     if (user) rememberSeen(user.id, shownKeys)
   }, [user, shownKeys])
+
+  // Welke kaarten er echt in beeld kwamen, voor de trefkans (zie lib/recommendationEvents.ts). De kaart draagt de hele
+  // gebeurtenis als sleutel mee, zodat plek, percentage en tabblad kloppen met het moment van tonen.
+  const trackSeen = useSeenTracker((key) => {
+    if (user) logRecommendationEvent(user.id, JSON.parse(key) as RecommendationEvent)
+  })
 
   useEffect(() => {
     if (!user) return
@@ -1198,7 +1227,9 @@ export default function Home() {
         )}
 
         {!showSkeleton && visible.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 laptop:grid-cols-5 gap-3">
+          // key per tabblad: anders hergebruikt React bij het wisselen de kaart van een titel die in beide tabbladen staat,
+          // en telt die in het nieuwe tabblad niet als getoond (zie useSeenTracker).
+          <div key={`${mode}-${halloween.day ? 'halloween' : 'gewoon'}`} className="grid grid-cols-2 sm:grid-cols-3 laptop:grid-cols-5 gap-3">
             {visible.map((movie, i) => (
               <MovieCard
                 key={`${movie.media_type}-${movie.id}`}
@@ -1208,7 +1239,10 @@ export default function Home() {
                 isNew={!halloween.day && mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
                 alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
                 hideMatch={mode === 'explore' || halloween.day}
+                seenRef={trackSeen}
+                seenKey={JSON.stringify(recommendationEventFor(movie, mode, 'getoond', i + 1, togetherConnectionId))}
                 onClick={() => {
+                  if (user) logRecommendationEvent(user.id, recommendationEventFor(movie, mode, 'geopend', i + 1, togetherConnectionId))
                   selectedAtRef.current = Date.now()
                   setActionError(null)
                   setSelected(movie)

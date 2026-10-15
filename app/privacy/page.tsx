@@ -9,7 +9,7 @@ export default function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 11 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 15 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -31,6 +31,13 @@ export default function Privacy() {
             zonder je naam of e-mailadres.
           </li>
           <li>
+            Welke aanbevelingen op &quot;Voor jou&quot; in beeld kwamen en welke je opende (titel, tabblad, plek in de lijst en
+            percentage), en welke titels je zonder beoordeling van je kijklijst haalde. Zo kunnen we meten hoeveel van wat
+            we laten zien echt bij je past. Dit zien alleen wij, zonder je naam of e-mailadres, en we bewaren het
+            hooguit 18 maanden. Daarna houden we alleen anonieme totalen per maand over (bijvoorbeeld &quot;deze film
+            werd in maart 40 keer getoond en 12 keer gekozen&quot;), waarin niet meer te zien is wie wat deed.
+          </li>
+          <li>
             Als je een partner koppelt: de koppeling zelf (jouw partner ziet jouw e-mailadres in de uitnodiging) en de
             gezamenlijke beoordelingen voor &quot;Samen&quot;.
           </li>
@@ -42,14 +49,16 @@ export default function Privacy() {
           </li>
         </ul>
         <p className="mt-3">
-          We gebruiken geen advertenties, geen tracking en geen analysetools. We verkopen geen gegevens.
+          We gebruiken geen advertenties, geen tracking via andere partijen en geen analysetools van derden. Wat we
+          meten, meten we zelf en alleen binnen de app. We verkopen geen gegevens.
         </p>
       </Section>
 
       <Section title="Waarvoor we ze gebruiken">
         <p>
-          Uitsluitend om de app te laten werken: inloggen, je smaakprofiel opbouwen en aanbevelingen berekenen. De
-          grondslag is de overeenkomst die je met ons sluit door een account te maken.
+          Uitsluitend om de app te laten werken en te verbeteren: inloggen, je smaakprofiel opbouwen, aanbevelingen
+          berekenen en meten hoe goed die passen. De grondslag is de overeenkomst die je met ons sluit door een account
+          te maken.
         </p>
       </Section>
 
@@ -79,7 +88,15 @@ export default function Privacy() {
       </Section>
 
       <Section title="Hoe lang we gegevens bewaren">
-        <p>Zolang je een account hebt. Verwijder je je account, dan wissen we al je gegevens direct en volledig.</p>
+        <p>
+          Zolang je een account hebt; wat er in beeld kwam en wat je opende hooguit 18 maanden. Verwijder je je account,
+          dan wissen we direct je account, je e-mailadres, een eventuele partnerkoppeling en alles wat naar jou leidt.
+          Wat je van films en series vond (beoordelingen, favorieten, kijklijst, verborgen titels, oordelen bij
+          &quot;Samen&quot;, favoriete acteurs en regisseurs) en je streamingdiensten en voorkeuren bewaren we daarna alleen
+          anoniem: onder een willekeurige code, met alleen de maand in plaats van de datum, zodat niemand, ook wij niet,
+          kan zien dat het van jou was. Samen met de anonieme totalen per maand gebruiken we dat om de aanbevelingen te
+          verbeteren en te begrijpen wat mensen graag kijken.
+        </p>
       </Section>
 
       <Section title="Jouw rechten">

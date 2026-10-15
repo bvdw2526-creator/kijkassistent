@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { supabase, getCurrentUser } from '@/lib/supabase'
+import { logRecommendationEvent } from '@/lib/recommendationEvents'
 import BottomNav from '../components/BottomNav'
 import TitleInfoSheet from '../components/TitleInfoSheet'
 import { card, chip } from '../components/ui'
@@ -35,6 +36,22 @@ const MODE_LABELS: Record<RecommendationMode, string> = {
   explore: 'Verras me',
   samen: 'Samen',
   halloween: 'Halloween',
+}
+
+// Weggehaald zonder oordeel: telt bij de trefkans als afgehaakt (zie lib/recommendationEvents.ts). Beoordelen of favoriet
+// maken vanaf de lijst staat al in source_info en hoort hier niet bij. Met connectionId = van Onze lijst.
+function logAfgehaakt(userId: string, item: WatchlistItem, connectionId: string | null) {
+  const mode = typeof item.sourceInfo?.mode === 'string' ? item.sourceInfo.mode : item.sourceMode
+  const days = item.addedAt ? Math.floor((Date.now() - new Date(item.addedAt).getTime()) / 86_400_000) : null
+  logRecommendationEvent(userId, {
+    event: 'afgehaakt',
+    screen: connectionId ? 'onze_lijst' : 'kijklijst',
+    mode: mode ?? null,
+    media_type: item.media_type,
+    tmdb_id: item.id,
+    connection_id: connectionId,
+    days_on_list: days !== null && days >= 0 ? days : null,
+  })
 }
 
 export default function Watchlist() {
@@ -297,6 +314,7 @@ export default function Watchlist() {
       return
     }
 
+    logAfgehaakt(user.id, item, null)
     setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 
@@ -320,6 +338,8 @@ export default function Watchlist() {
       setError('Het item leek verwijderd, maar er is geen rij verwijderd.')
       return
     }
+    const user = await getCurrentUser()
+    if (user) logAfgehaakt(user.id, item, connectionId)
     setSharedItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
   }
 

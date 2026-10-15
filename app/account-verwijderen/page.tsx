@@ -20,7 +20,10 @@ export default function AccountVerwijderen() {
           <li>Scroll naar onderen en kies <strong>Account verwijderen</strong>.</li>
           <li>Bevestig met <strong>Ja, verwijder alles</strong>.</li>
         </ol>
-        <p className="mt-3">Je account en je gegevens worden direct en definitief gewist. Dit kan niet ongedaan worden gemaakt.</p>
+        <p className="mt-3">
+          Je account en alles wat naar jou leidt, worden direct en definitief gewist. Dit kan niet ongedaan worden
+          gemaakt. Wat je van films en series vond, bewaren we alleen anoniem (zie hieronder).
+        </p>
       </Section>
 
       <Section title="Wat er wordt verwijderd">
@@ -32,7 +35,16 @@ export default function AccountVerwijderen() {
           <li>Een eventuele koppeling met een partner en de gezamenlijke lijst en beoordelingen.</li>
           <li>Opgeslagen aanbevelingen die voor jou zijn berekend.</li>
         </ul>
-        <p className="mt-3">Wat we niet bewaren, kunnen we ook niet verwijderen: er blijft niets van je account achter.</p>
+      </Section>
+
+      <Section title="Wat we anoniem bewaren">
+        <p>
+          Om de aanbevelingen voor iedereen beter te maken, bewaren we vóór het wissen een anonieme kopie van je smaak:
+          welke films en series je beoordeelde, als favoriet had, op je kijklijst had of verborg, je oordelen bij
+          &quot;Samen&quot;, je favoriete acteurs en regisseurs, je streamingdiensten en je voorkeuren. Dat gebeurt onder een
+          willekeurige code, zonder e-mailadres, account of partner, en met alleen de maand in plaats van de precieze
+          datum. Het is daarna niet meer naar jou te herleiden, ook niet door ons.
+        </p>
       </Section>
 
       <Section title="Kun je niet meer inloggen?">

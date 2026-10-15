@@ -654,7 +654,7 @@ export default function Settings() {
                   </button>
                 ) : (
                   <div className="rounded-xl border border-coral/40 bg-coral/5 p-4">
-                    <p className="text-sm mb-3">Weet je het zeker? Alles wordt direct en definitief gewist.</p>
+                    <p className="text-sm mb-3">Weet je het zeker? Je account en alles wat naar jou leidt, worden direct en definitief gewist. Wat je van titels vond, bewaren we alleen anoniem.</p>
                     <div className="flex gap-2">
                       <button
                         onClick={handleDeleteAccount}
