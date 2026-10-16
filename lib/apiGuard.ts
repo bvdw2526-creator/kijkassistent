@@ -10,6 +10,8 @@ export const LIMITS = {
   search: { max: 60, windowSeconds: 60 },
   titleInfo: { max: 90, windowSeconds: 60 },
   halloween: { max: 60, windowSeconds: 3600 },
+  // Wordt al opgehaald zodra een popup opent, dus ruimer dan wat iemand echt aantikt.
+  moreLikeThis: { max: 300, windowSeconds: 3600 },
   hasSoundtrack: { max: 90, windowSeconds: 60 },
   // De import van een Letterboxd-export gaat in porties van 25; duizenden films zijn honderd aanroepen.
   importMatch: { max: 400, windowSeconds: 3600 },

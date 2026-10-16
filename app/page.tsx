@@ -19,6 +19,7 @@ import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
 import HalloweenRow, { DAY_FLAVOURS, HalloweenClassics, HalloweenDayFlavours, HalloweenDayHeader, useHalloweenLists } from './components/HalloweenRow'
 import TooOldPrompt from './components/TooOldPrompt'
+import MoreLikeThis from './components/MoreLikeThis'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
 import { findNewKeys, rememberSeen } from '@/lib/newTitles'
 import { logRecommendationEvent, useSeenTracker, type RecommendationEvent } from '@/lib/recommendationEvents'
@@ -1509,6 +1510,13 @@ export default function Home() {
                   <ClockIcon className="w-4 h-4" />
                   <span className="text-xs font-medium">Te oud</span>
                 </button>
+              )}
+
+              {/* Alleen in je eigen tabbladen: de tips komen van je eigen diensten en je eigen smaak. */}
+              {!selected.upcoming && mode !== 'samen' && (
+                <div className="mt-3">
+                  <MoreLikeThis key={`${selected.media_type}-${selected.id}`} item={selected} />
+                </div>
               )}
 
               {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (

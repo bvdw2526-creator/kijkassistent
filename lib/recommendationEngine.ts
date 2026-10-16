@@ -350,7 +350,7 @@ const THEME_PAGES = [1, 2, 3]
 const THEME_MAX_TITLES = 700
 // 2 pagina's i.p.v. 3: pagina 3 van TMDB's per-titel-aanbevelingen voegt weinig relevantie
 // toe, maar bij veel favorieten/ratings (elk 3 losse TMDB-calls) telt dat wel flink op.
-const RECOMMENDATION_PAGES = [1, 2]
+export const RECOMMENDATION_PAGES = [1, 2]
 
 export const MODES: RecommendationMode[] = ['focused', 'balanced', 'explore']
 
@@ -958,7 +958,7 @@ async function fetchAndStoreRecommendationPages(supabase: SupabaseClient, items:
   )
 }
 
-async function getRecommendationPagesBulk(
+export async function getRecommendationPagesBulk(
   supabase: SupabaseClient,
   items: RecommendationPageItem[],
   // onStale: verlopen lijsten (tot STALE_OK_MAX_AGE_DAYS) gelden als bruikbaar en worden gemeld om na het antwoord te

@@ -8,6 +8,7 @@ import { wikipediaSearchUrl } from '@/lib/wikipedia'
 import { btnGhost } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TrailerLink from './TrailerLink'
+import MoreLikeThis from './MoreLikeThis'
 import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
@@ -175,6 +176,10 @@ export default function TitleInfoSheet({
           )}
 
           {typeof children === 'function' ? children(info) : children}
+
+          <div className="mt-2">
+            <MoreLikeThis key={`${item.media_type}-${item.id}`} item={item} />
+          </div>
 
           {info?.isTrueStory && (
             <a

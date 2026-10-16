@@ -18,6 +18,8 @@ export function useBackToClose(open: boolean, onClose: () => void) {
     window.history.pushState({ ...window.history.state, kijkSheet: marker }, '', window.location.href)
     let closedByBack = false
     const onPop = () => {
+      // Een pop-up op deze pop-up (bv. "Meer zoals deze") ging dicht: we staan weer op onze eigen regel, dus blijven open.
+      if (window.history.state?.kijkSheet === marker) return
       closedByBack = true
       onCloseRef.current()
     }
