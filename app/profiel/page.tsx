@@ -14,6 +14,8 @@ type ProfileStats = {
   ratingCounts: { love: number; ok: number; dislike: number }
   topGenres: { name: string; count: number }[]
   topActors: { name: string; count: number }[]
+  // Ontbreekt in een oudere bewaarde kopie, vandaar optioneel.
+  dislikedGenres?: { name: string; disliked: number; total: number }[]
   streaming: { lovedTotal: number; services: { id: string; label: string; owned: boolean; count: number }[] }
 }
 
@@ -212,6 +214,33 @@ export default function Profiel() {
                         />
                       </div>
                       <span className="text-xs text-muted w-4 text-right flex-shrink-0">{genre.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Genres die je opvallend vaak afkeurt */}
+            {stats.dislikedGenres && stats.dislikedGenres.length > 0 && (
+              <div className={`${card} p-5`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <DislikeIcon className="w-4 h-4 text-coral" />
+                  <p className="text-sm font-medium">Niet jouw ding</p>
+                </div>
+                <p className="text-xs text-faint mb-4">Genres die je veel vaker &quot;niet voor mij&quot; geeft dan gemiddeld</p>
+                <div className="flex flex-col gap-2.5">
+                  {stats.dislikedGenres.map((genre) => (
+                    <div key={genre.name} className="flex items-center gap-3">
+                      <span className="text-sm flex-1 min-w-0 truncate">{genre.name}</span>
+                      <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
+                        <div
+                          className="h-full rounded-full bg-coral transition-all"
+                          style={{ width: `${(genre.disliked / genre.total) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-muted w-16 text-right flex-shrink-0">
+                        {genre.disliked} van {genre.total}
+                      </span>
                     </div>
                   ))}
                 </div>

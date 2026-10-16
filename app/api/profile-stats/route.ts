@@ -10,6 +10,7 @@ import {
   CREDITS_LIVE_LIMIT,
   type MediaType,
 } from '@/lib/recommendationEngine'
+import { findDislikedGenres } from '@/lib/dislikedGenres'
 
 const SERVICE_LABELS: Record<string, string> = {
   netflix: 'Netflix',
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
         ratingCounts: { love: 0, ok: 0, dislike: 0 },
         topGenres: [],
         topActors: [],
+        dislikedGenres: [],
         streaming: { lovedTotal: 0, services: [] },
       })
     }
@@ -91,9 +93,10 @@ export async function GET(request: NextRequest) {
     // ververst (zie StaleCacheRefresher), zodat de Stats-pagina niet wacht op een golf verlopen gegevens.
     const stale = new StaleCacheRefresher()
     const [detailsByKey, creditsByKey, providersByKey, { data: profile }] = await Promise.all([
+      // Alles wat je gezien hebt, ook "niet voor mij": die zijn nodig voor "Niet jouw ding".
       getCachedDetailsBulk(
         supabase,
-        likedTitles.map((t) => ({ mediaType: t.media_type, tmdbId: t.tmdb_id })),
+        watched.map((w) => ({ mediaType: w.media_type, tmdbId: w.tmdb_id })),
         { onStale: stale.onDetails }
       ),
       // Favoriete acteurs/actrices in dit overzicht gaan over wie je toevallig het vaakst tegenkomt in wat je hebt gezien,
@@ -122,6 +125,14 @@ export async function GET(request: NextRequest) {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
+
+    const dislikedGenres = findDislikedGenres(
+      watched.map((w) => `${w.media_type}-${w.tmdb_id}`),
+      dislikedKeys,
+      detailsByKey
+    )
+      .slice(0, 4)
+      .map(({ name, disliked, total }) => ({ name, disliked, total }))
 
     const actorCounts = new Map<string, number>()
     for (const w of watched) {
@@ -173,6 +184,7 @@ export async function GET(request: NextRequest) {
       ratingCounts,
       topGenres,
       topActors,
+      dislikedGenres,
       streaming: { lovedTotal: loved.length, services: streamingServices },
     })
   } catch (err) {
