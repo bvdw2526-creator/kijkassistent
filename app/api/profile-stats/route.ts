@@ -136,16 +136,19 @@ export async function GET(request: NextRequest) {
       .slice(0, 4)
       .map(({ name, disliked, total }) => ({ name, disliked, total }))
 
-    const actorCounts = new Map<string, number>()
+    // Per acteur/actrice ook de titels waarin je hem of haar zag: op de Stats-pagina klik je erop door.
+    const actors = new Map<number, { id: number; name: string; titles: { id: number; media_type: MediaType; title: string }[] }>()
     for (const w of watched) {
       const credits = creditsByKey.get(`${w.media_type}-${w.tmdb_id}`)
       if (!credits) continue
       for (const actor of credits.cast) {
-        actorCounts.set(actor.name, (actorCounts.get(actor.name) || 0) + 1)
+        const entry = actors.get(actor.id) ?? { id: actor.id, name: actor.name, titles: [] }
+        entry.titles.push({ id: w.tmdb_id, media_type: w.media_type, title: w.title })
+        actors.set(actor.id, entry)
       }
     }
-    const topActors = Array.from(actorCounts.entries())
-      .map(([name, count]) => ({ name, count }))
+    const topActors = Array.from(actors.values())
+      .map((a) => ({ ...a, count: a.titles.length }))
       // Pas de moeite waard om te tonen als iemand écht vaker dan één keer voorkomt.
       .filter((a) => a.count > 1)
       .sort((a, b) => b.count - a.count)

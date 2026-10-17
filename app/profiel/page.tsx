@@ -6,7 +6,8 @@ import { supabase, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card } from '../components/ui'
 import RatingBreakdown from '../components/RatingBreakdown'
-import { DislikeIcon, UsersIcon } from '../components/Icons'
+import ActorHighlights, { type ActorHighlight } from '../components/ActorHighlights'
+import { DislikeIcon } from '../components/Icons'
 
 type ProfileStats = {
   totalWatched: number
@@ -15,7 +16,7 @@ type ProfileStats = {
   // fav ontbreekt in een oudere bewaarde kopie.
   ratingCounts: { fav?: number; love: number; ok: number; dislike: number }
   topGenres: { name: string; count: number }[]
-  topActors: { name: string; count: number }[]
+  topActors: ActorHighlight[]
   // Ontbreekt in een oudere bewaarde kopie, vandaar optioneel.
   dislikedGenres?: { name: string; disliked: number; total: number }[]
   streaming: { lovedTotal: number; services: { id: string; label: string; owned: boolean; count: number }[] }
@@ -113,7 +114,6 @@ export default function Profiel() {
   }, [])
 
   const maxGenreCount = stats?.topGenres[0]?.count ?? 0
-  const maxActorCount = stats?.topActors[0]?.count ?? 0
 
   return (
     <>
@@ -259,30 +259,7 @@ export default function Profiel() {
 
             {/* Meest voorkomende acteurs — het verrassende inzicht */}
             {stats.topActors.length > 0 && (
-              <div className={`${card} p-5 border-accent/30`}>
-                <div className="flex items-center gap-2 mb-1">
-                  <UsersIcon className="w-4 h-4 text-accent" />
-                  <p className="text-sm font-medium">Wist je dit al?</p>
-                </div>
-                <p className="text-xs text-faint mb-4">Deze mensen duiken opvallend vaak op in wat je hebt gezien</p>
-                <div className="flex flex-col gap-2.5">
-                  {stats.topActors.map((actor, i) => (
-                    <div key={actor.name} className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-faint w-4 flex-shrink-0">{i + 1}</span>
-                      <span className="text-sm flex-1 min-w-0 truncate">{actor.name}</span>
-                      <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
-                        <div
-                          className="h-full rounded-full bg-accent transition-all"
-                          style={{ width: `${maxActorCount > 0 ? (actor.count / maxActorCount) * 100 : 0}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-muted w-16 text-right flex-shrink-0">
-                        {actor.count}× gezien
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ActorHighlights actors={stats.topActors} />
             )}
           </div>
         )}
