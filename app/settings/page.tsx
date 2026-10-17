@@ -144,6 +144,8 @@ export default function Settings() {
   const skin = useSkin()
   // Eigen grens "Niet ouder dan" (profiles.min_year); null = geen grens. Wordt direct opgeslagen bij het kiezen.
   const [minYear, setMinYear] = useState<number | null>(null)
+  // Wekelijkse tipsmail (profiles.weekly_mail); wordt direct opgeslagen bij het omzetten.
+  const [weeklyMail, setWeeklyMail] = useState(true)
 
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
@@ -177,7 +179,7 @@ export default function Settings() {
     if (!user) return
     const { data } = await supabase
       .from('profiles')
-      .select('streaming_services, excluded_genres, onboarding_completed_at, min_year')
+      .select('streaming_services, excluded_genres, onboarding_completed_at, min_year, weekly_mail')
       .eq('id', user.id)
       .single()
     const services: string[] = data?.streaming_services || []
@@ -186,6 +188,7 @@ export default function Settings() {
     setSelected(services)
     setExcludedGenres(genres)
     setMinYear(typeof data?.min_year === 'number' ? data.min_year : null)
+    setWeeklyMail(data?.weekly_mail !== false)
     setOnboardingComplete(!!data?.onboarding_completed_at)
     setLoading(false)
   }
@@ -200,6 +203,19 @@ export default function Settings() {
       console.error('Grens opslaan mislukt:', error)
       setMinYear(previous)
       setErrorMessage(`Kon de grens niet opslaan: ${error.message}`)
+    }
+  }
+
+  async function toggleWeeklyMail() {
+    const next = !weeklyMail
+    setWeeklyMail(next)
+    const user = await getCurrentUser()
+    if (!user) return
+    const { error } = await supabase.from('profiles').update({ weekly_mail: next }).eq('id', user.id)
+    if (error) {
+      console.error('Tipsmail-instelling opslaan mislukt:', error)
+      setWeeklyMail(!next)
+      setErrorMessage(`Kon de instelling niet opslaan: ${error.message}`)
     }
   }
 
@@ -485,6 +501,24 @@ export default function Settings() {
                 })}
               </div>
             </div>
+
+            <GroupTitle title="Mail" />
+            <button
+              role="switch"
+              aria-checked={weeklyMail}
+              onClick={toggleWeeklyMail}
+              className={`${linkRow} w-full text-left touch-manipulation`}
+            >
+              <span>
+                <span className="block text-sm font-medium">Wekelijkse tipsmail</span>
+                <span className="block text-xs text-muted mt-0.5">Elke week een paar tips op jouw smaak en jouw diensten</span>
+              </span>
+              <span className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${weeklyMail ? 'bg-accent' : 'bg-control'}`}>
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${weeklyMail ? 'left-[22px]' : 'left-0.5'}`}
+                />
+              </span>
+            </button>
 
             <GroupTitle title="Mijn lijsten" />
             <Link href="/onboarding" className={linkRow}>

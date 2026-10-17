@@ -9,7 +9,7 @@ export default function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 15 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 17 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -59,6 +59,13 @@ export default function Privacy() {
           Uitsluitend om de app te laten werken en te verbeteren: inloggen, je smaakprofiel opbouwen, aanbevelingen
           berekenen en meten hoe goed die passen. De grondslag is de overeenkomst die je met ons sluit door een account
           te maken.
+        </p>
+        <p className="mt-3">
+          Je e-mailadres gebruiken we ook voor een wekelijkse mail met een paar persoonlijke tips. Die staat standaard
+          aan; afmelden kan met één klik onderaan elke mail, of bij{' '}
+          <Link href="/settings" className="text-accent">Instellingen</Link>. Beoordeel je een titel of zet je hem op
+          je kijklijst via een knop in die mail, dan bewaren we dat zoals in de app, met als herkomst &quot;mail&quot;. We
+          zien niet of je de mail opent.
         </p>
       </Section>
 

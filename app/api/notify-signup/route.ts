@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
-import nodemailer from 'nodemailer'
+import { mailTransport, mailFrom } from '@/lib/mailer'
 
 export const maxDuration = 30
 
@@ -31,26 +31,17 @@ export async function POST(request: NextRequest) {
   const createdAt = typeof body.created_at === 'string' ? new Date(body.created_at) : new Date()
   const total = typeof body.total === 'number' ? body.total : null
 
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM, NOTIFY_TO } = process.env
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+  const transporter = mailTransport()
+  if (!transporter) {
     console.error('Melding nieuw account niet verstuurd: SMTP-gegevens ontbreken in de omgeving')
     return NextResponse.json({ error: 'Mail niet geconfigureerd' }, { status: 500 })
   }
 
-  const port = Number(SMTP_PORT) || 465
-  const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port,
-    // Poort 465 is een versleutelde verbinding vanaf het begin; 587 start eerst gewoon en schakelt dan over.
-    secure: port === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-  })
-
   const when = createdAt.toLocaleString('nl-NL', { timeZone: 'Europe/Amsterdam', dateStyle: 'long', timeStyle: 'short' })
   try {
     await transporter.sendMail({
-      from: MAIL_FROM || `Kijkassistent <${SMTP_USER}>`,
-      to: NOTIFY_TO || 'info@kijkassistent.nl',
+      from: mailFrom(),
+      to: process.env.NOTIFY_TO || 'info@kijkassistent.nl',
       subject: `Nieuw account: ${email}`,
       text: [
         'Er is een nieuw account aangemaakt bij Kijkassistent.',
