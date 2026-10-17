@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
     const movieCount = watched.filter((w) => w.media_type === 'movie').length
     const tvCount = watched.filter((w) => w.media_type === 'tv').length
 
-    // Favorieten staan los van de beoordelingen; een favoriet kan ook "zeker leuk" hebben en telt dan bij allebei.
+    // Favorieten staan los van de beoordelingen: een titel is óf favoriet óf beoordeeld (zie de migratie
+    // 20261017_favorite_or_rating).
     const ratingCounts = { fav: (favorites || []).length, love: 0, ok: 0, dislike: 0 }
     for (const r of ratings || []) {
       if (r.rating === 'love') ratingCounts.love++

@@ -119,6 +119,12 @@ function PersonPage() {
       setActionError(`Kon niet als favoriet opslaan: ${insertError.message}`)
       return
     }
+    // Eén oordeel per titel: de favoriet vervangt een beoordeling (zie de migratie 20261017_favorite_or_rating).
+    setRatings((current) => {
+      const next = new Map(current)
+      next.delete(keyOf(item))
+      return next
+    })
     setStatus(item, 'gezien')
   }
 

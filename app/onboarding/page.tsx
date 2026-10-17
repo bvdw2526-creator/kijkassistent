@@ -249,7 +249,11 @@ export default function Onboarding() {
       title: movie.title,
       media_type: movie.media_type,
     })
-    if (!error) setFavorites([movie, ...favorites])
+    if (!error) {
+      setFavorites([movie, ...favorites])
+      // Eén oordeel per titel: de favoriet vervangt een beoordeling (zie de migratie 20261017_favorite_or_rating).
+      setRatedMovies((prev) => prev.filter((r) => ratingKey(r) !== ratingKey(movie)))
+    }
   }
 
   async function removeFavorite(movie: Movie) {
@@ -347,6 +351,9 @@ export default function Onboarding() {
       { id: movie.id, title: movie.title, media_type: movie.media_type, rating, rated_at: new Date().toISOString() },
       ...prev.filter((r) => ratingKey(r) !== key),
     ])
+    // Eén oordeel per titel: een beoordeling vervangt een favoriet (de database haalt hem weg, zie de migratie
+    // 20261017_favorite_or_rating), dus ook hier uit de lijst.
+    setFavorites((prev) => prev.filter((f) => !(f.id === movie.id && f.media_type === movie.media_type)))
   }
 
   const movieFavorites = favorites.filter((f) => f.media_type === 'movie')

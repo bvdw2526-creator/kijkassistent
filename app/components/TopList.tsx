@@ -111,6 +111,12 @@ export default function TopList({ items }: { items: TopItem[] }) {
       return
     }
     setRatings((current) => new Map(current).set(key, rating))
+    // Eén oordeel per titel: een beoordeling vervangt een favoriet (zie de migratie 20261017_favorite_or_rating).
+    setFavorites((current) => {
+      const next = new Set(current)
+      next.delete(key)
+      return next
+    })
   }
 
   async function addFavorite(item: TopItem) {
@@ -128,6 +134,12 @@ export default function TopList({ items }: { items: TopItem[] }) {
       return
     }
     setFavorites((current) => new Set(current).add(key))
+    // En een favoriet vervangt een beoordeling.
+    setRatings((current) => {
+      const next = new Map(current)
+      next.delete(key)
+      return next
+    })
   }
 
   async function addToWatchlist(item: TopItem, posterPath: string | null) {
