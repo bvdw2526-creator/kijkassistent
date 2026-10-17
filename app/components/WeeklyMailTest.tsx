@@ -29,7 +29,7 @@ export default function WeeklyMailTest() {
   return (
     <div className={`${card} p-5 mt-4`}>
       <p className="text-sm font-medium mb-1">Wekelijkse tipsmail</p>
-      <p className="text-xs text-faint mb-4">Je eigen mail van deze week. De links wijzen naar waar je dit nu opent.</p>
+      <p className="text-xs text-faint mb-4">Je eigen mail van deze week. De knoppen in de mail gaan naar de live app.</p>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={() => run('GET')} disabled={busy} className={btnSecondary}>
           Voorbeeld

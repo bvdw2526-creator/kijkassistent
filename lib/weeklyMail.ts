@@ -7,6 +7,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { makeMailToken, TITLE_LINK_DAYS, UNSUBSCRIBE_LINK_DAYS } from './mailLinks'
 import { NEW_RELEASE_LABEL, type MediaType } from './recommendationEngine'
 
+// Waar de links in de mail heen gaan: altijd de live app, ook als de mail lokaal wordt opgebouwd.
+export const MAIL_SITE_URL = 'https://www.kijkassistent.nl'
 export const MAX_TIPS = 4
 export const MIN_TIPS = 3
 
