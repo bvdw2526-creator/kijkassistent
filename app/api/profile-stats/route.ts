@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         totalWatched: 0,
         movieCount: 0,
         tvCount: 0,
-        ratingCounts: { love: 0, ok: 0, dislike: 0 },
+        ratingCounts: { fav: 0, love: 0, ok: 0, dislike: 0 },
         topGenres: [],
         topActors: [],
         dislikedGenres: [],
@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
     const movieCount = watched.filter((w) => w.media_type === 'movie').length
     const tvCount = watched.filter((w) => w.media_type === 'tv').length
 
-    const ratingCounts = { love: 0, ok: 0, dislike: 0 }
+    // Favorieten staan los van de beoordelingen; een favoriet kan ook "zeker leuk" hebben en telt dan bij allebei.
+    const ratingCounts = { fav: (favorites || []).length, love: 0, ok: 0, dislike: 0 }
     for (const r of ratings || []) {
       if (r.rating === 'love') ratingCounts.love++
       else if (r.rating === 'ok') ratingCounts.ok++

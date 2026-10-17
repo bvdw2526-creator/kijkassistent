@@ -5,13 +5,15 @@ import Link from 'next/link'
 import { supabase, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card } from '../components/ui'
-import { HeartIcon, OkIcon, DislikeIcon, UsersIcon } from '../components/Icons'
+import RatingBreakdown from '../components/RatingBreakdown'
+import { DislikeIcon, UsersIcon } from '../components/Icons'
 
 type ProfileStats = {
   totalWatched: number
   movieCount: number
   tvCount: number
-  ratingCounts: { love: number; ok: number; dislike: number }
+  // fav ontbreekt in een oudere bewaarde kopie.
+  ratingCounts: { fav?: number; love: number; ok: number; dislike: number }
   topGenres: { name: string; count: number }[]
   topActors: { name: string; count: number }[]
   // Ontbreekt in een oudere bewaarde kopie, vandaar optioneel.
@@ -173,29 +175,7 @@ export default function Profiel() {
             )}
 
             {/* Beoordelingsverdeling */}
-            <div className={`${card} p-5`}>
-              <p className="text-sm font-medium mb-4">Hoe je beoordeelt</p>
-              <div className="flex flex-col gap-3">
-                {[
-                  { icon: HeartIcon, label: 'Zeker leuk', count: stats.ratingCounts.love, colorClass: 'text-accent', hex: 'var(--accent)' },
-                  { icon: OkIcon, label: 'Was oké', count: stats.ratingCounts.ok, colorClass: 'text-teal', hex: 'var(--teal)' },
-                  { icon: DislikeIcon, label: 'Niet voor mij', count: stats.ratingCounts.dislike, colorClass: 'text-coral', hex: 'var(--coral)' },
-                ].map(({ icon: Icon, label, count, colorClass, hex }) => {
-                  const total = stats.ratingCounts.love + stats.ratingCounts.ok + stats.ratingCounts.dislike
-                  const pct = total > 0 ? (count / total) * 100 : 0
-                  return (
-                    <div key={label} className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 flex-shrink-0 ${colorClass}`} />
-                      <span className="text-sm w-28 flex-shrink-0">{label}</span>
-                      <div className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: hex }} />
-                      </div>
-                      <span className="text-sm font-medium w-6 text-right flex-shrink-0">{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            <RatingBreakdown counts={stats.ratingCounts} />
 
             {/* Favoriete genres */}
             {stats.topGenres.length > 0 && (
