@@ -6,6 +6,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { makeMailToken, TITLE_LINK_DAYS, UNSUBSCRIBE_LINK_DAYS } from './mailLinks'
 import { NEW_RELEASE_LABEL, type MediaType } from './recommendationEngine'
+import { SOCIAL_LINKS } from './socialLinks'
 
 // Waar de links in de mail heen gaan: altijd de live app, ook als de mail lokaal wordt opgebouwd.
 export const MAIL_SITE_URL = 'https://www.kijkassistent.nl'
@@ -149,6 +150,10 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
         </td></tr>
         ${tipHtml}
         <tr><td align="center" style="padding:6px 0 22px 0;">${button(`${origin}/`, 'Meer tips in Kijkassistent', true)}</td></tr>
+        <tr><td align="center" style="padding:0 4px 18px 4px;font-size:13px;color:${C.soft};">
+          Volg ons voor meer kijktips:<br>
+          ${SOCIAL_LINKS.map((s) => `<a href="${escapeHtml(s.href)}" style="color:${C.orange};font-weight:600;text-decoration:none;">${s.label}</a>`).join(' &nbsp;·&nbsp; ')}
+        </td></tr>
         <tr><td style="padding:0 4px;font-size:12px;line-height:1.6;color:${C.dim};">
           Je krijgt deze mail één keer per week omdat je een account hebt bij Kijkassistent.
           <a href="${escapeHtml(unsubscribeUrl)}" style="color:${C.soft};">Afmelden</a> kan met één klik, of zet het uit bij
@@ -171,6 +176,9 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
       '',
     ]),
     `Meer tips: ${origin}/`,
+    '',
+    'Volg ons voor meer kijktips:',
+    ...SOCIAL_LINKS.map((s) => `${s.label}: ${s.href}`),
     '',
     `Afmelden (één klik): ${unsubscribeUrl}`,
   ].join('\n')

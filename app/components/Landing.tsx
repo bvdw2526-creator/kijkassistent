@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import LegalLinks from './LegalLinks'
+import { SOCIAL_LINKS } from '@/lib/socialLinks'
 import { btnPrimary, btnSecondary, card } from './ui'
 import { CheckIcon, UsersIcon, HeartIcon, StarIcon, InstagramIcon, FacebookIcon, TikTokIcon } from './Icons'
 
@@ -11,11 +12,8 @@ import { CheckIcon, UsersIcon, HeartIcon, StarIcon, InstagramIcon, FacebookIcon,
 const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', 'Apple TV', 'SkyShowtime', 'Viaplay', 'NPO Start', 'Pathé Thuis']
 
 // Bewust klein onderaan: de pagina moet bezoekers naar een account sturen, niet weg naar sociale media.
-const SOCIALS = [
-  { label: 'Instagram', href: 'https://www.instagram.com/kijkassistent/', Icon: InstagramIcon },
-  { label: 'Facebook', href: 'https://www.facebook.com/Kijkassistent/', Icon: FacebookIcon },
-  { label: 'TikTok', href: 'https://www.tiktok.com/@kijkassistent', Icon: TikTokIcon },
-]
+const SOCIAL_ICONS = { Instagram: InstagramIcon, Facebook: FacebookIcon, TikTok: TikTokIcon }
+const SOCIALS = SOCIAL_LINKS.map((s) => ({ ...s, Icon: SOCIAL_ICONS[s.label] }))
 
 const STEPS = [
   { title: 'Kies je streamingdiensten', text: 'Je krijgt alleen tips voor wat je ook echt kunt kijken.' },
