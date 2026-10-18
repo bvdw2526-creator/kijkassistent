@@ -826,5 +826,9 @@
     "noExactDidYouMean": "Geen exacte treffers voor \"{query}\". Bedoelde je misschien:",
     "noExactShortened": "Geen exacte treffers voor \"{query}\". Dit zijn de resultaten voor \"{shortened}\":",
     "nothing": "Niets gevonden voor \"{query}\". Controleer de schrijfwijze of probeer een deel van de titel."
+  },
+  "meta": {
+    "title": "Kijkassistent: film- en serietips op jouw streamingdiensten",
+    "description": "Kijkassistent kiest films en series die bij jouw smaak passen en die je op jouw streamingdiensten kunt kijken. Ook samen met je partner."
   }
 }

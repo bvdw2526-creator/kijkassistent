@@ -1,10 +1,15 @@
 import Link from 'next/link'
+import { getLocale } from 'next-intl/server'
 
-export const metadata = { title: 'Gebruiksvoorwaarden — Kijkassistent' }
+export async function generateMetadata() {
+  return { title: (await getLocale()) === 'en' ? 'Terms of use — Kijkassistent' : 'Gebruiksvoorwaarden — Kijkassistent' }
+}
 
 const CONTACT = 'info@kijkassistent.nl'
 
-export default function Voorwaarden() {
+// De Nederlandse tekst is leidend; voor de Engelse app staat er een vertaling naast (VoorwaardenEn hieronder).
+export default async function Voorwaarden() {
+  if ((await getLocale()) === 'en') return <VoorwaardenEn />
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
@@ -47,6 +52,58 @@ export default function Voorwaarden() {
         </p>
         <p>
           Vragen? Mail naar <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>.
+        </p>
+      </div>
+    </main>
+  )
+}
+
+function VoorwaardenEn() {
+  return (
+    <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
+      <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
+      <h1 className="font-display text-3xl mt-4 mb-2">Terms of use</h1>
+      <p className="text-muted mb-2">Last updated: 26 September 2026</p>
+      <p className="text-muted text-sm mb-8">
+        This is a translation of the Dutch terms of use. If the two differ, the Dutch version applies.
+      </p>
+
+      <div className="text-sm text-foreground/90 space-y-5">
+        <p>
+          Kijkassistent gives personal recommendations for films and series. By creating an account you agree to these
+          terms.
+        </p>
+        <p>
+          <strong>Recommendations are suggestions.</strong> They are calculated automatically and may be off. Information
+          about films, series and where to watch them comes from TMDB and JustWatch and may be incorrect or out of date.
+          Check with your streaming service whether a title is really available.
+        </p>
+        <p>
+          <strong>Use.</strong> You are responsible for your account and password. Don&apos;t use the app to disrupt the
+          service or put excessive load on it, for example with automated requests.
+        </p>
+        <p>
+          <strong>Availability.</strong> We do our best to keep the app available, but we don&apos;t guarantee it. Features
+          may change or disappear. The app is provided as is, and we are not liable for damage caused by its use, to the
+          extent permitted by law.
+        </p>
+        <p>
+          <strong>Termination.</strong> You can delete your account yourself at any time in Settings. In case of misuse we
+          may block an account.
+        </p>
+        <p>
+          <strong>Privacy.</strong> How we handle your data is described in the{' '}
+          <Link href="/privacy" className="text-accent">privacy statement</Link>.
+        </p>
+        <p>
+          <strong>Sources.</strong> This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data
+          comes from JustWatch.
+        </p>
+        <p>
+          <strong>Applicable law.</strong> Dutch law applies.
+        </p>
+        <p>
+          Questions? Email <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>.
         </p>
       </div>
     </main>

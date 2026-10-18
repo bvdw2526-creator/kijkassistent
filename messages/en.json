@@ -826,5 +826,9 @@
     "noExactDidYouMean": "No exact matches for \"{query}\". Did you mean:",
     "noExactShortened": "No exact matches for \"{query}\". These are the results for \"{shortened}\":",
     "nothing": "Nothing found for \"{query}\". Check the spelling or try part of the title."
+  },
+  "meta": {
+    "title": "Kijkassistent: film and series tips on your streaming services",
+    "description": "Kijkassistent picks films and series that suit your taste and that you can watch on your streaming services. Together with your partner, too."
   }
 }

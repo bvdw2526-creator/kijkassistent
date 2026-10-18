@@ -6,11 +6,16 @@ export interface Release {
   id: string
   date: string
   items: string[]
+  // Dezelfde regels in het Engels; zonder deze toont de Engelse app de Nederlandse. De datum maakt de app uit het id.
+  itemsEn?: string[]
 }
 
 export const RELEASES: Release[] = [
   {
     id: '2026-10-18',
+    itemsEn: [
+      "Book adaptations now show which book they're based on and who wrote it, for example 'Dune' by Frank Herbert. Tap it to read more about the book on Wikipedia.",
+    ],
     date: '18 oktober 2026',
     items: [
       "Bij een boekverfilming zie je nu ook welk boek het is en wie het schreef, bijvoorbeeld 'Duin' van Frank Herbert. Tik erop om meer over het boek te lezen op Wikipedia.",
@@ -18,6 +23,11 @@ export const RELEASES: Release[] = [
   },
   {
     id: '2026-10-13',
+    itemsEn: [
+      "On Halloween itself (31 October), with the Halloween skin on, For you and Together only show Halloween films and series, including genres you normally exclude. The next day your usual recommendations are back.",
+      "That day there's also a row of Halloween classics, such as Halloween and Hocus Pocus. If a film isn't on your services, you'll see where you can watch it.",
+      "'Scary' in the Halloween row has become scarier: ghosts, possession and slashers instead of action films with a touch of horror.",
+    ],
     date: '13 oktober 2026',
     items: [
       'Op Halloween zelf (31 oktober) staan er met de Halloween-skin aan alleen Halloween-films en -series op Voor jou en bij Samen, ook uit genres die je anders uitsluit. De dag erna staat je gewone advies er weer.',
@@ -28,6 +38,12 @@ export const RELEASES: Release[] = [
   {
     // Tweede update op dezelfde dag: een nieuw id, zodat ook wie de eerste al zag het kaartje nog een keer krijgt.
     id: '2026-10-12b',
+    itemsEn: [
+      "Halloween: turn on the Halloween skin in Settings under 'Appearance' and until 1 November you'll get a row of Halloween films on For you, scary or cosy creepy. Together shows what suits you both.",
+      "The app now finds films and series for the themes you love most, such as time travel, boxing or spies.",
+      "For you now opens on Just my taste.",
+      "On a laptop or computer the app is wider, with more films and series side by side.",
+    ],
     date: '12 oktober 2026',
     items: [
       "Halloween: zet bij Instellingen onder 'Uiterlijk' de Halloween-skin aan en je krijgt tot en met 1 november een rij Halloween-films op Voor jou, griezelig of gezellig eng. Bij Samen staat wat bij jullie allebei past.",
@@ -38,6 +54,12 @@ export const RELEASES: Release[] = [
   },
   {
     id: '2026-10-11',
+    itemsEn: [
+      "New: the 'Too old' button on films and series from before 2000. It removes a title without counting as a rating. After a few times, the app asks whether older titles may be left out from now on.",
+      "In Settings you can choose your own limit under 'Not older than'.",
+      "Choose your own look in Settings under 'Appearance': Halloween, Doomsday, Dune or Matrix.",
+      "A director only counts in your recommendations once you loved two or more of their films.",
+    ],
     date: '11 oktober 2026',
     items: [
       "Nieuw: de knop 'Te oud' bij films en series van vóór 2000. Daarmee zet je een titel weg zonder dat het als beoordeling telt. Na een paar keer vraagt de app of oudere titels voortaan weg mogen.",
@@ -48,6 +70,11 @@ export const RELEASES: Release[] = [
   },
   {
     id: '2026-10-08',
+    itemsEn: [
+      "Your favourites now weigh the most in your recommendations.",
+      "The app now also learns from what you found 'OK' and 'not for me': themes and directors you often dislike count less.",
+      "The match percentage is fairer: a title that only fits you moderately now gets a lower percentage too.",
+    ],
     date: '8 oktober 2026',
     items: [
       'Je favorieten wegen nu het zwaarst mee in je aanbevelingen.',

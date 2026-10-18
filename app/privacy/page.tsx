@@ -1,15 +1,20 @@
 import Link from 'next/link'
+import { getLocale } from 'next-intl/server'
 
-export const metadata = { title: 'Privacyverklaring — Kijkassistent' }
+export async function generateMetadata() {
+  return { title: (await getLocale()) === 'en' ? 'Privacy statement — Kijkassistent' : 'Privacyverklaring — Kijkassistent' }
+}
 
 const CONTACT = 'info@kijkassistent.nl'
 
-export default function Privacy() {
+// De Nederlandse tekst is leidend; voor de Engelse app staat er een vertaling naast (PrivacyEn hieronder).
+export default async function Privacy() {
+  if ((await getLocale()) === 'en') return <PrivacyEn />
   return (
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 17 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 18 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -90,7 +95,8 @@ export default function Privacy() {
       <Section title="Cookies en lokale opslag">
         <p>
           We gebruiken alleen wat nodig is: je inlogsessie, een kopie van je laatste aanbevelingen en het uiterlijk
-          (de skin) dat je hebt gekozen, in de opslag van je browser. Daarom is er geen cookiebanner.
+          (de skin) dat je hebt gekozen, in de opslag van je browser, en een cookie met de taal die je hebt gekozen
+          (Nederlands of Engels). Daarom is er geen cookiebanner.
         </p>
       </Section>
 
@@ -124,6 +130,132 @@ export default function Privacy() {
 
       <Section title="Wijzigingen">
         <p>Passen we deze verklaring aan, dan zie je dat aan de datum bovenaan.</p>
+      </Section>
+    </main>
+  )
+}
+
+function PrivacyEn() {
+  return (
+    <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
+      <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
+      <h1 className="font-display text-3xl mt-4 mb-2">Privacy statement</h1>
+      <p className="text-muted mb-2">Last updated: 18 October 2026</p>
+      <p className="text-muted text-sm mb-8">
+        This is a translation of the Dutch privacy statement. If the two differ, the Dutch version applies.
+      </p>
+
+      <Section title="Who we are">
+        <p>
+          Kijkassistent is an app that gives personal film and series recommendations. The controller of your data is
+          B. vd Woude, administrator of Kijkassistent, who can be reached at{' '}
+          <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>.
+        </p>
+      </Section>
+
+      <Section title="What data we keep">
+        <ul className="list-disc pl-5 space-y-1">
+          <li>Your email address and password (the password is stored encrypted and we cannot read it).</li>
+          <li>Your streaming services and the genres you have excluded.</li>
+          <li>Your favourite films, series, actors and directors, your ratings and your watchlist.</li>
+          <li>
+            When you rate a title from the &quot;For you&quot; tab, mark it as a favourite or add it to your watchlist, we
+            also keep which tab you saw it in and why it was recommended. If you rate it later from your watchlist, that
+            information comes along. This lets us measure how well the recommendations fit and improve them. Only we
+            can see this, without your name or email address.
+          </li>
+          <li>
+            Which recommendations on &quot;For you&quot; came into view and which ones you opened (title, tab, position in the
+            list and percentage), and which titles you removed from your watchlist without rating them. This lets us
+            measure how much of what we show really suits you. Only we can see this, without your name or email
+            address, and we keep it for at most 18 months. After that we only keep anonymous monthly totals (for example
+            &quot;this film was shown 40 times in March and chosen 12 times&quot;), which no longer show who did what.
+          </li>
+          <li>
+            If you link a partner: the link itself (your partner sees your email address in the invitation) and the
+            shared ratings for &quot;Together&quot;.
+          </li>
+          <li>Temporarily stored recommendations, so the app loads quickly, and which tip of the week you received.</li>
+          <li>
+            If you import your Letterboxd export: the file is only read in your own browser and is not sent to us. Only
+            the films and ratings you choose to import are stored, just like everything you add yourself.
+          </li>
+        </ul>
+        <p className="mt-3">
+          We don&apos;t use ads, tracking by other parties or third-party analytics tools. What we measure, we measure
+          ourselves and only within the app. We don&apos;t sell data.
+        </p>
+      </Section>
+
+      <Section title="What we use it for">
+        <p>
+          Only to make the app work and improve it: logging in, building your taste profile, calculating
+          recommendations and measuring how well they fit. The legal basis is the agreement you enter into with us by
+          creating an account.
+        </p>
+        <p className="mt-3">
+          We also use your email address for a weekly email with a few personal tips. It is on by default; you can
+          unsubscribe with one click at the bottom of every email, or in{' '}
+          <Link href="/settings" className="text-accent">Settings</Link>. If you rate a title or add it to your
+          watchlist using a button in that email, we store it just like in the app, with &quot;mail&quot; as its origin. We
+          can&apos;t see whether you open the email.
+        </p>
+      </Section>
+
+      <Section title="Who we share data with">
+        <ul className="list-disc pl-5 space-y-1">
+          <li>
+            <strong>Supabase</strong> — database and login. The data is stored on servers in the EU (Ireland).
+          </li>
+          <li><strong>Vercel</strong> — hosting of the app.</li>
+          <li>
+            <strong>TMDB</strong> — for title data and searches. Your search terms are passed on, but not linked to your
+            name or email address.
+          </li>
+          <li>
+            <strong>Voyage AI</strong> — to compare descriptions of films and series. No personal data is sent.
+          </li>
+        </ul>
+        <p className="mt-3">For parties outside the EU, the standard contractual clauses required by the GDPR apply.</p>
+      </Section>
+
+      <Section title="Cookies and local storage">
+        <p>
+          We only use what is necessary: your login session, a copy of your latest recommendations and the look (skin)
+          you chose, in your browser&apos;s storage, and a cookie with the language you chose (Dutch or English). That&apos;s
+          why there is no cookie banner.
+        </p>
+      </Section>
+
+      <Section title="How long we keep data">
+        <p>
+          As long as you have an account; what came into view and what you opened for at most 18 months. If you delete
+          your account, we immediately erase your account, your email address, any partner link and everything that
+          leads back to you. What you thought of films and series (ratings, favourites, watchlist, hidden titles,
+          verdicts in &quot;Together&quot;, favourite actors and directors) and your streaming services and preferences are
+          then only kept anonymously: under a random code, with only the month instead of the date, so that nobody, not
+          even we, can see that it was yours. Together with the anonymous monthly totals, we use this to improve the
+          recommendations and to understand what people like to watch.
+        </p>
+      </Section>
+
+      <Section title="Your rights">
+        <p>
+          You may ask to access, correct or delete your data, and object to its use. You can delete your account and all
+          data yourself in <Link href="/settings" className="text-accent">Settings</Link> under &quot;Delete account&quot;
+          (see also <Link href="/account-verwijderen" className="text-accent">how to delete your account</Link>). For
+          other requests, email <a href={`mailto:${CONTACT}`} className="text-accent">{CONTACT}</a>; we respond
+          within 30 days. If you are not satisfied, you can file a complaint with the Dutch Data Protection Authority
+          (Autoriteit Persoonsgegevens).
+        </p>
+      </Section>
+
+      <Section title="Age">
+        <p>The app is not intended for children under 16.</p>
+      </Section>
+
+      <Section title="Changes">
+        <p>If we change this statement, you&apos;ll see it from the date at the top.</p>
       </Section>
     </main>
   )

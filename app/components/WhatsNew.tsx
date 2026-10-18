@@ -1,13 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { useTranslations } from 'next-intl'
-import { RELEASES, LATEST_RELEASE } from '@/lib/releaseNotes'
+import { useLocale, useTranslations } from 'next-intl'
+import { RELEASES, LATEST_RELEASE, type Release } from '@/lib/releaseNotes'
 import { useBackToClose } from './useBackToClose'
 import { btnPrimary } from './ui'
 import { CheckIcon } from './Icons'
 
 const seenKey = (userId: string) => `kijkassistent:whatsnew:${userId}`
+
+// Engels: de Engelse regels (als die er zijn) en de datum uit het id ("2026-10-12b" -> 12 October 2026).
+function releaseText(release: Release, locale: string): { date: string; items: string[] } {
+  if (locale !== 'en') return { date: release.date, items: release.items }
+  const day = new Date(`${release.id.slice(0, 10)}T12:00:00`)
+  return {
+    date: day.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+    items: release.itemsEn ?? release.items,
+  }
+}
 
 function markSeen(userId: string) {
   try {
@@ -21,6 +31,7 @@ function markSeen(userId: string) {
 export function WhatsNewSheet({ onClose, all = false }: { onClose: () => void; all?: boolean }) {
   useBackToClose(true, onClose)
   const t = useTranslations('whatsNew')
+  const locale = useLocale()
   const releases = all ? RELEASES.slice(0, 5) : [LATEST_RELEASE]
   return (
     <div
@@ -39,9 +50,9 @@ export function WhatsNewSheet({ onClose, all = false }: { onClose: () => void; a
           <div className="flex flex-col gap-5 mb-6">
             {releases.map((release) => (
               <div key={release.id}>
-                <p className="text-xs font-semibold tracking-wide uppercase text-accent mb-2">{release.date}</p>
+                <p className="text-xs font-semibold tracking-wide uppercase text-accent mb-2">{releaseText(release, locale).date}</p>
                 <ul className="flex flex-col gap-2">
-                  {release.items.map((item) => (
+                  {releaseText(release, locale).items.map((item) => (
                     <li key={item} className="flex gap-2.5 text-sm text-foreground/90 leading-relaxed">
                       <CheckIcon className="w-4 h-4 text-teal flex-shrink-0 mt-0.5" />
                       <span>{item}</span>
