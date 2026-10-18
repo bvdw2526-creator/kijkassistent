@@ -1,5 +1,7 @@
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { tmdbLanguage } from '@/lib/serverI18n'
+import type { Locale } from '@/lib/locale'
 import { getTopList, TOP_TYPES, TOP_SERVICES, TOP_SIZE } from '@/lib/topLists'
 import { withLatinTitles } from '@/lib/titleFallback'
 import TopList from './TopList'
@@ -9,7 +11,7 @@ import LegalLinks from './LegalLinks'
 export default async function TopListPage({ typeSlug, serviceSlug }: { typeSlug: string; serviceSlug: string | null }) {
   const typeInfo = TOP_TYPES[typeSlug]
   const service = serviceSlug ? TOP_SERVICES[serviceSlug] : null
-  const raw = await getTopList(typeInfo.type, service ? service.providerId : null)
+  const raw = await getTopList(typeInfo.type, service ? service.providerId : null, tmdbLanguage((await getLocale()) as Locale))
   const items = await withLatinTitles(raw)
 
   const t = await getTranslations('top')

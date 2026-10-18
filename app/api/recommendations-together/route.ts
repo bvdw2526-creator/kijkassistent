@@ -25,6 +25,8 @@ import {
 import { upcomingForCouple } from '@/lib/upcomingTitles'
 import { isOlderThan } from '@/lib/recommendationEngine'
 import { withLatinTitles } from '@/lib/titleFallback'
+import { localeFromRequest } from '@/lib/serverI18n'
+import { localizeTitles } from '@/lib/localizeTitles'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort: deze
 // route berekent het volledige smaakprofiel van twee mensen na elkaar/parallel (zie
@@ -384,6 +386,8 @@ export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'recommendations-together', LIMITS.recommendationsTogether)
   if (!guard.ok) return guard.response
   const { supabase, user } = guard
+  // Engelse app: titels en samenvattingen bij het versturen omzetten (zie lib/localizeTitles.ts).
+  const locale = localeFromRequest(request)
 
   // De hele body staat in een try/catch: een onafgevangen fout waar dan ook hierin
   // (bv. Supabase- of TMDB-calls in lib/recommendationEngine.ts) leverde eerder een
@@ -785,7 +789,7 @@ export async function GET(request: NextRequest) {
           connected: true,
           connectionId: connection.id,
           tier: cachedResult.tier,
-          items: cachedResult.items,
+          items: await localizeTitles(supabase, cachedResult.items as RecommendationItem[], locale),
           match: viewerMatch(cachedResult.match, user.id),
         })
       }
@@ -818,7 +822,11 @@ export async function GET(request: NextRequest) {
         connected: true,
         connectionId: connection.id,
         tier: cachedResult.tier,
-        items: (cachedResult.items as RecommendationItem[]).filter((i) => !knownKeys.has(`${i.media_type}-${i.id}`)),
+        items: await localizeTitles(
+          supabase,
+          (cachedResult.items as RecommendationItem[]).filter((i) => !knownKeys.has(`${i.media_type}-${i.id}`)),
+          locale
+        ),
         match: viewerMatch(cachedResult.match, user.id),
         stale: true,
       })

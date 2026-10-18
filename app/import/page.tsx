@@ -322,7 +322,10 @@ export default function ImportPage() {
     const user = await getCurrentUser()
     // De bewaarde aanbevelingen op dit apparaat kloppen niet meer; laat de app ze opnieuw ophalen.
     try {
-      if (user) localStorage.removeItem(`kijkassistent:recommendations:${user.id}`)
+      if (user) {
+        localStorage.removeItem(`kijkassistent:recommendations:${user.id}`)
+        localStorage.removeItem(`kijkassistent:recommendations:${user.id}:en`)
+      }
     } catch {
       // geen localStorage beschikbaar: geen probleem
     }

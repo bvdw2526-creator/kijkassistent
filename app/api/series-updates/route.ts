@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 import { classifySeries, type SeriesUpdate, type TmdbTvDetails } from '@/lib/seriesUpdates'
 
 // Zoveel series (de nieuwste eerst) controleren we per aanvraag.
@@ -17,6 +18,8 @@ function amsterdamToday(): string {
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'series-updates', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
   const { supabase, user } = guard
 
   try {
@@ -38,7 +41,7 @@ export async function GET(request: NextRequest) {
     const found = await Promise.all(
       ids.map(async (id): Promise<SeriesUpdate | null> => {
         try {
-          const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?language=nl-NL&append_to_response=watch/providers`, {
+          const res = await fetch(`https://api.themoviedb.org/3/tv/${id}?language=${language}&append_to_response=watch/providers`, {
             headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
             next: { revalidate: CACHE_SECONDS },
           })

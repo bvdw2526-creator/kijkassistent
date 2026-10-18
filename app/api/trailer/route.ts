@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 
 const CACHE_SECONDS = 60 * 60 * 24 * 7
 
@@ -11,6 +12,8 @@ type TmdbVideo = { key: string; site: string; type: string; official: boolean; i
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
 
   const mediaType = request.nextUrl.searchParams.get('type') === 'tv' ? 'tv' : 'movie'
   const id = parseInt(request.nextUrl.searchParams.get('id') || '', 10)
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Nederlandse en Engelse video's in één aanroep; Nederlands krijgt voorrang. Bij gelijke score de oudste,
     // dat is meestal de originele trailer (en niet die van een heruitgave of een later seizoen).
     const res = await fetch(
-      `https://api.themoviedb.org/3/${mediaType}/${id}/videos?language=nl-NL&include_video_language=nl,en`,
+      `https://api.themoviedb.org/3/${mediaType}/${id}/videos?language=${language}&include_video_language=nl,en`,
       { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }, next: { revalidate: CACHE_SECONDS } }
     )
     if (!res.ok) return NextResponse.json({ key: null })

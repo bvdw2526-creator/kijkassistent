@@ -21,6 +21,8 @@ import {
 import { scoreUpcoming, type UpcomingCandidate } from '@/lib/upcomingTitles'
 import { isHalloweenDay, isHalloweenSeason } from '@/lib/skins'
 import { withLatinTitles } from '@/lib/titleFallback'
+import { localeFromRequest } from '@/lib/serverI18n'
+import { localizeTitles } from '@/lib/localizeTitles'
 
 // Bij een koude cache: vingerafdrukken maken voor Halloween-titels die nog nergens zijn aanbevolen.
 export const maxDuration = 60
@@ -89,6 +91,8 @@ export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'halloween', LIMITS.halloween)
   if (!guard.ok) return guard.response
   const { supabase, user } = guard
+  // Engelse app: titels en samenvattingen bij het versturen omzetten (zie lib/localizeTitles.ts).
+  const locale = localeFromRequest(request)
 
   const together = request.nextUrl.searchParams.get('samen') === '1'
   // Buiten 31 oktober alleen bij het ontwikkelen, om het vooraf te kunnen bekijken.
@@ -223,7 +227,11 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const [scary, cozy] = await Promise.all([withLatinTitles(pick(pools.scary)), withLatinTitles(pick(pools.cozy))])
+    const [scary, cozy] = await Promise.all([
+      withLatinTitles(pick(pools.scary)).then((list) => localizeTitles(supabase, list, locale)),
+      withLatinTitles(pick(pools.cozy)).then((list) => localizeTitles(supabase, list, locale)),
+    ])
+    if (day) classics = await localizeTitles(supabase, classics, locale)
     return NextResponse.json({ ...(together ? { connected: true } : {}), scary, cozy, ...(day ? { classics } : {}) })
   } catch (err) {
     console.error('Halloween-titels ophalen mislukt:', err)

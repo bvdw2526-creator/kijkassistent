@@ -16,6 +16,8 @@ import {
 } from '@/lib/recommendationEngine'
 import { upcomingForModes } from '@/lib/upcomingTitles'
 import { withLatinTitles } from '@/lib/titleFallback'
+import { localeFromRequest } from '@/lib/serverI18n'
+import { localizeModes } from '@/lib/localizeTitles'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort voor
 // deze route bij een koude cache: veel losse TMDB-calls (aanbevelingen/cast/details per
@@ -53,6 +55,8 @@ export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'recommendations', LIMITS.recommendations)
   if (!guard.ok) return guard.response
   const { supabase, user } = guard
+  // Engelse app: titels en samenvattingen bij het versturen omzetten (zie lib/localizeTitles.ts).
+  const locale = localeFromRequest(request)
 
   const inputs = await fetchProfileInputs(supabase, user.id, { includeHidden: true })
 
@@ -77,11 +81,16 @@ export async function GET(request: NextRequest) {
   if (!wantsFresh && cachedResult && cachedResult.signature === profileSignature) {
     const ageHours = (Date.now() - new Date(cachedResult.fetched_at).getTime()) / (1000 * 60 * 60)
     if (ageHours < RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS) {
-      return NextResponse.json({
-        focused: cachedResult.focused,
-        balanced: cachedResult.balanced,
-        explore: cachedResult.explore,
-      })
+      return NextResponse.json(
+        await localizeModes(
+          supabase,
+          { focused: cachedResult.focused, balanced: cachedResult.balanced, explore: cachedResult.explore } as Record<
+            RecommendationMode,
+            RecommendationItem[]
+          >,
+          locale
+        )
+      )
     }
   }
 
@@ -139,7 +148,7 @@ export async function GET(request: NextRequest) {
     }
     await cacheRecommendationsResult(supabase, user.id, profileSignature, plainFixed)
     refreshAfterResponse()
-    return NextResponse.json(plainFixed)
+    return NextResponse.json(await localizeModes(supabase, plainFixed, locale))
   }
 
   // Eén candidate kan in meerdere modi voorkomen; beschikbaarheid per streamingdienst
@@ -173,5 +182,5 @@ export async function GET(request: NextRequest) {
 
   await cacheRecommendationsResult(supabase, user.id, profileSignature, result)
   refreshAfterResponse()
-  return NextResponse.json(result)
+  return NextResponse.json(await localizeModes(supabase, result, locale))
 }

@@ -41,6 +41,17 @@ const FIXED: Record<string, string> = {
   'wat jullie samen al waardeerden': 'togetherValued',
 }
 
+// Een Nederlandse genrenaam (zoals de server hem stuurt, bv. bij de smaakmatch van Samen) in de taal van de app.
+export function useGenreLabel(): (name: string) => string {
+  const locale = useLocale()
+  const tg = useTranslations('genres')
+  return (name) => {
+    if (locale === 'nl') return name
+    const key = DUTCH_GENRE_TO_KEY.get(name.toLowerCase())
+    return key ? tg(key) : name
+  }
+}
+
 export function useReasonLabel(): (label: string) => string {
   const locale = useLocale()
   const t = useTranslations('reasons')

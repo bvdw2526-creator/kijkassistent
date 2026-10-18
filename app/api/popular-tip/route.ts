@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 import { SOURCE_IDS, monetizationTypesFor, resolveWatchInfo } from '@/lib/recommendationEngine'
 
 export const maxDuration = 60
@@ -48,6 +49,8 @@ async function seenKeys(
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'popular-tip', LIMITS.search)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
   const { supabase, user } = guard
 
   const type = request.nextUrl.searchParams.get('type') === 'tv' ? 'tv' : 'movie'
@@ -60,7 +63,7 @@ export async function GET(request: NextRequest) {
   const providerIds = Array.from(new Set(services.map((s) => SOURCE_IDS[s]).filter(Boolean)))
 
   const query = new URLSearchParams({
-    language: 'nl-NL',
+    language,
     sort_by: 'popularity.desc',
     include_adult: 'false',
     'vote_count.gte': String(MIN_VOTES[type]),

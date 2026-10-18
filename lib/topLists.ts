@@ -68,9 +68,10 @@ export function weightedRating(voteAverage: number, voteCount: number, mean: num
 }
 
 // providerId null = alle titels, ongeacht de dienst.
-export async function getTopList(type: TopType, providerId: number | null): Promise<TopItem[]> {
+// language: TMDB-taalcode (nl-NL of en-US) voor de titels.
+export async function getTopList(type: TopType, providerId: number | null, language = 'nl-NL'): Promise<TopItem[]> {
   const base =
-    `https://api.themoviedb.org/3/discover/${type}?language=nl-NL&sort_by=vote_average.desc` +
+    `https://api.themoviedb.org/3/discover/${type}?language=${language}&sort_by=vote_average.desc` +
     `&vote_count.gte=${MIN_VOTES[type]}&without_genres=${EXCLUDED_GENRES}` +
     (providerId ? `&watch_region=NL&with_watch_monetization_types=flatrate&with_watch_providers=${providerId}` : '')
 

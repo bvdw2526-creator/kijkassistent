@@ -32,7 +32,7 @@ import TrailerLink from './components/TrailerLink'
 import BookSource from './components/BookSource'
 import { useBackToClose } from './components/useBackToClose'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
-import { useReasonLabel } from '@/lib/reasonLabels'
+import { useGenreLabel, useReasonLabel } from '@/lib/reasonLabels'
 
 type Movie = {
   id: number
@@ -322,6 +322,9 @@ export default function Home() {
   const tt = useTranslations('title')
   const locale = useLocale()
   const reason = useReasonLabel()
+  const genreLabel = useGenreLabel()
+  // De lijst op het apparaat per taal bewaren: na een taalwissel geen titels in de oude taal (Nederlands houdt de oude sleutel).
+  const cacheIdFor = (userId: string) => (locale === 'nl' ? userId : `${userId}:${locale}`)
   const [user, setUser] = useState<User | null>(null)
   const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
   const [loading, setLoading] = useState(true)
@@ -419,7 +422,7 @@ export default function Home() {
           }
         }
 
-        const cached = loadCachedRecommendations(currentUser.id)
+        const cached = loadCachedRecommendations(cacheIdFor(currentUser.id))
         if (cached) {
           setByMode(cached)
           setLoading(false)
@@ -428,7 +431,7 @@ export default function Home() {
             if (known.size === 0) return
             setByMode((current) => {
               const next = dropKnown(current, known)
-              saveCachedRecommendations(currentUser.id, next)
+              saveCachedRecommendations(cacheIdFor(currentUser.id), next)
               return next
             })
           })
@@ -516,7 +519,7 @@ export default function Home() {
     // lege lijst — behoud wat loadTogetherRecommendations daar eventueel al in zette.
     setByMode((current) => {
       const merged = { ...current, ...fresh }
-      saveCachedRecommendations(userId, merged)
+      saveCachedRecommendations(cacheIdFor(userId), merged)
       return merged
     })
   }
@@ -635,7 +638,7 @@ export default function Home() {
       }
       // Ook de opgeslagen kopie op je telefoon bijwerken: anders staat de titel er na het verversen van de pagina
       // (bv. naar beneden slepen op Android) weer tussen, tot de server klaar is met herberekenen.
-      if (user) saveCachedRecommendations(user.id, next)
+      if (user) saveCachedRecommendations(cacheIdFor(user.id), next)
       return next
     })
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
@@ -651,7 +654,7 @@ export default function Home() {
         balanced: current.balanced.filter((m) => !movieKey(m)),
         explore: current.explore.filter((m) => !movieKey(m)),
       }
-      if (user) saveCachedRecommendations(user.id, next)
+      if (user) saveCachedRecommendations(cacheIdFor(user.id), next)
       return next
     })
     halloween.remove((m) => movieKey(m as Movie), ['personal'])
@@ -1203,15 +1206,15 @@ export default function Home() {
             </div>
             <div className="mt-4 flex flex-col gap-1.5 text-sm text-foreground/85 leading-relaxed">
               {togetherMatch.sharedGenres.length > 0 && (
-                <p>{t('sharedLove', { genres: joinNames(togetherMatch.sharedGenres, tt('and')).toLowerCase() })}</p>
+                <p>{t('sharedLove', { genres: joinNames(togetherMatch.sharedGenres.map(genreLabel), tt('and')).toLowerCase() })}</p>
               )}
               {(togetherMatch.youMoreGenres.length > 0 || togetherMatch.partnerMoreGenres.length > 0) && (
                 <p className="text-muted">
-                  {togetherMatch.youMoreGenres.length > 0 && t('youMore', { genres: joinNames(togetherMatch.youMoreGenres, tt('and')).toLowerCase() })}
+                  {togetherMatch.youMoreGenres.length > 0 && t('youMore', { genres: joinNames(togetherMatch.youMoreGenres.map(genreLabel), tt('and')).toLowerCase() })}
                   {togetherMatch.youMoreGenres.length > 0 && togetherMatch.partnerMoreGenres.length > 0 && ', '}
                   {togetherMatch.partnerMoreGenres.length > 0 &&
                     t(togetherMatch.youMoreGenres.length > 0 ? 'partnerMoreAfter' : 'partnerMore', {
-                      genres: joinNames(togetherMatch.partnerMoreGenres, tt('and')).toLowerCase(),
+                      genres: joinNames(togetherMatch.partnerMoreGenres.map(genreLabel), tt('and')).toLowerCase(),
                     })}
                   .
                 </p>

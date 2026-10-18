@@ -17,7 +17,7 @@ export interface SearchOutcome {
   note: string | null
 }
 
-import { serverTranslator } from './serverI18n'
+import { serverTranslator, tmdbLanguage } from './serverI18n'
 import type { Locale } from './locale'
 
 const TMDB = 'https://api.themoviedb.org/3'
@@ -195,7 +195,9 @@ const CLEARLY_BETTER = 0.85
 // locale: de taal van de uitleg in `note` (zie "searchNotes" in messages/*.json).
 export async function searchTitles(query: string, locale: Locale = 'nl'): Promise<SearchOutcome> {
   const t = serverTranslator(locale, 'searchNotes')
-  const exact = await tmdbSearch(query, 'nl-NL')
+  // Eerst in de taal van de app (Nederlands of Engels), met Engels als vangnet hieronder.
+  const lang = tmdbLanguage(locale)
+  const exact = await tmdbSearch(query, lang)
   const cleaned = normalizeQuery(query)
   if (exact.length > 0) {
     const exactScore = bestTitleSimilarity(cleaned, exact)
@@ -212,10 +214,10 @@ export async function searchTitles(query: string, locale: Locale = 'nl'): Promis
   const words = cleaned.split(' ').filter(Boolean)
   const shortened = words.length >= 2 ? words.slice(0, -1).join(' ') : ''
   const [cleanedNl, cleanedEn, fuzzy, shortenedHits] = await Promise.all([
-    cleaned && cleaned !== query.toLowerCase() ? tmdbSearch(cleaned, 'nl-NL') : Promise.resolve([] as SearchHit[]),
+    cleaned && cleaned !== query.toLowerCase() ? tmdbSearch(cleaned, lang) : Promise.resolve([] as SearchHit[]),
     tmdbSearch(cleaned, 'en-US'),
     fuzzyKnown(cleaned),
-    shortened ? tmdbSearch(shortened, 'nl-NL') : Promise.resolve([] as SearchHit[]),
+    shortened ? tmdbSearch(shortened, lang) : Promise.resolve([] as SearchHit[]),
   ])
 
   if (cleanedNl.length > 0) return { results: cleanedNl, note: null }

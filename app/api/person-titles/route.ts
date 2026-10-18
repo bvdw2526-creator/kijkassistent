@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 import { SOURCE_IDS, resolveWatchInfo } from '@/lib/recommendationEngine'
 import { withLatinTitles } from '@/lib/titleFallback'
 
@@ -43,6 +44,8 @@ export type PersonTitle = {
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
   const { supabase, user } = guard
 
   const id = parseInt(request.nextUrl.searchParams.get('id') || '', 10)
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Zelfde aanroep als app/api/person-info, dus dezelfde bewaarde kopie.
-    const res = await fetch(`https://api.themoviedb.org/3/person/${id}?language=nl-NL&append_to_response=combined_credits`, {
+    const res = await fetch(`https://api.themoviedb.org/3/person/${id}?language=${language}&append_to_response=combined_credits`, {
       headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
       next: { revalidate: CACHE_SECONDS },
     })

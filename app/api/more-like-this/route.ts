@@ -14,6 +14,8 @@ import {
   type MediaType,
 } from '@/lib/recommendationEngine'
 import { findDislikedGenres } from '@/lib/dislikedGenres'
+import { localeFromRequest } from '@/lib/serverI18n'
+import { localizeTitles } from '@/lib/localizeTitles'
 
 export const maxDuration = 30
 
@@ -32,6 +34,8 @@ export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'more-like-this', LIMITS.moreLikeThis)
   if (!guard.ok) return guard.response
   const { supabase, user } = guard
+  // Engelse app: titels en samenvattingen bij het versturen omzetten (zie lib/localizeTitles.ts).
+  const locale = localeFromRequest(request)
 
   const mediaType: MediaType = request.nextUrl.searchParams.get('type') === 'tv' ? 'tv' : 'movie'
   const id = parseInt(request.nextUrl.searchParams.get('id') || '', 10)
@@ -139,7 +143,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ items: items.length >= MIN_ITEMS ? items : [], found: items.length })
+    return NextResponse.json({ items: items.length >= MIN_ITEMS ? await localizeTitles(supabase, items, locale) : [], found: items.length })
   } catch (err) {
     console.error('Meer zoals deze mislukt:', err)
     return NextResponse.json(

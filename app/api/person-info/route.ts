@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 
 const CACHE_SECONDS = 60 * 60 * 24
 // Talkshows en nieuws zeggen niets over het werk van iemand — die laten we bij "bekend van" weg.
@@ -24,13 +25,15 @@ const headers = () => ({ Authorization: `Bearer ${process.env.TMDB_API_KEY}` })
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
 
   const id = parseInt(request.nextUrl.searchParams.get('id') || '', 10)
   if (!id) return NextResponse.json({ error: 'Ongeldig id' }, { status: 400 })
 
   try {
     const res = await fetch(
-      `https://api.themoviedb.org/3/person/${id}?language=nl-NL&append_to_response=combined_credits`,
+      `https://api.themoviedb.org/3/person/${id}?language=${language}&append_to_response=combined_credits`,
       { headers: headers(), next: { revalidate: CACHE_SECONDS } }
     )
     if (!res.ok) return NextResponse.json({ error: `TMDB gaf status ${res.status}` }, { status: 502 })

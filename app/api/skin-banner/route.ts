@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 import { SKINS } from '@/lib/skins'
 
 const CACHE_SECONDS = 60 * 60 * 6
@@ -20,13 +21,15 @@ function dutchReleaseDate(dates: ReleaseDates | undefined, fallback: string): st
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
 
   const banner = SKINS.find((s) => s.id === request.nextUrl.searchParams.get('skin'))?.banner
   if (!banner) return NextResponse.json({ error: 'Deze skin heeft geen uitgelichte titel' }, { status: 404 })
 
   try {
     const extra = banner.mediaType === 'movie' ? '&append_to_response=release_dates' : ''
-    const res = await fetch(`https://api.themoviedb.org/3/${banner.mediaType}/${banner.tmdbId}?language=nl-NL${extra}`, {
+    const res = await fetch(`https://api.themoviedb.org/3/${banner.mediaType}/${banner.tmdbId}?language=${language}${extra}`, {
       headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` },
       next: { revalidate: CACHE_SECONDS },
     })

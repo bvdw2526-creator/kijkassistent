@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 
 // TMDB's "known_for_department" is de afdeling waar iemand het bekendst om is — niet
 // waterdicht (een acteur-regisseur zoals Ben Affleck staat bv. onder "Acting"), maar
@@ -13,6 +14,8 @@ const DEPARTMENT_BY_TYPE = {
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'search', LIMITS.search)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
 
   const query = request.nextUrl.searchParams.get('query')
   const type = request.nextUrl.searchParams.get('type') === 'director' ? 'director' : 'actor'
@@ -22,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = await fetch(
-    `https://api.themoviedb.org/3/search/person?query=${encodeURIComponent(query)}&language=nl-NL`,
+    `https://api.themoviedb.org/3/search/person?query=${encodeURIComponent(query)}&language=${language}`,
     {
       headers: {
         Authorization: `Bearer ${process.env.TMDB_API_KEY}`,

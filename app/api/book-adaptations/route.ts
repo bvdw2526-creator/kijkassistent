@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 import { SOURCE_IDS, monetizationTypesFor } from '@/lib/recommendationEngine'
 
 // TMDB-trefwoord "based on novel or book". Door de community getagd, dus niet volledig:
@@ -16,11 +17,11 @@ type TmdbResult = {
   poster_path: string | null
 }
 
-async function searchBookAdaptations(mediaType: 'movie' | 'tv', query: string) {
+async function searchBookAdaptations(mediaType: 'movie' | 'tv', query: string, language: string) {
   const headers = { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }
   try {
     const res = await fetch(
-      `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(query)}&language=nl-NL`,
+      `https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(query)}&language=${language}`,
       { headers, next: { revalidate: CACHE_SECONDS } }
     )
     if (!res.ok) return NextResponse.json({ error: `TMDB gaf status ${res.status}` }, { status: 502 })
@@ -62,6 +63,8 @@ async function searchBookAdaptations(mediaType: 'movie' | 'tv', query: string) {
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'book-adaptations', LIMITS.search)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
 
   const params = request.nextUrl.searchParams
   const mediaType = params.get('type') === 'tv' ? 'tv' : 'movie'
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
     // TMDB kan niet tegelijk op titel én trefwoord zoeken: daarom zoeken we op titel en
     // houden we alleen de resultaten over die het boek-trefwoord hebben. Het
     // "alleen op mijn diensten"-filter geldt hier niet.
-    return searchBookAdaptations(mediaType, query)
+    return searchBookAdaptations(mediaType, query, language)
   }
 
   let providerFilter = ''
@@ -90,7 +93,7 @@ export async function GET(request: NextRequest) {
 
   const url =
     `https://api.themoviedb.org/3/discover/${mediaType}?with_keywords=${BOOK_KEYWORD_ID}` +
-    `&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${page}${providerFilter}`
+    `&language=${language}&sort_by=popularity.desc&vote_count.gte=100&page=${page}${providerFilter}`
 
   try {
     const res = await fetch(url, {

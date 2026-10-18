@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
+import { localeFromRequest, tmdbLanguage } from '@/lib/serverI18n'
 
 const BOOK_KEYWORD_ID = 818
 // Zie app/api/is-book-adaptation/route.ts voor waarom dit trefwoord (in tegenstelling tot bv.
@@ -14,6 +15,8 @@ const uniqueNames = (entries: ProviderEntry[]) => Array.from(new Set(entries.map
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'title-info', LIMITS.titleInfo)
   if (!guard.ok) return guard.response
+  // Taal van de app (cookie of browser): titels, samenvattingen en genres van TMDB in die taal.
+  const language = tmdbLanguage(localeFromRequest(request))
 
   const mediaType = request.nextUrl.searchParams.get('type') === 'tv' ? 'tv' : 'movie'
   const id = parseInt(request.nextUrl.searchParams.get('id') || '', 10)
@@ -23,7 +26,7 @@ export async function GET(request: NextRequest) {
     // Eén aanroep voor alles wat de infopopup nodig heeft (details + trefwoorden +
     // kijkaanbod); TMDB's append_to_response voorkomt drie losse round trips.
     const res = await fetch(
-      `https://api.themoviedb.org/3/${mediaType}/${id}?language=nl-NL&append_to_response=keywords,watch/providers`,
+      `https://api.themoviedb.org/3/${mediaType}/${id}?language=${language}&append_to_response=keywords,watch/providers`,
       { headers: { Authorization: `Bearer ${process.env.TMDB_API_KEY}` }, next: { revalidate: CACHE_SECONDS } }
     )
     if (!res.ok) return NextResponse.json({ error: `TMDB gaf status ${res.status}` }, { status: 502 })
