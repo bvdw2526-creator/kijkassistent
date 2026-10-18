@@ -12,6 +12,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    // Tweede update op dezelfde dag: een nieuw id, zodat ook wie de eerste al zag het kaartje nog een keer krijgt.
+    id: '2026-10-18b',
+    date: '18 oktober 2026',
+    items: [
+      "Kijkassistent is er nu ook in het Engels. Kies je taal bij Instellingen onder 'Uiterlijk'. Je keuze geldt ook voor de wekelijkse tipsmail.",
+    ],
+    itemsEn: [
+      "Kijkassistent is now also available in English. Choose your language in Settings under 'Appearance'. Your choice also applies to the weekly tips email.",
+    ],
+  },
+  {
     id: '2026-10-18',
     itemsEn: [
       "Book adaptations now show which book they're based on and who wrote it, for example 'Dune' by Frank Herbert. Tap it to read more about the book on Wikipedia.",
