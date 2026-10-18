@@ -244,8 +244,12 @@ export default function Onboarding() {
     setLoading(false)
   }
 
-  async function addFavorite(movie: Movie) {
-    if (favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)) return
+  // Nogmaals op Favoriet tikken haalt de favoriet weer weg, net als bij de beoordelingsknoppen.
+  async function toggleFavorite(movie: Movie) {
+    if (favorites.find((f) => f.id === movie.id && f.media_type === movie.media_type)) {
+      await removeFavorite(movie)
+      return
+    }
     const user = await getCurrentUser()
     if (!user) return
     const { error } = await supabase.from('favorite_movies').insert({
@@ -520,7 +524,7 @@ export default function Onboarding() {
                     </span>
                     </button>
                     <button
-                      onClick={() => addFavorite(movie)}
+                      onClick={() => toggleFavorite(movie)}
                       className={`flex items-center gap-1 text-xs font-medium rounded-full px-3 py-1.5 border transition-all flex-shrink-0 touch-manipulation active:scale-[0.96] ${
                         added ? 'border-teal text-teal bg-teal/12' : 'border-line hover:border-accent hover:text-accent'
                       }`}
@@ -671,7 +675,7 @@ export default function Onboarding() {
                   )}
                   {tt('addToWatchlist')}
                 </button>
-                <button onClick={() => addFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })} className={btnSecondary}>
+                <button onClick={() => toggleFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })} className={btnSecondary}>
                   {favorites.some((f) => f.id === infoItem.id && f.media_type === infoItem.media_type) ? (
                     <CheckIcon className="w-4 h-4" />
                   ) : (
