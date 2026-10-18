@@ -28,6 +28,7 @@ import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIc
 import HideTitleConfirm from './components/HideTitleConfirm'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
+import BookSource from './components/BookSource'
 import { useBackToClose } from './components/useBackToClose'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
 
@@ -1340,6 +1341,9 @@ export default function Home() {
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-white/5 text-muted text-xs font-medium px-2.5 py-1">
                       {selected.watchOn}
                     </span>
+                  )}
+                  {bookTitles.has(`${selected.media_type}-${selected.id}`) && (
+                    <BookSource mediaType={selected.media_type} id={selected.id} />
                   )}
                   {soundtrackTitles.has(`${selected.media_type}-${selected.id}`) && (
                     <a

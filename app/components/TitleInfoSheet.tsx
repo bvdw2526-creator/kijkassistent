@@ -9,6 +9,7 @@ import { btnGhost } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TrailerLink from './TrailerLink'
 import MoreLikeThis from './MoreLikeThis'
+import BookSource from './BookSource'
 import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
@@ -132,6 +133,7 @@ export default function TitleInfoSheet({
                   </span>
                 )}
               </div>
+              {info?.isBookAdaptation && <BookSource mediaType={item.media_type} id={item.id} />}
               {hasSoundtrack && (
                 <a
                   href={spotifySoundtrackUrl(item.title)}

@@ -10,6 +10,13 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-18',
+    date: '18 oktober 2026',
+    items: [
+      "Bij een boekverfilming zie je nu ook welk boek het is en wie het schreef, bijvoorbeeld 'Duin' van Frank Herbert. Tik erop om meer over het boek te lezen op Wikipedia.",
+    ],
+  },
+  {
     id: '2026-10-13',
     date: '13 oktober 2026',
     items: [
