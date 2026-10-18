@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { takePendingInvitePath } from '@/lib/invite'
 import { btnPrimary, input } from '../components/ui'
@@ -21,16 +22,18 @@ export default function Register() {
   // checken die nooit verstuurd wordt.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null)
   const router = useRouter()
+  const t = useTranslations('register')
+  const common = useTranslations('common')
 
   async function handleSignUp() {
     setError('')
 
     if (password !== passwordConfirm) {
-      setError('De wachtwoorden komen niet overeen.')
+      setError(common('passwordsDontMatch'))
       return
     }
     if (password.length < 8) {
-      setError('Je wachtwoord moet minimaal 8 tekens lang zijn.')
+      setError(common('passwordTooShort'))
       return
     }
 
@@ -44,7 +47,7 @@ export default function Register() {
     if (error) {
       setError(
         error.message === 'User already registered'
-          ? 'Dit e-mailadres heeft al een account. Probeer in te loggen.'
+          ? t('alreadyRegistered')
           : error.message
       )
       return
@@ -55,7 +58,7 @@ export default function Register() {
     // e-mail" te zien krijgen terwijl er geen mail is verstuurd. Te herkennen aan een
     // lege identities-array op de teruggekomen user.
     if (data.user && data.user.identities && data.user.identities.length === 0) {
-      setError('Dit e-mailadres heeft al een account. Probeer in te loggen.')
+      setError(t('alreadyRegistered'))
       return
     }
 
@@ -77,16 +80,16 @@ export default function Register() {
         <div className="w-12 h-12 rounded-full bg-teal/12 flex items-center justify-center mb-5">
           <CheckIcon className="w-6 h-6 text-teal" />
         </div>
-        <h1 className="font-display text-2xl mb-2">Controleer je e-mail</h1>
+        <h1 className="font-display text-2xl mb-2">{common('checkEmail')}</h1>
         <p className="text-muted leading-relaxed mb-1">
-          We hebben een bevestigingslink gestuurd naar
+          {t('sentTo')}
         </p>
         <p className="font-medium mb-6">{submittedEmail}</p>
         <p className="text-muted text-sm leading-relaxed mb-8">
-          Klik op de link in die e-mail om je account te activeren. Daarna kun je inloggen.
+          {t('clickLink')}
         </p>
         <Link href="/login" className={btnPrimary}>
-          Naar inloggen
+          {common('toLogin')}
         </Link>
       </main>
     )
@@ -94,9 +97,9 @@ export default function Register() {
 
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Nieuw hier</p>
-      <h1 className="font-display text-3xl mb-1">Account aanmaken</h1>
-      <p className="text-muted mb-8">Registreer met je e-mailadres en een wachtwoord.</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">{t('kicker')}</p>
+      <h1 className="font-display text-3xl mb-1">{common('createAccount')}</h1>
+      <p className="text-muted mb-8">{t('intro')}</p>
 
       <form
         className="flex flex-col gap-3"
@@ -107,7 +110,7 @@ export default function Register() {
       >
         <input
           type="email"
-          placeholder="E-mailadres"
+          placeholder={common('email')}
           autoComplete="email"
           required
           value={email}
@@ -116,7 +119,7 @@ export default function Register() {
         />
         <input
           type="password"
-          placeholder="Wachtwoord (minimaal 8 tekens)"
+          placeholder={t('passwordPlaceholder')}
           autoComplete="new-password"
           required
           minLength={8}
@@ -126,7 +129,7 @@ export default function Register() {
         />
         <input
           type="password"
-          placeholder="Wachtwoord bevestigen"
+          placeholder={t('passwordConfirm')}
           autoComplete="new-password"
           required
           minLength={8}
@@ -142,19 +145,20 @@ export default function Register() {
         )}
 
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
-          {loading ? 'Bezig...' : 'Account aanmaken'}
+          {loading ? common('loading') : common('createAccount')}
         </button>
         <p className="text-xs text-faint leading-relaxed">
-          Door een account aan te maken ga je akkoord met de{' '}
-          <Link href="/voorwaarden" className="underline underline-offset-2 hover:text-muted">voorwaarden</Link> en de{' '}
-          <Link href="/privacy" className="underline underline-offset-2 hover:text-muted">privacyverklaring</Link>.
+          {t.rich('agree', {
+            terms: (chunks) => <Link href="/voorwaarden" className="underline underline-offset-2 hover:text-muted">{chunks}</Link>,
+            privacy: (chunks) => <Link href="/privacy" className="underline underline-offset-2 hover:text-muted">{chunks}</Link>,
+          })}
         </p>
       </form>
 
       <p className="text-sm text-muted mt-6">
-        Heb je al een account?{' '}
+        {t('haveAccount')}{' '}
         <Link href="/login" className="text-accent hover:text-accent-hover transition-colors">
-          Inloggen
+          {common('login')}
         </Link>
       </p>
 

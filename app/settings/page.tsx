@@ -8,6 +8,7 @@ import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import ExcludeChip from '../components/ExcludeChip'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
+import LanguageSetting from '../components/LanguageSetting'
 import { WhatsNewSheet } from '../components/WhatsNew'
 import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, ChevronLeftIcon, TrashIcon, UsersIcon } from '../components/Icons'
@@ -631,6 +632,8 @@ export default function Settings() {
             </Collapsible>
 
             <GroupTitle title="Uiterlijk" />
+            <LanguageSetting />
+            <div className="mt-8" />
             <SectionTitle title="Skin" hint="Kies de kleuren van de app. De keuze geldt op dit apparaat." />
             <div className="flex flex-col gap-2">
               {SKINS.map((s) => {

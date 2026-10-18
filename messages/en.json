@@ -1,0 +1,111 @@
+{
+  "common": {
+    "loading": "Just a moment...",
+    "login": "Log in",
+    "createAccount": "Create account",
+    "createFreeAccount": "Create a free account",
+    "email": "Email address",
+    "backToLogin": "Back to log in",
+    "toLogin": "Go to log in",
+    "checkEmail": "Check your email",
+    "passwordTooShort": "Your password needs to be at least 8 characters.",
+    "passwordsDontMatch": "The passwords don't match."
+  },
+  "language": {
+    "label": "Language",
+    "help": "The language of the app. Titles and descriptions of films and series follow this choice.",
+    "nl": "Nederlands",
+    "en": "English",
+    "switchTo": "Nederlands"
+  },
+  "nav": {
+    "forYou": "For you",
+    "search": "Search",
+    "watchlist": "Watchlist",
+    "stats": "Stats",
+    "settings": "Settings"
+  },
+  "legal": {
+    "tmdb": "This product uses the TMDB API but is not endorsed or certified by TMDB. Streaming data via JustWatch.",
+    "privacy": "Privacy",
+    "terms": "Terms"
+  },
+  "landing": {
+    "heroTitle": "Know what you're watching tonight.",
+    "heroText": "No more half an hour of scrolling. Personal tips for films and series, only from what's on your streaming services. For watching together with your partner, too.",
+    "free": "Free",
+    "noAds": "No ads",
+    "readyInMinutes": "Ready in a few minutes",
+    "screenshotForYou": "Personal tips with a match percentage in Kijkassistent",
+    "worksWith": "Works with",
+    "howItWorks": "How it works",
+    "step1Title": "Pick your streaming services",
+    "step1Text": "You only get tips for what you can actually watch.",
+    "step2Title": "Tell us what you love",
+    "step2Text": "Choose a few favourite films and series. The more you tell us, the better the tips.",
+    "step3Title": "Know what to watch tonight",
+    "step3Text": "Personal tips with a match percentage and where to watch them.",
+    "togetherLabel": "Watch together",
+    "togetherTitle": "No more arguing about what to watch.",
+    "togetherText": "Link your partner and Kijkassistent finds what suits you both.",
+    "together1": "See what you'd both enjoy",
+    "together2": "A tip for tonight, every night: thrilling, funny or relaxing",
+    "together3": "A shared watchlist and your taste match",
+    "screenshotTogether": "Tonight's tip for the two of you",
+    "faqTitle": "Good to know",
+    "faq1Q": "What does it cost?",
+    "faq1A": "Nothing. Kijkassistent is free and has no ads.",
+    "faq2Q": "What happens to my data?",
+    "faq2A": "We only use your ratings for your own tips. No ads, no tracking, and you can delete your account yourself whenever you like.",
+    "faq3Q": "Does it work on my phone?",
+    "faq3A": "Yes, right in your browser. You can also add the app to your home screen.",
+    "closingTitle": "What are you watching tonight?",
+    "closingText": "Create a free account and get your first tips within a few minutes.",
+    "followUs": "Follow us",
+    "socialLabel": "Kijkassistent on {network}"
+  },
+  "login": {
+    "kicker": "Welcome back",
+    "intro": "Log in with your email address and password.",
+    "password": "Password",
+    "forgot": "Forgot your password?",
+    "notConfirmed": "Please confirm your email address first, using the link we sent you.",
+    "wrongCredentials": "Email address or password is incorrect.",
+    "noAccount": "No account yet?"
+  },
+  "register": {
+    "kicker": "New here",
+    "intro": "Sign up with your email address and a password.",
+    "passwordPlaceholder": "Password (at least 8 characters)",
+    "passwordConfirm": "Confirm password",
+    "alreadyRegistered": "This email address already has an account. Try logging in.",
+    "sentTo": "We've sent a confirmation link to",
+    "clickLink": "Click the link in that email to activate your account. Then you can log in.",
+    "agree": "By creating an account you agree to the <terms>terms</terms> and the <privacy>privacy statement</privacy>.",
+    "haveAccount": "Already have an account?"
+  },
+  "forgotPassword": {
+    "title": "Forgot password",
+    "intro": "Enter your email address. You'll get a link to choose a new password.",
+    "submit": "Send me a link",
+    "tooSoon": "You just requested this. Wait a few minutes and try again.",
+    "failed": "Something went wrong. Please try again in a few minutes.",
+    "sent": "If <email></email> belongs to an account, we've sent you an email with a link to choose a new password. Check your spam folder if you don't see it."
+  },
+  "resetPassword": {
+    "title": "New password",
+    "intro": "Choose a new password of at least 8 characters.",
+    "newPassword": "New password",
+    "repeat": "Repeat your password",
+    "save": "Save password",
+    "sameAsOld": "Choose a password that's different from your previous one.",
+    "tooWeak": "This password is too easy to guess. Please choose another one.",
+    "saveFailed": "The password couldn't be saved. Request a new link and try again.",
+    "doneTitle": "Your password has been changed",
+    "doneText": "You're logged in and will be taken to the app in a moment.",
+    "invalidTitle": "This link no longer works",
+    "invalidText": "The link has expired or was already used. Request a new one; it's valid for a short time.",
+    "requestNew": "Request a new link",
+    "checking": "Checking..."
+  }
+}

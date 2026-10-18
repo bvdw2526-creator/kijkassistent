@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { btnPrimary, input } from '../components/ui'
 import { CheckIcon } from '../components/Icons'
@@ -12,6 +13,8 @@ export default function WachtwoordVergeten() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [sent, setSent] = useState(false)
+  const t = useTranslations('forgotPassword')
+  const common = useTranslations('common')
 
   async function handleSubmit() {
     setLoading(true)
@@ -24,11 +27,11 @@ export default function WachtwoordVergeten() {
     // zo kun je hier niet uitproberen welke e-mailadressen een account hebben. Alleen een te snel achter
     // elkaar aanvragen krijgt een eigen melding.
     if (resetError && /rate limit|too many|seconds/i.test(resetError.message)) {
-      setError('Je hebt dit net al aangevraagd. Wacht een paar minuten en probeer het dan opnieuw.')
+      setError(t('tooSoon'))
       return
     }
     if (resetError && resetError.status !== 400 && resetError.status !== 422) {
-      setError('Er ging iets mis. Probeer het over een paar minuten opnieuw.')
+      setError(t('failed'))
       return
     }
     setSent(true)
@@ -40,13 +43,12 @@ export default function WachtwoordVergeten() {
         <div className="w-12 h-12 rounded-full bg-teal/12 flex items-center justify-center mb-5">
           <CheckIcon className="w-6 h-6 text-teal" />
         </div>
-        <h1 className="font-display text-2xl mb-2">Controleer je e-mail</h1>
+        <h1 className="font-display text-2xl mb-2">{common('checkEmail')}</h1>
         <p className="text-muted leading-relaxed mb-6">
-          Hoort <span className="text-foreground">{email}</span> bij een account, dan hebben we je een mail gestuurd met een link om
-          een nieuw wachtwoord te kiezen. Kijk ook in je spam als je hem niet ziet.
+          {t.rich('sent', { email: () => <span className="text-foreground">{email}</span> })}
         </p>
         <Link href="/login" className="text-accent hover:text-accent-hover transition-colors text-sm">
-          Terug naar inloggen
+          {common('backToLogin')}
         </Link>
         <LegalLinks className="mt-10" />
       </main>
@@ -56,8 +58,8 @@ export default function WachtwoordVergeten() {
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
       <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Kijkassistent</p>
-      <h1 className="font-display text-3xl mb-1">Wachtwoord vergeten</h1>
-      <p className="text-muted mb-8">Vul je e-mailadres in. Je krijgt een link om een nieuw wachtwoord te kiezen.</p>
+      <h1 className="font-display text-3xl mb-1">{t('title')}</h1>
+      <p className="text-muted mb-8">{t('intro')}</p>
 
       <form
         className="flex flex-col gap-3"
@@ -68,7 +70,7 @@ export default function WachtwoordVergeten() {
       >
         <input
           type="email"
-          placeholder="E-mailadres"
+          placeholder={common('email')}
           autoComplete="email"
           required
           value={email}
@@ -81,13 +83,13 @@ export default function WachtwoordVergeten() {
         )}
 
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
-          {loading ? 'Bezig...' : 'Stuur me een link'}
+          {loading ? common('loading') : t('submit')}
         </button>
       </form>
 
       <p className="text-sm text-muted mt-6">
         <Link href="/login" className="text-accent hover:text-accent-hover transition-colors">
-          Terug naar inloggen
+          {common('backToLogin')}
         </Link>
       </p>
 

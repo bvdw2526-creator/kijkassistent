@@ -1,0 +1,111 @@
+{
+  "common": {
+    "loading": "Bezig...",
+    "login": "Inloggen",
+    "createAccount": "Account aanmaken",
+    "createFreeAccount": "Gratis account maken",
+    "email": "E-mailadres",
+    "backToLogin": "Terug naar inloggen",
+    "toLogin": "Naar inloggen",
+    "checkEmail": "Controleer je e-mail",
+    "passwordTooShort": "Je wachtwoord moet minimaal 8 tekens lang zijn.",
+    "passwordsDontMatch": "De wachtwoorden komen niet overeen."
+  },
+  "language": {
+    "label": "Taal",
+    "help": "De taal van de app. Titels en samenvattingen van films en series volgen deze keuze.",
+    "nl": "Nederlands",
+    "en": "English",
+    "switchTo": "English"
+  },
+  "nav": {
+    "forYou": "Voor jou",
+    "search": "Zoeken",
+    "watchlist": "Kijklijst",
+    "stats": "Stats",
+    "settings": "Instellingen"
+  },
+  "legal": {
+    "tmdb": "Dit product gebruikt de TMDB API, maar wordt niet gesteund of gecertificeerd door TMDB. Streaminggegevens via JustWatch.",
+    "privacy": "Privacy",
+    "terms": "Voorwaarden"
+  },
+  "landing": {
+    "heroTitle": "Weten wat je vanavond gaat kijken.",
+    "heroText": "Geen half uur meer scrollen. Persoonlijke tips voor films en series, alleen van wat er op jouw streamingdiensten staat. Ook voor samen met je partner.",
+    "free": "Gratis",
+    "noAds": "Geen advertenties",
+    "readyInMinutes": "Klaar in een paar minuten",
+    "screenshotForYou": "Persoonlijke tips met matchpercentage in Kijkassistent",
+    "worksWith": "Werkt met",
+    "howItWorks": "Zo werkt het",
+    "step1Title": "Kies je streamingdiensten",
+    "step1Text": "Je krijgt alleen tips voor wat je ook echt kunt kijken.",
+    "step2Title": "Vertel wat je mooi vindt",
+    "step2Text": "Kies een paar favoriete films en series. Hoe meer je aangeeft, hoe beter de tips.",
+    "step3Title": "Weet wat je vanavond kijkt",
+    "step3Text": "Persoonlijke tips met een matchpercentage en waar je ze kunt zien.",
+    "togetherLabel": "Samen kijken",
+    "togetherTitle": "Geen discussie meer over wat jullie gaan kijken.",
+    "togetherText": "Koppel je partner en Kijkassistent zoekt wat bij jullie allebei past.",
+    "together1": "Zie wat jullie állebei leuk zouden vinden",
+    "together2": "Elke avond een tip van vanavond, spannend, lachen of ontspannen",
+    "together3": "Een gezamenlijke kijklijst en jullie smaakmatch",
+    "screenshotTogether": "De tip van vanavond voor jullie samen",
+    "faqTitle": "Goed om te weten",
+    "faq1Q": "Wat kost het?",
+    "faq1A": "Niets. Kijkassistent is gratis en heeft geen advertenties.",
+    "faq2Q": "Wat gebeurt er met mijn gegevens?",
+    "faq2A": "We gebruiken je beoordelingen alleen voor jouw tips. Geen advertenties, geen tracking, en je verwijdert je account zelf wanneer je wilt.",
+    "faq3Q": "Werkt het op mijn telefoon?",
+    "faq3A": "Ja, gewoon in je browser. Je kunt de app ook op je beginscherm zetten.",
+    "closingTitle": "Wat kijk jij vanavond?",
+    "closingText": "Maak een gratis account en krijg binnen een paar minuten je eerste tips.",
+    "followUs": "Volg ons",
+    "socialLabel": "Kijkassistent op {network}"
+  },
+  "login": {
+    "kicker": "Welkom terug",
+    "intro": "Log in met je e-mailadres en wachtwoord.",
+    "password": "Wachtwoord",
+    "forgot": "Wachtwoord vergeten?",
+    "notConfirmed": "Bevestig eerst je e-mailadres via de link die we je gestuurd hebben.",
+    "wrongCredentials": "E-mailadres of wachtwoord klopt niet.",
+    "noAccount": "Nog geen account?"
+  },
+  "register": {
+    "kicker": "Nieuw hier",
+    "intro": "Registreer met je e-mailadres en een wachtwoord.",
+    "passwordPlaceholder": "Wachtwoord (minimaal 8 tekens)",
+    "passwordConfirm": "Wachtwoord bevestigen",
+    "alreadyRegistered": "Dit e-mailadres heeft al een account. Probeer in te loggen.",
+    "sentTo": "We hebben een bevestigingslink gestuurd naar",
+    "clickLink": "Klik op de link in die e-mail om je account te activeren. Daarna kun je inloggen.",
+    "agree": "Door een account aan te maken ga je akkoord met de <terms>voorwaarden</terms> en de <privacy>privacyverklaring</privacy>.",
+    "haveAccount": "Heb je al een account?"
+  },
+  "forgotPassword": {
+    "title": "Wachtwoord vergeten",
+    "intro": "Vul je e-mailadres in. Je krijgt een link om een nieuw wachtwoord te kiezen.",
+    "submit": "Stuur me een link",
+    "tooSoon": "Je hebt dit net al aangevraagd. Wacht een paar minuten en probeer het dan opnieuw.",
+    "failed": "Er ging iets mis. Probeer het over een paar minuten opnieuw.",
+    "sent": "Hoort <email></email> bij een account, dan hebben we je een mail gestuurd met een link om een nieuw wachtwoord te kiezen. Kijk ook in je spam als je hem niet ziet."
+  },
+  "resetPassword": {
+    "title": "Nieuw wachtwoord",
+    "intro": "Kies een nieuw wachtwoord van minimaal 8 tekens.",
+    "newPassword": "Nieuw wachtwoord",
+    "repeat": "Herhaal je wachtwoord",
+    "save": "Wachtwoord opslaan",
+    "sameAsOld": "Kies een wachtwoord dat anders is dan je vorige.",
+    "tooWeak": "Dit wachtwoord is te makkelijk te raden. Kies een ander wachtwoord.",
+    "saveFailed": "Het wachtwoord kon niet worden opgeslagen. Vraag opnieuw een link aan en probeer het nog eens.",
+    "doneTitle": "Je wachtwoord is aangepast",
+    "doneText": "Je bent ingelogd en gaat zo door naar de app.",
+    "invalidTitle": "Deze link werkt niet meer",
+    "invalidText": "De link is verlopen of al gebruikt. Vraag een nieuwe aan; die is een korte tijd geldig.",
+    "requestNew": "Nieuwe link aanvragen",
+    "checking": "Even controleren..."
+  }
+}

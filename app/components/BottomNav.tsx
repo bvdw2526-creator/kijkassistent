@@ -2,18 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { HomeIcon, SearchIcon, BookmarkIcon, ChartIcon, SettingsIcon } from './Icons'
 
+// label = sleutel onder "nav" in messages/*.json.
 const TABS = [
-  { href: '/', label: 'Voor jou', icon: HomeIcon },
-  { href: '/onboarding', label: 'Zoeken', icon: SearchIcon },
-  { href: '/watchlist', label: 'Kijklijst', icon: BookmarkIcon },
-  { href: '/profiel', label: 'Stats', icon: ChartIcon },
-  { href: '/settings', label: 'Instellingen', icon: SettingsIcon },
+  { href: '/', label: 'forYou', icon: HomeIcon },
+  { href: '/onboarding', label: 'search', icon: SearchIcon },
+  { href: '/watchlist', label: 'watchlist', icon: BookmarkIcon },
+  { href: '/profiel', label: 'stats', icon: ChartIcon },
+  { href: '/settings', label: 'settings', icon: SettingsIcon },
 ]
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const t = useTranslations('nav')
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
@@ -40,7 +43,7 @@ export default function BottomNav() {
                 )}
                 <Icon className={`relative w-5 h-5 transition-colors ${active ? 'text-accent' : 'text-muted'}`} />
                 <span className={`relative text-[10.5px] font-medium tracking-tight transition-colors ${active ? 'text-accent' : 'text-muted'}`}>
-                  {label}
+                  {t(label)}
                 </span>
               </Link>
             )

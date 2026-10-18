@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Fraunces, Plus_Jakarta_Sans } from 'next/font/google'
+import { NextIntlClientProvider } from 'next-intl'
+import { getLocale } from 'next-intl/server'
 import './globals.css'
 import RegisterServiceWorker from './components/RegisterServiceWorker'
 import SkinBackdrop from './components/SkinBackdrop'
@@ -39,10 +41,11 @@ export const viewport: Viewport = {
   themeColor: '#10151C',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale()
   // suppressHydrationWarning: het skin-script zet data-skin op <html> voordat React de pagina overneemt.
   return (
-    <html lang="nl" className={`${fraunces.variable} ${body.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${fraunces.variable} ${body.variable}`} suppressHydrationWarning>
       <body className="bg-glow text-foreground min-h-screen antialiased">
         <SkinInitScript />
         <SkinBackdrop />
@@ -62,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }),
           }}
         />
-        {children}
+        <NextIntlClientProvider>{children}</NextIntlClientProvider>
         <RegisterServiceWorker />
       </body>
     </html>

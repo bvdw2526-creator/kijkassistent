@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { btnPrimary, input } from '../components/ui'
 import { CheckIcon } from '../components/Icons'
@@ -18,6 +19,8 @@ export default function WachtwoordResetten() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const t = useTranslations('resetPassword')
+  const common = useTranslations('common')
 
   useEffect(() => {
     // De sessie uit de link wordt asynchroon verwerkt: wacht op de melding, en geef het een paar seconden
@@ -38,11 +41,11 @@ export default function WachtwoordResetten() {
   async function handleSubmit() {
     setError('')
     if (password.length < 8) {
-      setError('Je wachtwoord moet minimaal 8 tekens lang zijn.')
+      setError(common('passwordTooShort'))
       return
     }
     if (password !== passwordConfirm) {
-      setError('De wachtwoorden komen niet overeen.')
+      setError(common('passwordsDontMatch'))
       return
     }
     setLoading(true)
@@ -51,10 +54,10 @@ export default function WachtwoordResetten() {
     if (updateError) {
       setError(
         /same|different from the old/i.test(updateError.message)
-          ? 'Kies een wachtwoord dat anders is dan je vorige.'
+          ? t('sameAsOld')
           : /weak|pwned|leaked|easy to guess/i.test(updateError.message)
-            ? 'Dit wachtwoord is te makkelijk te raden. Kies een ander wachtwoord.'
-            : 'Het wachtwoord kon niet worden opgeslagen. Vraag opnieuw een link aan en probeer het nog eens.'
+            ? t('tooWeak')
+            : t('saveFailed')
       )
       return
     }
@@ -68,8 +71,8 @@ export default function WachtwoordResetten() {
         <div className="w-12 h-12 rounded-full bg-teal/12 flex items-center justify-center mb-5">
           <CheckIcon className="w-6 h-6 text-teal" />
         </div>
-        <h1 className="font-display text-2xl mb-2">Je wachtwoord is aangepast</h1>
-        <p className="text-muted leading-relaxed">Je bent ingelogd en gaat zo door naar de app.</p>
+        <h1 className="font-display text-2xl mb-2">{t('doneTitle')}</h1>
+        <p className="text-muted leading-relaxed">{t('doneText')}</p>
       </main>
     )
   }
@@ -77,12 +80,12 @@ export default function WachtwoordResetten() {
   if (status === 'ongeldig') {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-        <h1 className="font-display text-2xl mb-2">Deze link werkt niet meer</h1>
+        <h1 className="font-display text-2xl mb-2">{t('invalidTitle')}</h1>
         <p className="text-muted leading-relaxed mb-6">
-          De link is verlopen of al gebruikt. Vraag een nieuwe aan; die is een korte tijd geldig.
+          {t('invalidText')}
         </p>
         <Link href="/wachtwoord-vergeten" className={btnPrimary}>
-          Nieuwe link aanvragen
+          {t('requestNew')}
         </Link>
         <LegalLinks className="mt-10" />
       </main>
@@ -92,7 +95,7 @@ export default function WachtwoordResetten() {
   if (status === 'controleren') {
     return (
       <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-        <p className="text-muted">Even controleren...</p>
+        <p className="text-muted">{t('checking')}</p>
       </main>
     )
   }
@@ -100,8 +103,8 @@ export default function WachtwoordResetten() {
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
       <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Kijkassistent</p>
-      <h1 className="font-display text-3xl mb-1">Nieuw wachtwoord</h1>
-      <p className="text-muted mb-8">Kies een nieuw wachtwoord van minimaal 8 tekens.</p>
+      <h1 className="font-display text-3xl mb-1">{t('title')}</h1>
+      <p className="text-muted mb-8">{t('intro')}</p>
 
       <form
         className="flex flex-col gap-3"
@@ -112,7 +115,7 @@ export default function WachtwoordResetten() {
       >
         <input
           type="password"
-          placeholder="Nieuw wachtwoord"
+          placeholder={t('newPassword')}
           autoComplete="new-password"
           required
           value={password}
@@ -121,7 +124,7 @@ export default function WachtwoordResetten() {
         />
         <input
           type="password"
-          placeholder="Herhaal je wachtwoord"
+          placeholder={t('repeat')}
           autoComplete="new-password"
           required
           value={passwordConfirm}
@@ -134,7 +137,7 @@ export default function WachtwoordResetten() {
         )}
 
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
-          {loading ? 'Bezig...' : 'Wachtwoord opslaan'}
+          {loading ? common('loading') : t('save')}
         </button>
       </form>
 

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { takePendingInvitePath } from '@/lib/invite'
 import { btnPrimary, input } from '../components/ui'
@@ -14,6 +15,8 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const t = useTranslations('login')
+  const common = useTranslations('common')
 
   async function handleSignIn() {
     setLoading(true)
@@ -23,9 +26,9 @@ export default function Login() {
     if (error) {
       setError(
         error.message === 'Email not confirmed'
-          ? 'Bevestig eerst je e-mailadres via de link die we je gestuurd hebben.'
+          ? t('notConfirmed')
           : error.message === 'Invalid login credentials'
-            ? 'E-mailadres of wachtwoord klopt niet.'
+            ? t('wrongCredentials')
             : error.message
       )
       return
@@ -35,9 +38,9 @@ export default function Login() {
 
   return (
     <main className="min-h-screen flex flex-col justify-center max-w-sm mx-auto px-6 py-16">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">Welkom terug</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-2">{t('kicker')}</p>
       <h1 className="font-display text-3xl mb-1">Kijkassistent</h1>
-      <p className="text-muted mb-8">Log in met je e-mailadres en wachtwoord.</p>
+      <p className="text-muted mb-8">{t('intro')}</p>
 
       <form
         className="flex flex-col gap-3"
@@ -48,7 +51,7 @@ export default function Login() {
       >
         <input
           type="email"
-          placeholder="E-mailadres"
+          placeholder={common('email')}
           autoComplete="email"
           required
           value={email}
@@ -57,7 +60,7 @@ export default function Login() {
         />
         <input
           type="password"
-          placeholder="Wachtwoord"
+          placeholder={t('password')}
           autoComplete="current-password"
           required
           value={password}
@@ -65,7 +68,7 @@ export default function Login() {
           className={input}
         />
         <Link href="/wachtwoord-vergeten" className="self-end text-sm text-muted hover:text-foreground transition-colors -mt-1">
-          Wachtwoord vergeten?
+          {t('forgot')}
         </Link>
 
         {error && (
@@ -75,14 +78,14 @@ export default function Login() {
         )}
 
         <button type="submit" disabled={loading} className={`${btnPrimary} mt-2`}>
-          {loading ? 'Bezig...' : 'Inloggen'}
+          {loading ? common('loading') : common('login')}
         </button>
       </form>
 
       <p className="text-sm text-muted mt-6">
-        Nog geen account?{' '}
+        {t('noAccount')}{' '}
         <Link href="/register" className="text-accent hover:text-accent-hover transition-colors">
-          Account aanmaken
+          {common('createAccount')}
         </Link>
       </p>
 
