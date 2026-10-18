@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import { btnPrimary, btnSecondary, input, card } from './ui'
 import PersonInfoSheet, { type PersonInfoItem } from './PersonInfoSheet'
@@ -15,17 +16,18 @@ const CONFIG = {
   actor: {
     table: 'favorite_people',
     searchSuffix: '',
-    hint: 'Tellen zwaar mee: films en series met een favoriet erin komen hoger in je aanbevelingen.',
-    placeholder: 'Zoek een acteur of actrice...',
-    empty: 'Nog geen favoriete acteurs of actrices toegevoegd.',
+    // Teksten: sleutels onder "people" in messages/*.json.
+    hint: 'actorHint',
+    placeholder: 'actorPlaceholder',
+    empty: 'actorEmpty',
     addError: 'Favoriete acteur toevoegen mislukt:',
   },
   director: {
     table: 'favorite_directors',
     searchSuffix: '&type=director',
-    hint: 'Tellen net zo zwaar mee als favoriete acteurs: films en series van een favoriete regisseur komen hoger in je aanbevelingen.',
-    placeholder: 'Zoek een regisseur...',
-    empty: 'Nog geen favoriete regisseurs toegevoegd.',
+    hint: 'directorHint',
+    placeholder: 'directorPlaceholder',
+    empty: 'directorEmpty',
     addError: 'Favoriete regisseur toevoegen mislukt:',
   },
 } as const
@@ -46,6 +48,9 @@ function Avatar({ name, path }: { name: string; path: string | null }) {
 
 export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }) {
   const config = CONFIG[kind]
+  const t = useTranslations('people')
+  const tt = useTranslations('title')
+  const ts = useTranslations('search')
   const [favorites, setFavorites] = useState<Person[]>([])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PersonResult[]>([])
@@ -77,7 +82,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
     setError(null)
     const res = await authFetch(`/api/search-people?query=${encodeURIComponent(query)}${config.searchSuffix}`)
     const data = await res.json()
-    if (!res.ok) setError(data.error || 'Zoeken mislukt')
+    if (!res.ok) setError(data.error || ts('failed'))
     setResults(data.results || [])
     setSearching(false)
   }
@@ -95,7 +100,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
     })
     if (insertError) {
       console.error(config.addError, insertError)
-      setError(`Kon "${person.name}" niet toevoegen: ${insertError.message}`)
+      setError(t('errAdd', { name: person.name, message: insertError.message }))
       return
     }
     setFavorites((current) => [{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...current])
@@ -112,7 +117,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
       .eq('person_id', personId)
     if (deleteError) {
       console.error('Favoriet verwijderen mislukt:', deleteError)
-      setError(`Kon niet verwijderen: ${deleteError.message}`)
+      setError(t('errRemove', { message: deleteError.message }))
       return
     }
     setFavorites((current) => current.filter((p) => p.person_id !== personId))
@@ -120,7 +125,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
 
   return (
     <div>
-      <p className="text-muted text-sm mb-4 leading-relaxed laptop:max-w-2xl">{config.hint}</p>
+      <p className="text-muted text-sm mb-4 leading-relaxed laptop:max-w-2xl">{t(config.hint)}</p>
 
       {error && (
         <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-4">
@@ -136,12 +141,12 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder={config.placeholder}
+            placeholder={t(config.placeholder)}
             className={`${input} pl-10`}
           />
         </div>
         <button onClick={handleSearch} disabled={searching} className={btnPrimary}>
-          Zoeken
+          {ts('button')}
         </button>
       </div>
 
@@ -165,7 +170,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
                   }`}
                 >
                   {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                  Favoriet
+                  {tt('favorite')}
                 </button>
               </div>
             )
@@ -173,8 +178,8 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
         </div>
       )}
 
-      <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
-      {favorites.length === 0 && <p className="text-muted text-sm">{config.empty}</p>}
+      <h2 className="font-display text-lg mb-3">{t('yourFavorites', { count: favorites.length })}</h2>
+      {favorites.length === 0 && <p className="text-muted text-sm">{t(config.empty)}</p>}
       {favorites.length > 0 && (
         <div className="flex flex-col gap-1.5 laptop:grid laptop:grid-cols-2">
           {favorites.map((person) => (
@@ -189,7 +194,7 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
               <button
                 onClick={() => remove(person.person_id)}
                 className="text-muted hover:text-coral transition-colors p-1"
-                aria-label="Verwijderen"
+                aria-label={tt('remove')}
               >
                 <TrashIcon className="w-4 h-4" />
               </button>
@@ -213,12 +218,12 @@ export default function PeopleFavorites({ kind }: { kind: 'actor' | 'director' }
               className={`${btnSecondary} w-full`}
             >
               <TrashIcon className="w-4 h-4" />
-              Uit favorieten halen
+              {t('removeFavorite')}
             </button>
           ) : (
             <button onClick={() => add({ id: infoPerson.id, name: infoPerson.name, profile_path: infoPerson.profile_path ?? null })} className={`${btnPrimary} w-full`}>
               <PlusIcon className="w-4 h-4" />
-              Favoriet
+              {tt('favorite')}
             </button>
           )}
         </PersonInfoSheet>

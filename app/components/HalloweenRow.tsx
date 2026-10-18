@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { authFetch } from '@/lib/supabase'
 import { isHalloweenDay, isHalloweenSeason } from '@/lib/skins'
 import { useSkin } from '@/lib/useSkin'
@@ -35,9 +36,10 @@ type Lists = Record<Flavour, HalloweenMovie[]> & { classics: HalloweenMovie[] }
 // 'personal' = je eigen rij, 'samen' = de rij voor jullie twee (alleen met een gekoppelde partner).
 export type HalloweenScope = 'personal' | 'samen'
 
-const FLAVOURS: { id: Flavour; label: string }[] = [
-  { id: 'scary', label: 'Griezelig' },
-  { id: 'cozy', label: 'Gezellig eng' },
+// label = sleutel onder "halloween" in messages/*.json.
+const FLAVOURS: { id: Flavour; label: Flavour }[] = [
+  { id: 'scary', label: 'scary' },
+  { id: 'cozy', label: 'cozy' },
 ]
 
 // Blijft staan zolang de app openstaat: bij het wisselen van tabblad wordt Voor jou opnieuw opgebouwd, en dan hoeft
@@ -132,6 +134,8 @@ function PosterScroller({
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   const [more, setMore] = useState({ left: false, right: false })
+  const t = useTranslations('halloween')
+  const tt = useTranslations('title')
   function updateMore() {
     const el = scroller.current
     if (!el) return
@@ -158,12 +162,12 @@ function PosterScroller({
   return (
     <div className="relative -mx-4">
       {more.left && (
-        <button onClick={() => scrollBy(-1)} aria-label="Vorige titels" className={`${arrow} left-2`}>
+        <button onClick={() => scrollBy(-1)} aria-label={t('prev')} className={`${arrow} left-2`}>
           <ChevronLeftIcon className="w-4 h-4" />
         </button>
       )}
       {more.right && (
-        <button onClick={() => scrollBy(1)} aria-label="Volgende titels" className={`${arrow} right-2`}>
+        <button onClick={() => scrollBy(1)} aria-label={t('next')} className={`${arrow} right-2`}>
           <ChevronLeftIcon className="w-4 h-4 rotate-180" />
         </button>
       )}
@@ -174,7 +178,7 @@ function PosterScroller({
             ))
           : items.map((movie) => (
               <div key={`${movie.media_type}-${movie.id}`} className="grid w-28 flex-shrink-0">
-                <MovieCard movie={movie} hideMatch badge={movie.media_type === 'tv' ? 'Serie' : undefined} onClick={() => onSelect(movie)} />
+                <MovieCard movie={movie} hideMatch badge={movie.media_type === 'tv' ? tt('series') : undefined} onClick={() => onSelect(movie)} />
               </div>
             ))}
       </div>
@@ -184,16 +188,18 @@ function PosterScroller({
 
 // Op Halloween zelf: de uitleg boven de lijst.
 export function HalloweenDayHeader({ together }: { together: boolean }) {
+  const t = useTranslations('halloween')
   return (
     <section className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mb-5 animate-fade-in">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Het is Halloween</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">{t('dayTitle')}</p>
       <p className="text-sm text-muted mt-1 leading-relaxed laptop:max-w-2xl">
-        Vandaag staan hier alleen Halloween-titels{together ? ' voor jullie twee' : ''}, ook uit genres die je anders uitsluit. Morgen
-        staat je gewone advies er weer. Liever nu al? Zet de Halloween-skin uit bij{' '}
-        <Link href="/settings" className="text-accent hover:text-accent-hover transition-colors">
-          Instellingen
-        </Link>
-        .
+        {t.rich(together ? 'dayTextOurs' : 'dayTextMine', {
+          link: (chunks) => (
+            <Link href="/settings" className="text-accent hover:text-accent-hover transition-colors">
+              {chunks}
+            </Link>
+          ),
+        })}
       </p>
     </section>
   )
@@ -210,12 +216,13 @@ export function HalloweenClassics({
   together: boolean
   onSelect: (movie: HalloweenMovie) => void
 }) {
+  const t = useTranslations('halloween')
   if (items.length === 0) return null
   return (
     <section className="rounded-2xl border border-line bg-surface p-4 mb-5 animate-fade-in">
-      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Halloween-klassiekers</p>
+      <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">{t('classics')}</p>
       <p className="text-sm text-muted mt-1 mb-3">
-        De films die bij Halloween horen, ook als ze niet op {together ? 'jullie' : 'jouw'} diensten staan. Eronder zie je waar je ze kunt kijken.
+        {t(together ? 'classicsTextOurs' : 'classicsTextMine')}
       </p>
       <PosterScroller items={items} onSelect={onSelect} />
     </section>
@@ -224,9 +231,9 @@ export function HalloweenClassics({
 
 // Op Halloween zelf: de keuze tussen de twee smaken, direct boven de lijst. "Gezellig eng" staat voorop, zodat wie horror
 // anders uitsluit niet meteen de engste posters ziet.
-export const DAY_FLAVOURS: { id: Flavour; label: string }[] = [
-  { id: 'cozy', label: 'Gezellig eng' },
-  { id: 'scary', label: 'Griezelig' },
+export const DAY_FLAVOURS: { id: Flavour; label: Flavour }[] = [
+  { id: 'cozy', label: 'cozy' },
+  { id: 'scary', label: 'scary' },
 ]
 
 export function HalloweenDayFlavours({
@@ -239,12 +246,13 @@ export function HalloweenDayFlavours({
   chosen: Flavour | undefined
   onChoose: (flavour: Flavour) => void
 }) {
+  const t = useTranslations('halloween')
   if (flavours.length < 2) return null
   return (
     <div className="flex gap-2 mb-4">
       {DAY_FLAVOURS.filter((f) => flavours.includes(f.id)).map((f) => (
         <button key={f.id} onClick={() => onChoose(f.id)} className={chip(chosen === f.id)}>
-          {f.label}
+          {t(f.label)}
         </button>
       ))}
     </div>
@@ -265,6 +273,7 @@ export default function HalloweenRow({
   onSelect: (movie: HalloweenMovie) => void
 }) {
   const [chosen, setChosen] = useState<Flavour>('scary')
+  const t = useTranslations('halloween')
   const available = FLAVOURS.filter((f) => (lists?.[f.id].length ?? 0) > 0)
   if (!loading && available.length === 0) return null
   // Is de gekozen smaak leeg (bv. horror uitgesloten, of alles al gezien), dan de andere.
@@ -274,18 +283,18 @@ export default function HalloweenRow({
   return (
     <section className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mb-5 animate-fade-in">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Halloween-avond{together ? ' samen' : ''}</p>
-        <p className="text-[11px] text-muted flex-shrink-0">t/m 1 november</p>
+        <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">{t(together ? 'rowTogether' : 'row')}</p>
+        <p className="text-[11px] text-muted flex-shrink-0">{t('until')}</p>
       </div>
       <p className="text-sm text-muted mt-1 mb-3">
-        {together ? 'Te zien op jullie diensten; wat bij jullie allebei past staat vooraan.' : 'Te zien op jouw diensten; wat het best bij je past staat vooraan.'}
+        {t(together ? 'rowTextOurs' : 'rowTextMine')}
       </p>
 
       {available.length > 1 && (
         <div className="flex gap-1.5 mb-3">
           {available.map((f) => (
             <button key={f.id} onClick={() => setChosen(f.id)} className={chip(flavour === f.id, 'accent', 'sm')}>
-              {f.label}
+              {t(f.label)}
             </button>
           ))}
         </div>

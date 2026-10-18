@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { authFetch } from '@/lib/supabase'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
@@ -48,6 +49,7 @@ export default function TitleInfoSheet({
   const [info, setInfo] = useState<TitleInfo | null>(null)
   const [failed, setFailed] = useState(false)
   const [hasSoundtrack, setHasSoundtrack] = useState(false)
+  const t = useTranslations('title')
 
   useEffect(() => {
     let cancelled = false
@@ -93,7 +95,7 @@ export default function TitleInfoSheet({
         <div className="p-6">
           <button onClick={onClose} className={`${btnGhost} w-full mb-4`}>
             <CloseIcon className="w-4 h-4" />
-            Sluiten
+            {t('close')}
           </button>
 
           <div className="flex gap-4 mb-4">
@@ -113,7 +115,7 @@ export default function TitleInfoSheet({
             <div className="min-w-0">
               <h2 className="font-display text-xl leading-tight">{item.title}</h2>
               <p className="text-sm text-muted mt-1.5">
-                {item.media_type === 'tv' ? 'Serie' : 'Film'}
+                {item.media_type === 'tv' ? t('series') : t('film')}
                 {info?.year ? ` · ${info.year}` : ''}
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -124,12 +126,12 @@ export default function TitleInfoSheet({
                 )}
                 {info?.isBookAdaptation && (
                   <span className="rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
-                    Gebaseerd op een boek
+                    {t('basedOnBook')}
                   </span>
                 )}
                 {info?.isTrueStory && (
                   <span className="rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
-                    Waargebeurd verhaal
+                    {t('trueStory')}
                   </span>
                 )}
               </div>
@@ -142,7 +144,7 @@ export default function TitleInfoSheet({
                   className="mt-3 flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground transition-colors touch-manipulation"
                 >
                   <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
-                  Soundtrack op Spotify
+                  {t('soundtrack')}
                 </a>
               )}
             </div>
@@ -151,7 +153,7 @@ export default function TitleInfoSheet({
           <TrailerLink mediaType={item.media_type} id={item.id} size="base" />
 
           {!info && !failed && <div className="h-16 rounded-xl bg-surface-2 animate-skeleton mb-4" />}
-          {failed && <p className="text-sm text-muted mb-4">Kon de details niet laden.</p>}
+          {failed && <p className="text-sm text-muted mb-4">{t('detailsFailed')}</p>}
 
           {info?.overview && <p className="text-sm text-foreground/90 leading-relaxed mb-4">{info.overview}</p>}
 
@@ -161,17 +163,13 @@ export default function TitleInfoSheet({
           {info && (
             <div className="text-sm text-muted mb-5 flex flex-col gap-1">
               <p>
-                {info.streaming.length > 0 ? (
-                  <>
-                    Te zien op: <span className="text-accent">{info.streaming.join(', ')}</span>
-                  </>
-                ) : (
-                  'Niet bij een streamingabonnement te zien in Nederland.'
-                )}
+                {info.streaming.length > 0
+                  ? t.rich('watchOn', { s: () => <span className="text-accent">{info.streaming.join(', ')}</span> })
+                  : t('notStreaming')}
               </p>
               {info.rentBuy.length > 0 && (
                 <p>
-                  Ook te huur of koop: <span className="text-foreground/85">{info.rentBuy.slice(0, 4).join(', ')}</span>
+                  {t.rich('rentBuy', { s: () => <span className="text-foreground/85">{info.rentBuy.slice(0, 4).join(', ')}</span> })}
                 </p>
               )}
             </div>
@@ -191,7 +189,7 @@ export default function TitleInfoSheet({
               className={`${btnGhost} w-full mt-2`}
             >
               <GlobeIcon className="w-4 h-4" />
-              Het echte verhaal op Wikipedia
+              {t('realStory')}
             </a>
           )}
         </div>

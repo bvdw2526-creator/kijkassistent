@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import { btnPrimary, btnSecondary, card } from './ui'
@@ -29,6 +30,8 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
   const [userId, setUserId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [years, setYears] = useState<Record<string, string>>({})
+  const t = useTranslations('partnerPicks')
+  const tt = useTranslations('title')
 
   useEffect(() => {
     let cancelled = false
@@ -144,7 +147,7 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
       added_by: userId,
     })
     if (insertError && insertError.code !== '23505') {
-      setError(`Kon niet op jullie lijst zetten: ${insertError.message}`)
+      setError(t('errShared', { message: insertError.message }))
       return
     }
     removePick(item)
@@ -162,7 +165,7 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
       source_mode: 'samen',
     })
     if (insertError) {
-      setError(`Kon niet op je kijklijst zetten: ${insertError.message}`)
+      setError(t('errMine', { message: insertError.message }))
       return
     }
     removePick(item)
@@ -176,8 +179,8 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
         className="flex w-full items-center gap-3 p-4 text-left touch-manipulation"
       >
         <span className="flex-1 min-w-0">
-          <span className="block text-sm font-medium">Dit vindt je partner leuk om te kijken ({visible.length})</span>
-          <span className="block text-xs text-faint mt-0.5">Titels die je partner geweldig vindt en jij nog niet kent.</span>
+          <span className="block text-sm font-medium">{t('heading', { count: visible.length })}</span>
+          <span className="block text-xs text-faint mt-0.5">{t('sub')}</span>
         </span>
         <ChevronLeftIcon className={`w-4 h-4 flex-shrink-0 text-muted transition-transform ${open ? 'rotate-90' : '-rotate-90'}`} />
       </button>
@@ -194,12 +197,12 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm truncate">{pick.title}</span>
                     <span className="block text-xs text-faint">
-                      {pick.media_type === 'tv' ? 'Serie' : 'Film'}
+                      {pick.media_type === 'tv' ? tt('series') : tt('film')}
                       {years[`${pick.media_type}-${pick.id}`] ? ` · ${years[`${pick.media_type}-${pick.id}`]}` : ''}
                     </span>
                   </span>
                   <span className="flex-shrink-0 rounded-full bg-accent/12 px-2.5 py-1 text-xs font-medium text-accent">
-                    {pick.why === 'favoriet' ? 'Favoriet' : 'Zeker leuk'}
+                    {pick.why === 'favoriet' ? t('favorite') : t('love')}
                   </span>
                 </button>
               </li>
@@ -217,10 +220,10 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
               <div className="flex flex-col gap-2">
                 <button onClick={() => addToShared(withPoster, watchOn)} disabled={!details} className={btnPrimary}>
                   <PlusIcon className="w-4 h-4" />
-                  Op onze lijst
+                  {t('onOurList')}
                 </button>
                 <button onClick={() => addToMine(withPoster, watchOn)} disabled={!details} className={btnSecondary}>
-                  Op mijn kijklijst
+                  {t('onMyList')}
                 </button>
               </div>
             )

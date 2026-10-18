@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import { btnGhost, btnPrimary, chip } from './ui'
@@ -67,6 +68,8 @@ export default function WeeklyTip({
   const poolRef = useRef<Record<string, Candidate[]>>({})
   const skipsRef = useRef(0)
   const weekStart = weekStartOf(new Date())
+  const t = useTranslations('weeklyTip')
+  const tt = useTranslations('title')
 
   async function loadPool(): Promise<Candidate[]> {
     if (poolRef.current[mediaType]?.length) return poolRef.current[mediaType]
@@ -270,7 +273,7 @@ export default function WeeklyTip({
       {shownTip && (
         <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4">
           <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-3">
-            {mediaType === 'movie' ? 'Filmtip' : 'Serietip'} van de week
+            {mediaType === 'movie' ? t('headingFilm') : t('headingSeries')}
           </p>
           <button
             onClick={() => setInfo({ id: shownTip.tmdb_id, title: shownTip.title, media_type: mediaType, poster_path: shownTip.poster_path })}
@@ -286,7 +289,7 @@ export default function WeeklyTip({
             <span className="min-w-0">
               <span className="block font-display text-xl leading-tight">{shownTip.title}</span>
               <span className="block text-sm text-muted mt-1">
-                {mediaType === 'tv' ? 'Serie' : 'Film'}
+                {mediaType === 'tv' ? tt('series') : tt('film')}
                 {shownTip.watch_on ? ` · ${shownTip.watch_on}` : ''}
               </span>
               {shownTip.explanation && <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{shownTip.explanation}</span>}
@@ -295,7 +298,7 @@ export default function WeeklyTip({
 
           {facts.length > 0 && (
             <div className="mt-3 rounded-xl bg-background/60 px-3.5 py-2.5 text-sm leading-relaxed">
-              <p className="text-[11px] tracking-[0.15em] uppercase text-accent mb-1">Weetje</p>
+              <p className="text-[11px] tracking-[0.15em] uppercase text-accent mb-1">{t('fact')}</p>
               {facts.map((fact) => (
                 <p key={fact} className="text-foreground/85">{fact}</p>
               ))}
@@ -305,7 +308,7 @@ export default function WeeklyTip({
           <div className="flex gap-2 mt-4">
             {done === 'watchlist' ? (
               <p className="flex-1 flex items-center gap-1.5 text-sm text-teal">
-                <CheckIcon className="w-4 h-4" /> Staat op je kijklijst
+                <CheckIcon className="w-4 h-4" /> {t('onWatchlist')}
               </p>
             ) : (
               <button
@@ -313,11 +316,11 @@ export default function WeeklyTip({
                 className={`${btnPrimary} flex-1`}
               >
                 <PlusIcon className="w-4 h-4" />
-                Op kijklijst
+                {tt('addToWatchlist')}
               </button>
             )}
             <button onClick={anotherTip} className={btnGhost}>
-              Andere tip
+              {t('otherTip')}
             </button>
           </div>
         </div>
@@ -326,13 +329,13 @@ export default function WeeklyTip({
       {shownLast && (
         <div className="rounded-2xl border border-line bg-surface p-4">
           <p className="text-sm leading-relaxed">
-            Vorige week tipten we <span className="font-medium">{shownLast.title}</span>. Al gezien?
+            {t.rich('lastWeek', { b: () => <span className="font-medium">{shownLast.title}</span> })}
           </p>
           <div className="flex flex-wrap gap-1.5 mt-3">
-            <button onClick={() => rateLastWeek('love')} className={chip(false, 'accent', 'sm')}>Zeker leuk</button>
-            <button onClick={() => rateLastWeek('ok')} className={chip(false, 'teal', 'sm')}>Was oké</button>
-            <button onClick={() => rateLastWeek('dislike')} className={chip(false, 'coral', 'sm')}>Niet voor mij</button>
-            <button onClick={dismissLastWeek} className="text-xs text-muted px-2.5 py-1">Nog niet gezien</button>
+            <button onClick={() => rateLastWeek('love')} className={chip(false, 'accent', 'sm')}>{t('love')}</button>
+            <button onClick={() => rateLastWeek('ok')} className={chip(false, 'teal', 'sm')}>{tt('rateOk')}</button>
+            <button onClick={() => rateLastWeek('dislike')} className={chip(false, 'coral', 'sm')}>{tt('rateDislike')}</button>
+            <button onClick={dismissLastWeek} className="text-xs text-muted px-2.5 py-1">{t('notSeenYet')}</button>
           </div>
         </div>
       )}
@@ -346,12 +349,12 @@ export default function WeeklyTip({
                 className={`${btnPrimary} w-full mb-3`}
               >
                 <PlusIcon className="w-4 h-4" />
-                Op kijklijst
+                {tt('addToWatchlist')}
               </button>
               <div className="flex gap-1.5 flex-wrap">
-                <button onClick={() => rate(info, 'love').then(() => setInfo(null))} className={chip(false, 'accent', 'sm')}>Zeker meer zoals dit</button>
-                <button onClick={() => rate(info, 'ok').then(() => setInfo(null))} className={chip(false, 'teal', 'sm')}>Was oké</button>
-                <button onClick={() => rate(info, 'dislike').then(() => setInfo(null))} className={chip(false, 'coral', 'sm')}>Niet voor mij</button>
+                <button onClick={() => rate(info, 'love').then(() => setInfo(null))} className={chip(false, 'accent', 'sm')}>{t('moreLikeThis')}</button>
+                <button onClick={() => rate(info, 'ok').then(() => setInfo(null))} className={chip(false, 'teal', 'sm')}>{tt('rateOk')}</button>
+                <button onClick={() => rate(info, 'dislike').then(() => setInfo(null))} className={chip(false, 'coral', 'sm')}>{tt('rateDislike')}</button>
               </div>
             </>
           )}

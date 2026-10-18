@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { UsersIcon } from './Icons'
 
 type MovieCardMovie = {
@@ -39,6 +40,7 @@ export default function MovieCard({
   seenRef?: (el: HTMLElement | null) => void | (() => void)
   seenKey?: string
 }) {
+  const t = useTranslations('title')
   return (
     <button
       ref={seenRef}
@@ -79,15 +81,15 @@ export default function MovieCard({
         {(isNew || alsoSamen) && !badge && (
           <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
             {isNew && (
-              <span className="rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-semibold text-background">Nieuw</span>
+              <span className="rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-semibold text-background">{t('new')}</span>
             )}
             {alsoSamen && (
               <span
                 className="flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-accent ring-1 ring-accent/40"
-                title="Staat ook bij Samen"
+                title={t('alsoTogether')}
               >
                 <UsersIcon className="w-3 h-3" />
-                Samen
+                {t('together')}
               </span>
             )}
           </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { supabase, authFetch } from '@/lib/supabase'
 import { btnSecondary, btnPrimary } from './ui'
 import TitleInfoSheet from './TitleInfoSheet'
@@ -31,6 +32,7 @@ export default function MoreLikeThis({ item }: { item: { id: number; media_type:
   const [tips, setTips] = useState<Tip[] | null>(() => loaded.get(cacheKey) ?? null)
   const [failed, setFailed] = useState(false)
   const [open, setOpen] = useState<Tip | null>(null)
+  const t = useTranslations('moreLikeThis')
 
   // Al ophalen zodra de popup opent, zodat het rijtje er meestal al staat als je op de knop tikt.
   useEffect(() => {
@@ -56,14 +58,14 @@ export default function MoreLikeThis({ item }: { item: { id: number; media_type:
   if (!shown) {
     return (
       <button onClick={() => setShown(true)} className={`${btnSecondary} w-full mb-3`}>
-        Meer zoals deze
+        {t('button')}
       </button>
     )
   }
 
   return (
     <div className="mb-4">
-      <p className="text-sm font-medium mb-2">Meer zoals {item.title}</p>
+      <p className="text-sm font-medium mb-2">{t('heading', { title: item.title })}</p>
       {state === 'loading' && (
         <div className="flex gap-3 overflow-hidden">
           {[0, 1, 2, 3].map((i) => (
@@ -73,10 +75,10 @@ export default function MoreLikeThis({ item }: { item: { id: number; media_type:
           ))}
         </div>
       )}
-      {state === 'failed' && <p className="text-sm text-muted">Kon geen vergelijkbare titels ophalen.</p>}
+      {state === 'failed' && <p className="text-sm text-muted">{t('failed')}</p>}
       {state === 'done' && tips?.length === 0 && (
         <p className="text-sm text-muted leading-relaxed">
-          Op jouw diensten staat niets meer dat hier echt sterk op lijkt — de beste heb je waarschijnlijk al gezien.
+          {t('none')}
         </p>
       )}
       {state === 'done' && tips && tips.length > 0 && (
@@ -115,6 +117,7 @@ export default function MoreLikeThis({ item }: { item: { id: number; media_type:
 
 function AddToWatchlist({ tip, basedOn }: { tip: Tip; basedOn: string }) {
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
+  const t = useTranslations('moreLikeThis')
 
   async function add() {
     setStatus('saving')
@@ -143,7 +146,7 @@ function AddToWatchlist({ tip, basedOn }: { tip: Tip; basedOn: string }) {
     return (
       <p className="flex items-center justify-center gap-1.5 text-sm text-accent mb-3">
         <CheckIcon className="w-4 h-4" />
-        Op je kijklijst gezet
+        {t('added')}
       </p>
     )
   }
@@ -151,9 +154,9 @@ function AddToWatchlist({ tip, basedOn }: { tip: Tip; basedOn: string }) {
     <>
       <button onClick={add} disabled={status === 'saving'} className={`${btnPrimary} w-full mb-3`}>
         <BookmarkIcon className="w-4 h-4" />
-        Op mijn kijklijst
+        {t('add')}
       </button>
-      {status === 'failed' && <p className="text-sm text-coral mb-3">Kon niet op de kijklijst zetten. Probeer het opnieuw.</p>}
+      {status === 'failed' && <p className="text-sm text-coral mb-3">{t('addFailed')}</p>}
     </>
   )
 }

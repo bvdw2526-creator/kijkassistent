@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import { logRecommendationEvent } from '@/lib/recommendationEvents'
 import BottomNav from '../components/BottomNav'
@@ -28,14 +29,14 @@ type WatchlistItem = {
   addedByYou?: boolean
 }
 
-// Zelfde labels als op de aanbevelingenpagina (app/page.tsx) — hier alleen als platte
-// tekst getoond, geen tabblad-navigatie nodig.
+// Zelfde labels als op de aanbevelingenpagina (app/page.tsx), als sleutels onder "home" in messages/*.json — hier alleen
+// als platte tekst getoond, geen tabblad-navigatie nodig. Halloween staat onder "watchlist".
 const MODE_LABELS: Record<RecommendationMode, string> = {
-  focused: 'Puur mijn smaak',
-  balanced: 'Mijn smaak, breder',
-  explore: 'Verras me',
-  samen: 'Samen',
-  halloween: 'Halloween',
+  focused: 'focusedLabel',
+  balanced: 'balancedLabel',
+  explore: 'exploreLabel',
+  samen: 'samenLabel',
+  halloween: 'halloween',
 }
 
 // Weggehaald zonder oordeel: telt bij de trefkans als afgehaakt (zie lib/recommendationEvents.ts). Beoordelen of favoriet
@@ -55,6 +56,9 @@ function logAfgehaakt(userId: string, item: WatchlistItem, connectionId: string 
 }
 
 export default function Watchlist() {
+  const t = useTranslations('watchlist')
+  const th = useTranslations('home')
+  const tt = useTranslations('title')
   const [items, setItems] = useState<WatchlistItem[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'movie' | 'tv'>('movie')
@@ -180,11 +184,12 @@ export default function Watchlist() {
 
     if (ratingError) {
       console.error('Rating opslaan mislukt:', ratingError)
-      setError(`Kon de rating niet opslaan: ${ratingError.message}`)
+      setError(t('errRating', { message: ratingError.message }))
       return
     }
     if (!ratingRow || ratingRow.length === 0) {
-      setError('De rating leek opgeslagen, maar er kwam geen rij terug — waarschijnlijk ontbreekt een UPDATE-policy op de "ratings"-tabel in Supabase (RLS).')
+      // Waarschijnlijk een ontbrekende UPDATE-policy op ratings (RLS).
+      setError(t('errNoRowSaved'))
       return
     }
 
@@ -200,7 +205,7 @@ export default function Watchlist() {
         .select()
       if (removeSharedError || !removedShared || removedShared.length === 0) {
         console.error('Verwijderen van gezamenlijke watchlist mislukt:', removeSharedError)
-        setError('Je beoordeling is opgeslagen, maar de titel kon niet van jullie lijst worden gehaald.')
+        setError(t('errRatedNotRemovedShared'))
         return
       }
       await supabase
@@ -227,11 +232,12 @@ export default function Watchlist() {
 
     if (deleteError) {
       console.error('Verwijderen van watchlist mislukt:', deleteError)
-      setError(`Kon het item niet van de kijklijst verwijderen: ${deleteError.message}`)
+      setError(t('errRemove', { message: deleteError.message }))
       return
     }
     if (!deletedRow || deletedRow.length === 0) {
-      setError('Het item leek van de kijklijst verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
+      // Waarschijnlijk een ontbrekende DELETE-policy op watchlist (RLS).
+      setError(t('errNoRowDeleted'))
       return
     }
 
@@ -256,7 +262,7 @@ export default function Watchlist() {
     // 23505 = staat al bij je favorieten: dan is het doel al bereikt.
     if (favoriteError && favoriteError.code !== '23505') {
       console.error('Favoriet toevoegen mislukt:', favoriteError)
-      setError(`Kon niet als favoriet opslaan: ${favoriteError.message}`)
+      setError(t('errFavorite', { message: favoriteError.message }))
       return
     }
 
@@ -269,7 +275,7 @@ export default function Watchlist() {
         .eq('media_type', item.media_type)
       if (removeSharedError) {
         console.error('Verwijderen van gezamenlijke watchlist mislukt:', removeSharedError)
-        setError('Opgeslagen als favoriet, maar de titel kon niet van jullie lijst worden gehaald.')
+        setError(t('errFavNotRemovedShared'))
         return
       }
       setSharedItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
@@ -283,7 +289,7 @@ export default function Watchlist() {
       .eq('media_type', item.media_type)
     if (removeMineError) {
       console.error('Verwijderen van watchlist mislukt:', removeMineError)
-      setError('Opgeslagen als favoriet, maar de titel kon niet van je kijklijst worden gehaald.')
+      setError(t('errFavNotRemovedMine'))
       return
     }
     setItems((current) => current.filter((i) => !(i.id === item.id && i.media_type === item.media_type)))
@@ -306,11 +312,12 @@ export default function Watchlist() {
 
     if (deleteError) {
       console.error('Verwijderen van watchlist mislukt:', deleteError)
-      setError(`Kon het item niet van de kijklijst verwijderen: ${deleteError.message}`)
+      setError(t('errRemove', { message: deleteError.message }))
       return
     }
     if (!deletedRow || deletedRow.length === 0) {
-      setError('Het item leek van de kijklijst verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "watchlist"-tabel in Supabase (RLS).')
+      // Waarschijnlijk een ontbrekende DELETE-policy op watchlist (RLS).
+      setError(t('errNoRowDeleted'))
       return
     }
 
@@ -331,11 +338,11 @@ export default function Watchlist() {
       .select()
     if (deleteError) {
       console.error('Verwijderen van gezamenlijke watchlist mislukt:', deleteError)
-      setError(`Kon het item niet van jullie lijst verwijderen: ${deleteError.message}`)
+      setError(t('errRemoveShared', { message: deleteError.message }))
       return
     }
     if (!deletedRow || deletedRow.length === 0) {
-      setError('Het item leek verwijderd, maar er is geen rij verwijderd.')
+      setError(t('errNoRowDeleted'))
       return
     }
     const user = await getCurrentUser()
@@ -351,8 +358,8 @@ export default function Watchlist() {
   return (
     <>
       <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
-        <h1 className="font-display text-2xl mb-1">Kijklijst</h1>
-        <p className="text-muted mb-6">{scope === 'shared' ? 'Wat jullie samen nog willen zien.' : 'Wat je nog wilt zien.'}</p>
+        <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
+        <p className="text-muted mb-6">{scope === 'shared' ? t('subShared') : t('subMine')}</p>
 
         {connectionId && (
           <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-4 laptop:max-w-xl">
@@ -364,7 +371,7 @@ export default function Watchlist() {
                   scope === s ? 'bg-accent text-on-accent' : 'text-muted'
                 }`}
               >
-                {s === 'mine' ? `Mijn lijst (${items.length})` : `Onze lijst (${sharedItems.length})`}
+                {s === 'mine' ? t('myList', { count: items.length }) : t('ourList', { count: sharedItems.length })}
               </button>
             ))}
           </div>
@@ -383,7 +390,7 @@ export default function Watchlist() {
               tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
             }`}
           >
-            Films ({movieItems.length})
+            {th('filmsCount', { count: movieItems.length })}
           </button>
           <button
             onClick={() => setTab('tv')}
@@ -391,7 +398,7 @@ export default function Watchlist() {
               tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
             }`}
           >
-            Series ({tvItems.length})
+            {th('seriesCount', { count: tvItems.length })}
           </button>
         </div>
 
@@ -406,8 +413,8 @@ export default function Watchlist() {
         {!loading && visible.length === 0 && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center">
             {scope === 'shared'
-              ? 'Nog niets op jullie lijst. Tik in Samen op "Op onze lijst" bij een titel die jullie allebei willen zien.'
-              : 'Nog niets op je kijklijst. Voeg iets toe vanuit je aanbevelingen.'}
+              ? t('emptyShared')
+              : t('emptyMine')}
           </p>
         )}
 
@@ -415,7 +422,7 @@ export default function Watchlist() {
           {visible.map((item) => (
             <div key={`${item.media_type}-${item.id}`} className={`${card} p-3`}>
               <div className="flex gap-3">
-                <button onClick={() => setInfoItem(item)} className="flex-shrink-0 touch-manipulation" aria-label={`Info over ${item.title}`}>
+                <button onClick={() => setInfoItem(item)} className="flex-shrink-0 touch-manipulation" aria-label={t('infoAbout', { title: item.title })}>
                 {item.poster_path ? (
                   <div className="relative w-16 aspect-[2/3] rounded-lg flex-shrink-0 overflow-hidden">
                     <Image
@@ -438,17 +445,19 @@ export default function Watchlist() {
                     <button
                       onClick={() => (scope === 'shared' ? handleRemoveShared(item) : handleRemove(item))}
                       className="text-muted hover:text-coral transition-colors p-1 -mt-1 -mr-1 flex-shrink-0"
-                      aria-label="Verwijderen"
+                      aria-label={tt('remove')}
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
                   <p className="text-sm text-muted mt-1">
-                    {scope === 'shared' && <span>Toegevoegd door {item.addedByYou ? 'jou' : 'je partner'}</span>}
-                    {scope === 'mine' && item.sourceMode && <span>{MODE_LABELS[item.sourceMode]}</span>}
+                    {scope === 'shared' && <span>{item.addedByYou ? t('addedByYou') : t('addedByPartner')}</span>}
+                    {scope === 'mine' && item.sourceMode && MODE_LABELS[item.sourceMode] && (
+                      <span>{item.sourceMode === 'halloween' ? t('halloween') : th(MODE_LABELS[item.sourceMode])}</span>
+                    )}
                     {item.watchOn && (
                       <>
-                        {(scope === 'shared' || item.sourceMode) && ' · '}
+                        {(scope === 'shared' || (item.sourceMode && MODE_LABELS[item.sourceMode])) && ' · '}
                         {item.watchUrl ? (
                           <a
                             href={item.watchUrl}
@@ -471,25 +480,25 @@ export default function Watchlist() {
                   onClick={() => handleFavorite(item)}
                   className={`${chip(false, 'accent', 'sm')} flex items-center gap-1`}
                 >
-                  <StarIcon className="w-3 h-3" /> Favoriet
+                  <StarIcon className="w-3 h-3" /> {tt('favorite')}
                 </button>
                 <button
                   onClick={() => handleRate(item, 'love')}
                   className={`${chip(false, 'accent', 'sm')} flex items-center gap-1`}
                 >
-                  <HeartIcon className="w-3 h-3" /> Zeker
+                  <HeartIcon className="w-3 h-3" /> {tt('rateLove')}
                 </button>
                 <button
                   onClick={() => handleRate(item, 'ok')}
                   className={`${chip(false, 'teal', 'sm')} flex items-center gap-1`}
                 >
-                  <OkIcon className="w-3 h-3" /> Oké
+                  <OkIcon className="w-3 h-3" /> {t('ok')}
                 </button>
                 <button
                   onClick={() => handleRate(item, 'dislike')}
                   className={`${chip(false, 'coral', 'sm')} flex items-center gap-1`}
                 >
-                  <DislikeIcon className="w-3 h-3" /> Niet voor mij
+                  <DislikeIcon className="w-3 h-3" /> {tt('rateDislike')}
                 </button>
               </div>
             </div>
@@ -507,7 +516,7 @@ export default function Watchlist() {
               }}
               className={chip(false, 'accent', 'sm')}
             >
-              Favoriet
+              {tt('favorite')}
             </button>
             {(['love', 'ok', 'dislike'] as const).map((rating) => (
               <button
@@ -518,7 +527,7 @@ export default function Watchlist() {
                 }}
                 className={chip(false, rating === 'love' ? 'accent' : rating === 'ok' ? 'teal' : 'coral', 'sm')}
               >
-                {rating === 'love' ? 'Zeker' : rating === 'ok' ? 'Oké' : 'Niet voor mij'}
+                {rating === 'love' ? tt('rateLove') : rating === 'ok' ? t('ok') : tt('rateDislike')}
               </button>
             ))}
           </div>

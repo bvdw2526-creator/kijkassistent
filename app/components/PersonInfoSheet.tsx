@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import { authFetch } from '@/lib/supabase'
 import { btnGhost, btnSecondary } from './ui'
 import { useBackToClose } from './useBackToClose'
@@ -21,27 +22,28 @@ type Info = {
   knownFor: { id: number; media_type: 'movie' | 'tv'; title: string; year: string }[]
 }
 
-const DEPARTMENT_LABELS: Record<string, string> = {
-  Acting: 'Acteur of actrice',
-  Directing: 'Regisseur',
-  Writing: 'Schrijver',
-  Production: 'Producent',
+// Sleutels onder "person" in messages/*.json.
+const DEPARTMENT_LABELS: Record<string, 'acting' | 'directing' | 'writing' | 'production'> = {
+  Acting: 'acting',
+  Directing: 'directing',
+  Writing: 'writing',
+  Production: 'production',
 }
 
 const BIO_PREVIEW_CHARS = 320
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })
+function formatDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale === 'en' ? 'en-GB' : 'nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function ageLabel(birthday: string, deathday: string | null) {
+function ageOf(birthday: string, deathday: string | null) {
   const end = deathday ? new Date(deathday) : new Date()
   const born = new Date(birthday)
   let age = end.getFullYear() - born.getFullYear()
   const beforeBirthday =
     end.getMonth() < born.getMonth() || (end.getMonth() === born.getMonth() && end.getDate() < born.getDate())
   if (beforeBirthday) age--
-  return deathday ? `overleden op ${age}-jarige leeftijd` : `${age} jaar`
+  return age
 }
 
 // Infopopup voor een acteur of regisseur uit zoekresultaten of favorietenlijsten;
@@ -62,6 +64,9 @@ export default function PersonInfoSheet({
   const [info, setInfo] = useState<Info | null>(null)
   const [failed, setFailed] = useState(false)
   const [bioExpanded, setBioExpanded] = useState(false)
+  const t = useTranslations('person')
+  const tt = useTranslations('title')
+  const locale = useLocale()
 
   useEffect(() => {
     let cancelled = false
@@ -115,21 +120,23 @@ export default function PersonInfoSheet({
             <div className="min-w-0">
               <h2 className="font-display text-xl leading-tight">{person.name}</h2>
               {info?.department && (
-                <p className="text-sm text-muted mt-1.5">{DEPARTMENT_LABELS[info.department] ?? info.department}</p>
+                <p className="text-sm text-muted mt-1.5">{DEPARTMENT_LABELS[info.department] ? t(DEPARTMENT_LABELS[info.department]) : info.department}</p>
               )}
               {info?.birthday && (
                 <p className="text-sm text-muted mt-3">
-                  Geboren {formatDate(info.birthday)}
-                  <span className="block text-xs text-faint">{ageLabel(info.birthday, info.deathday)}</span>
+                  {t('born', { date: formatDate(info.birthday, locale) })}
+                  <span className="block text-xs text-faint">
+                    {t(info.deathday ? 'diedAtAge' : 'age', { age: ageOf(info.birthday, info.deathday) })}
+                  </span>
                 </p>
               )}
-              {info?.deathday && <p className="text-sm text-muted mt-1">Overleden {formatDate(info.deathday)}</p>}
+              {info?.deathday && <p className="text-sm text-muted mt-1">{t('died', { date: formatDate(info.deathday, locale) })}</p>}
               {info?.placeOfBirth && <p className="text-xs text-faint mt-1">{info.placeOfBirth}</p>}
             </div>
           </div>
 
           {!info && !failed && <div className="h-20 rounded-xl bg-surface-2 animate-skeleton mb-4" />}
-          {failed && <p className="text-sm text-muted mb-4">Kon de gegevens niet laden.</p>}
+          {failed && <p className="text-sm text-muted mb-4">{t('loadFailed')}</p>}
 
           {bio && (
             <div className="mb-4">
@@ -141,7 +148,7 @@ export default function PersonInfoSheet({
                   onClick={() => setBioExpanded((v) => !v)}
                   className="text-xs text-accent mt-1 touch-manipulation"
                 >
-                  {bioExpanded ? 'Minder tonen' : 'Meer lezen'}
+                  {bioExpanded ? t('showLess') : t('readMore')}
                 </button>
               )}
             </div>
@@ -149,13 +156,13 @@ export default function PersonInfoSheet({
 
           {info && info.knownFor.length > 0 && (
             <div className="mb-5">
-              <p className="text-sm font-medium mb-2">Bekend van</p>
+              <p className="text-sm font-medium mb-2">{t('knownFor')}</p>
               <ul className="flex flex-col gap-1">
-                {info.knownFor.map((t) => (
-                  <li key={`${t.media_type}-${t.id}`} className="text-sm text-muted">
-                    {t.title}
+                {info.knownFor.map((title) => (
+                  <li key={`${title.media_type}-${title.id}`} className="text-sm text-muted">
+                    {title.title}
                     <span className="text-xs text-faint">
-                      {t.year ? ` · ${t.year}` : ''} · {t.media_type === 'tv' ? 'Serie' : 'Film'}
+                      {title.year ? ` · ${title.year}` : ''} · {title.media_type === 'tv' ? tt('series') : tt('film')}
                     </span>
                   </li>
                 ))}
@@ -165,7 +172,7 @@ export default function PersonInfoSheet({
 
           {filmographyHref && (
             <Link href={filmographyHref} className={`${btnSecondary} w-full mb-2`}>
-              Alle films en series
+              {t('allTitles')}
             </Link>
           )}
 
@@ -173,7 +180,7 @@ export default function PersonInfoSheet({
 
           <button onClick={onClose} className={`${btnGhost} w-full mt-3`}>
             <CloseIcon className="w-4 h-4" />
-            Sluiten
+            {tt('close')}
           </button>
         </div>
       </div>

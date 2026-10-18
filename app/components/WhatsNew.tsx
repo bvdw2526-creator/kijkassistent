@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { RELEASES, LATEST_RELEASE } from '@/lib/releaseNotes'
 import { useBackToClose } from './useBackToClose'
 import { btnPrimary } from './ui'
@@ -19,6 +20,7 @@ function markSeen(userId: string) {
 // Het venster met de vernieuwingen. Zonder `all` alleen de laatste update; met `all` de laatste paar.
 export function WhatsNewSheet({ onClose, all = false }: { onClose: () => void; all?: boolean }) {
   useBackToClose(true, onClose)
+  const t = useTranslations('whatsNew')
   const releases = all ? RELEASES.slice(0, 5) : [LATEST_RELEASE]
   return (
     <div
@@ -33,7 +35,7 @@ export function WhatsNewSheet({ onClose, all = false }: { onClose: () => void; a
           <div className="w-10 h-1 rounded-full bg-control" />
         </div>
         <div className="p-6">
-          <h2 className="font-display text-2xl mb-4">Wat is er nieuw</h2>
+          <h2 className="font-display text-2xl mb-4">{t('title')}</h2>
           <div className="flex flex-col gap-5 mb-6">
             {releases.map((release) => (
               <div key={release.id}>
@@ -50,7 +52,7 @@ export function WhatsNewSheet({ onClose, all = false }: { onClose: () => void; a
             ))}
           </div>
           <button onClick={onClose} className={`${btnPrimary} w-full`}>
-            Prima
+            {t('ok')}
           </button>
         </div>
       </div>
@@ -74,6 +76,8 @@ export default function WhatsNew({ userId, createdAt }: { userId: string; create
     }
   })
   const [open, setOpen] = useState(false)
+  const t = useTranslations('whatsNew')
+  const tt = useTranslations('title')
 
   function dismiss() {
     markSeen(userId)
@@ -86,10 +90,10 @@ export default function WhatsNew({ userId, createdAt }: { userId: string; create
     <>
       <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/5 pl-4 pr-2 py-3 mb-5">
         <button onClick={() => setOpen(true)} className="flex-1 text-left touch-manipulation min-w-0">
-          <span className="block text-sm font-medium">Kijkassistent is bijgewerkt</span>
-          <span className="block text-xs text-accent mt-0.5">Bekijk wat er nieuw is</span>
+          <span className="block text-sm font-medium">{t('updated')}</span>
+          <span className="block text-xs text-accent mt-0.5">{t('seeWhatsNew')}</span>
         </button>
-        <button onClick={dismiss} aria-label="Sluiten" className="text-muted hover:text-foreground transition-colors p-2 touch-manipulation">
+        <button onClick={dismiss} aria-label={tt('close')} className="text-muted hover:text-foreground transition-colors p-2 touch-manipulation">
           <span aria-hidden className="text-lg leading-none">×</span>
         </button>
       </div>

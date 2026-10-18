@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useLocale, useTranslations } from 'next-intl'
 import { authFetch } from '@/lib/supabase'
 import type { SeriesUpdate } from '@/lib/seriesUpdates'
 import TitleInfoSheet from './TitleInfoSheet'
@@ -17,8 +18,8 @@ function readDismissed(userId: string): Set<string> {
   }
 }
 
-function formatDate(iso: string): string {
-  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', timeZone: 'Europe/Amsterdam' })
+function formatDate(iso: string, locale: string): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString(locale === 'en' ? 'en-GB' : 'nl-NL', { day: 'numeric', month: 'long', timeZone: 'Europe/Amsterdam' })
 }
 
 // Op Voor jou: series die je leuk vindt en binnenkort (of net) terugkomen met een nieuw seizoen. Toont niets zolang er
@@ -27,6 +28,8 @@ export default function SeriesUpdates({ userId }: { userId: string }) {
   const [items, setItems] = useState<SeriesUpdate[]>([])
   const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed(userId))
   const [open, setOpen] = useState<SeriesUpdate | null>(null)
+  const t = useTranslations('seriesUpdates')
+  const locale = useLocale()
 
   useEffect(() => {
     let cancelled = false
@@ -57,7 +60,7 @@ export default function SeriesUpdates({ userId }: { userId: string }) {
   return (
     <>
       <div className="rounded-2xl border border-teal/40 bg-teal/5 px-4 py-3 mb-5">
-        <p className="text-xs font-semibold tracking-wide uppercase text-teal mb-2">Nieuw bij jouw series</p>
+        <p className="text-xs font-semibold tracking-wide uppercase text-teal mb-2">{t('heading')}</p>
         <ul className="flex flex-col gap-2.5">
           {visible.map((item) => (
             <li key={item.key} className="flex items-center gap-3">
@@ -73,15 +76,15 @@ export default function SeriesUpdates({ userId }: { userId: string }) {
                   <span className="block text-sm font-medium truncate">{item.title}</span>
                   <span className="block text-xs text-muted mt-0.5">
                     {item.kind === 'started'
-                      ? `Seizoen ${item.season} is net begonnen`
-                      : `Seizoen ${item.season} begint op ${formatDate(item.date)}`}
+                      ? t('started', { season: item.season })
+                      : t('startsOn', { season: item.season, date: formatDate(item.date, locale) })}
                     {item.watchOn ? ` · ${item.watchOn}` : ''}
                   </span>
                 </span>
               </button>
               <button
                 onClick={() => dismiss(item)}
-                aria-label={`${item.title} niet meer tonen`}
+                aria-label={t('dismiss', { title: item.title })}
                 className="text-muted hover:text-foreground transition-colors p-2 touch-manipulation"
               >
                 <span aria-hidden className="text-lg leading-none">

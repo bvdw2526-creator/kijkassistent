@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { authFetch } from '@/lib/supabase'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
 import { BookIcon } from './Icons'
@@ -19,6 +20,7 @@ export default function BookSource({ mediaType, id }: { mediaType: 'movie' | 'tv
   const key = `${mediaType}-${id}`
   const [result, setResult] = useState<{ key: string; books: Book[] } | null>(null)
   const books = result?.key === key ? result.books : []
+  const t = useTranslations('title')
 
   useEffect(() => {
     let cancelled = false
@@ -45,7 +47,10 @@ export default function BookSource({ mediaType, id }: { mediaType: 'movie' | 'tv
         >
           <BookIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span>
-            Boek: <span className="italic">{book.title}</span> van {book.authors.join(' en ')}
+            {t.rich('book', {
+              title: () => <span className="italic">{book.title}</span>,
+              authors: book.authors.join(` ${t('and')} `),
+            })}
             <span className="text-xs font-normal"> · Wikipedia</span>
           </span>
         </a>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { authFetch } from '@/lib/supabase'
 import { PlayIcon } from './Icons'
 
@@ -10,6 +11,7 @@ export default function TrailerLink({ mediaType, id, size = 'sm' }: { mediaType:
   // De sleutel hoort bij een titel: wisselt de popup van titel, dan verdwijnt de oude link vanzelf.
   const [found, setFound] = useState<{ title: string; key: string } | null>(null)
   const titleKey = `${mediaType}-${id}`
+  const t = useTranslations('title')
 
   useEffect(() => {
     let cancelled = false
@@ -33,7 +35,7 @@ export default function TrailerLink({ mediaType, id, size = 'sm' }: { mediaType:
       className={`inline-flex items-center font-medium text-accent hover:underline mb-4 touch-manipulation ${size === 'base' ? 'gap-2 text-base' : 'gap-1.5 text-sm'}`}
     >
       <PlayIcon className="w-4 h-4" />
-      Bekijk de trailer
+      {t('trailer')}
     </a>
   )
 }

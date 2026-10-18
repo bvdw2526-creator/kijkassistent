@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import { chip } from './ui'
 
@@ -35,6 +36,8 @@ export default function PartnerRated({
 }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [items, setItems] = useState<Item[]>([])
+  const t = useTranslations('partnerRated')
+  const tt = useTranslations('title')
 
   useEffect(() => {
     let cancelled = false
@@ -105,14 +108,15 @@ export default function PartnerRated({
       {items.map((item) => (
         <div key={`${item.media_type}-${item.tmdb_id}`} className="rounded-2xl border border-line bg-surface p-4">
           <p className="text-sm leading-relaxed">
-            {item.reason === 'samen_gezien' ? 'Jullie keken samen ' : 'Je partner beoordeelde '}
-            <span className="font-medium">{item.title}</span>. Wat vond jij er zelf van?
+            {t.rich(item.reason === 'samen_gezien' ? 'watchedTogether' : 'partnerRated', {
+              b: () => <span className="font-medium">{item.title}</span>,
+            })}
           </p>
           <div className="flex flex-wrap gap-1.5 mt-3">
-            <button onClick={() => rate(item, 'love')} className={chip(false, 'accent', 'sm')}>Zeker leuk</button>
-            <button onClick={() => rate(item, 'ok')} className={chip(false, 'teal', 'sm')}>Was oké</button>
-            <button onClick={() => rate(item, 'dislike')} className={chip(false, 'coral', 'sm')}>Niet voor mij</button>
-            <button onClick={() => skip(item)} className="text-xs text-muted px-2.5 py-1">Sla over</button>
+            <button onClick={() => rate(item, 'love')} className={chip(false, 'accent', 'sm')}>{t('love')}</button>
+            <button onClick={() => rate(item, 'ok')} className={chip(false, 'teal', 'sm')}>{tt('rateOk')}</button>
+            <button onClick={() => rate(item, 'dislike')} className={chip(false, 'coral', 'sm')}>{tt('rateDislike')}</button>
+            <button onClick={() => skip(item)} className="text-xs text-muted px-2.5 py-1">{t('skip')}</button>
           </div>
         </div>
       ))}

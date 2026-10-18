@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useLocale, useTranslations } from 'next-intl'
 import { authFetch, supabase } from '@/lib/supabase'
 import { COUNTDOWN_TO_PREMIERE, SKIN_BANNER_DISMISSED_KEY, SKINS } from '@/lib/skins'
 import { useSkin } from '@/lib/useSkin'
@@ -32,8 +33,8 @@ function readDismissed(): string | null {
   }
 }
 
-function longDate(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })
+function longDate(iso: string, locale: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(locale === 'en' ? 'en-GB' : 'nl-NL', { day: 'numeric', month: 'long' })
 }
 
 // `from` plus een aantal hele maanden, in UTC. Bestaat de dag niet in die maand (31 oktober + 1 maand), dan de laatste
@@ -52,6 +53,7 @@ function addMonthsUtc(from: Date, months: number): Date {
 // seconde opnieuw tekent.
 function Countdown({ target, title }: { target: string; title: string }) {
   const [now, setNow] = useState(() => Date.now())
+  const t = useTranslations('skinBanner')
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(timer)
@@ -66,17 +68,17 @@ function Countdown({ target, title }: { target: string; title: string }) {
   const days = Math.floor(secondsLeft / 86400)
   const two = (n: number) => String(n).padStart(2, '0')
   const parts: [string, string][] = [
-    [two(months), 'mnd'],
-    [two(days), days === 1 ? 'dag' : 'dagen'],
-    [two(Math.floor((secondsLeft % 86400) / 3600)), 'uur'],
-    [two(Math.floor((secondsLeft % 3600) / 60)), 'min'],
-    [two(secondsLeft % 60), 'sec'],
+    [two(months), t('months')],
+    [two(days), days === 1 ? t('day') : t('days')],
+    [two(Math.floor((secondsLeft % 86400) / 3600)), t('hours')],
+    [two(Math.floor((secondsLeft % 3600) / 60)), t('minutes')],
+    [two(secondsLeft % 60), t('seconds')],
   ]
   return (
     <div
       className="grid grid-cols-5 gap-1.5 px-4 pt-3"
       role="timer"
-      aria-label={`Nog ${months} ${months === 1 ? 'maand' : 'maanden'} en ${days} ${days === 1 ? 'dag' : 'dagen'} tot ${title}`}
+      aria-label={t('timerLabel', { months, days, title })}
     >
       {parts.map(([value, label]) => (
         <div key={label} className="rounded-xl border border-line bg-background/60 py-2 text-center">
@@ -105,6 +107,9 @@ export default function SkinBanner({
   const [showInfo, setShowInfo] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslations('skinBanner')
+  const tt = useTranslations('title')
+  const locale = useLocale()
 
   useEffect(() => {
     if (!banner) return
@@ -160,7 +165,7 @@ export default function SkinBanner({
     // 23505 = stond er al op: dan is het doel al bereikt.
     if (insertError && insertError.code !== '23505') {
       console.error('Op watchlist zetten mislukt:', insertError)
-      setError(`Kon niet op de kijklijst zetten: ${insertError.message}`)
+      setError(t('errWatchlist', { message: insertError.message }))
       return
     }
     setOnList(true)
@@ -170,14 +175,15 @@ export default function SkinBanner({
   // 'premiere' = het begin van de releasedag (Nederlandse tijd op dit apparaat); anders het vaste tijdstip van de skin.
   const countdownTarget =
     banner.countdownTo === COUNTDOWN_TO_PREMIERE ? (data.releaseDate ? `${data.releaseDate}T00:00:00` : null) : banner.countdownTo ?? null
-  const kind = data.mediaType === 'tv' ? 'Serie' : 'Film'
-  const where = data.mediaType === 'tv' ? '' : ' in de bioscoop'
-  const subtitle = data.upcoming ? `${kind} · vanaf ${longDate(data.releaseDate)}${where}` : `${kind} · ${data.releaseDate.slice(0, 4)}`
+  const kind = data.mediaType === 'tv' ? tt('series') : tt('film')
+  const subtitle = data.upcoming
+    ? t(data.mediaType === 'tv' ? 'subtitleUpcomingSeries' : 'subtitleUpcomingFilm', { date: longDate(data.releaseDate, locale) })
+    : `${kind} · ${data.releaseDate.slice(0, 4)}`
 
   return (
     <>
       <section className="relative overflow-hidden rounded-2xl border border-line bg-surface mb-5 animate-fade-in">
-        <button onClick={() => setShowInfo(true)} className="block w-full text-left touch-manipulation" aria-label={`Meer over ${data.title}`}>
+        <button onClick={() => setShowInfo(true)} className="block w-full text-left touch-manipulation" aria-label={t('moreAbout', { title: data.title })}>
           <span className="relative block aspect-[16/8] laptop:aspect-[16/5] w-full bg-surface-2">
             {data.backdropPath && (
               <Image
@@ -194,7 +200,7 @@ export default function SkinBanner({
           </span>
           <span className="relative block px-4 -mt-5">
             <span className="inline-block rounded-full bg-teal/12 text-teal text-xs font-semibold px-2.5 py-1">
-              {data.upcoming ? 'Binnenkort' : 'Uitgelicht'}
+              {data.upcoming ? tt('upcoming') : t('featured')}
             </span>
             <span className="block font-display text-xl leading-tight mt-2">{data.title}</span>
             <span className="block text-sm text-muted mt-1">{subtitle}</span>
@@ -202,7 +208,7 @@ export default function SkinBanner({
         </button>
         <button
           onClick={dismiss}
-          aria-label="Banner sluiten"
+          aria-label={t('closeBanner')}
           className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-background/70 text-muted hover:text-foreground transition-colors touch-manipulation"
         >
           <CloseIcon className="w-4 h-4" />
@@ -212,7 +218,7 @@ export default function SkinBanner({
           {onList ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 text-accent text-sm font-medium px-4 py-2.5">
               <CheckIcon className="w-4 h-4" />
-              Staat op je kijklijst
+              {t('onWatchlist')}
             </span>
           ) : (
             <button
@@ -221,14 +227,14 @@ export default function SkinBanner({
               className="inline-flex items-center gap-1.5 rounded-full bg-accent text-on-accent text-sm font-semibold px-4 py-2.5 hover:bg-accent-hover active:scale-[0.97] transition-all disabled:opacity-50 touch-manipulation"
             >
               <PlusIcon className="w-4 h-4" />
-              Op mijn kijklijst
+              {t('addMine')}
             </button>
           )}
           <button
             onClick={() => setShowInfo(true)}
             className="inline-flex items-center rounded-full border border-line text-sm font-medium px-4 py-2.5 hover:border-line-strong active:scale-[0.97] transition-all touch-manipulation"
           >
-            Meer info
+            {t('moreInfo')}
           </button>
         </div>
         {error && <p className="text-sm text-coral px-4 pb-4 -mt-1">{error}</p>}
@@ -242,7 +248,7 @@ export default function SkinBanner({
           {!onList && (
             <button onClick={() => addToWatchlist().then(() => setShowInfo(false))} disabled={busy} className={`${btnPrimary} w-full mb-3`}>
               <PlusIcon className="w-4 h-4" />
-              Op kijklijst
+              {tt('addToWatchlist')}
             </button>
           )}
         </TitleInfoSheet>

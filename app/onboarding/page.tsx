@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import PeopleFavorites from '../components/PeopleFavorites'
@@ -21,23 +22,27 @@ type Movie = {
 type Rating = 'love' | 'ok' | 'dislike'
 type RatedMovie = { id: number; title: string; media_type: 'movie' | 'tv'; rating: Rating; rated_at?: string }
 
-const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' | 'coral' }[] = [
-  { rating: 'love', label: 'Zeker meer zoals dit', tone: 'accent' },
-  { rating: 'ok', label: 'Was oké', tone: 'teal' },
-  { rating: 'dislike', label: 'Niet voor mij', tone: 'coral' },
+// label = sleutel onder "title" in messages/*.json.
+const RATING_BUTTONS: { rating: Rating; label: 'moreLikeThisRating' | 'rateOk' | 'rateDislike'; tone: 'accent' | 'teal' | 'coral' }[] = [
+  { rating: 'love', label: 'moreLikeThisRating', tone: 'accent' },
+  { rating: 'ok', label: 'rateOk', tone: 'teal' },
+  { rating: 'dislike', label: 'rateDislike', tone: 'coral' },
 ]
 
+// label = sleutel onder "search" in messages/*.json.
 const SEGMENTS = [
-  { id: 'titels', label: 'Titels' },
-  { id: 'boeken', label: 'Boeken' },
-  { id: 'acteurs', label: 'Acteurs' },
-  { id: 'regisseurs', label: 'Regisseurs' },
+  { id: 'titels', label: 'segTitles' },
+  { id: 'boeken', label: 'segBooks' },
+  { id: 'acteurs', label: 'segActors' },
+  { id: 'regisseurs', label: 'segDirectors' },
 ] as const
 
 // Zoveel nog niet beoordeelde titels willen we minstens zien voordat we stoppen met bijladen (zie loadBooks).
 const MIN_VISIBLE_BOOKS = 10
 
 export default function Onboarding() {
+  const t = useTranslations('search')
+  const tt = useTranslations('title')
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]['id']>('titels')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
@@ -82,7 +87,7 @@ export default function Onboarding() {
       const data = await res.json()
       if (requestId !== bookRequestRef.current) return
       if (!res.ok || data.error) {
-        setBookError(data.error || 'Boekverfilmingen laden mislukt')
+        setBookError(data.error || t('booksLoadFailed'))
         setBookLoading(false)
         return
       }
@@ -101,7 +106,7 @@ export default function Onboarding() {
       }
     } catch (err) {
       if (requestId !== bookRequestRef.current) return
-      setBookError(err instanceof Error ? err.message : 'Boekverfilmingen laden mislukt')
+      setBookError(err instanceof Error ? err.message : t('booksLoadFailed'))
     }
     setBookLoading(false)
   }
@@ -215,7 +220,7 @@ export default function Onboarding() {
       { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true }
     )
     if (error) {
-      setRatingError(`Kon niet op de kijklijst zetten: ${error.message}`)
+      setRatingError(t('errWatchlist', { message: error.message }))
       return
     }
     setWatchlistKeys((current) => new Set(current).add(key))
@@ -233,7 +238,7 @@ export default function Onboarding() {
     setRatingError(null)
     const res = await authFetch(`/api/search-movies?query=${encodeURIComponent(query)}`)
     const data = await res.json()
-    if (!res.ok) setRatingError(data.error || 'Zoeken mislukt')
+    if (!res.ok) setRatingError(data.error || t('failed'))
     setResults(data.results || [])
     setSearchNote(data.note ?? null)
     setLoading(false)
@@ -271,13 +276,12 @@ export default function Onboarding() {
 
     if (error) {
       console.error('Favoriet verwijderen mislukt:', error)
-      setRatingError(`Kon favoriet niet verwijderen: ${error.message}`)
+      setRatingError(t('errRemoveFavorite', { message: error.message }))
       return
     }
     if (!data || data.length === 0) {
-      setRatingError(
-        'De favoriet leek verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "favorite_movies"-tabel in Supabase (RLS).'
-      )
+      // Waarschijnlijk een ontbrekende DELETE-policy op favorite_movies (RLS).
+      setRatingError(t('errNoRowDeleted'))
       return
     }
     setFavorites(favorites.filter((f) => !(f.id === movie.id && f.media_type === movie.media_type)))
@@ -304,13 +308,12 @@ export default function Onboarding() {
         .select()
       if (error) {
         console.error('Rating verwijderen mislukt:', error)
-        setRatingError(`Kon de rating niet verwijderen: ${error.message}`)
+        setRatingError(t('errRemoveRating', { message: error.message }))
         return
       }
       if (!data || data.length === 0) {
-        setRatingError(
-          'De rating leek verwijderd, maar er is geen rij verwijderd — waarschijnlijk ontbreekt een DELETE-policy op de "ratings"-tabel in Supabase (RLS).'
-        )
+        // Waarschijnlijk een ontbrekende DELETE-policy op ratings (RLS).
+        setRatingError(t('errNoRowDeleted'))
         return
       }
       setRatedMovies((prev) => prev.filter((r) => ratingKey(r) !== key))
@@ -337,13 +340,12 @@ export default function Onboarding() {
 
     if (error) {
       console.error('Rating opslaan mislukt:', error)
-      setRatingError(`Kon de rating niet opslaan: ${error.message}`)
+      setRatingError(t('errSaveRating', { message: error.message }))
       return
     }
     if (!data || data.length === 0) {
-      setRatingError(
-        'De rating leek op te slaan, maar er kwam geen rij terug — waarschijnlijk ontbreekt een UPDATE-policy op de "ratings"-tabel in Supabase (RLS).'
-      )
+      // Waarschijnlijk een ontbrekende UPDATE-policy op ratings (RLS).
+      setRatingError(t('errNoRowSaved'))
       return
     }
 
@@ -362,9 +364,9 @@ export default function Onboarding() {
   return (
     <>
       <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
-        <h1 className="font-display text-2xl mb-1">Zoeken en favorieten</h1>
+        <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
         <p className="text-muted mb-5 leading-relaxed">
-          Voeg favorieten toe en/of geef direct een beoordeling — allebei helpt de aanbevelingen scherper te maken.
+          {t('intro')}
         </p>
 
         <Link
@@ -372,8 +374,8 @@ export default function Onboarding() {
           className={`${card} flex items-center justify-between gap-3 px-4 py-3 mb-5 laptop:max-w-xl hover:border-line-strong transition-colors`}
         >
           <span>
-            <span className="block text-sm font-medium">De beste films en series</span>
-            <span className="block text-xs text-muted mt-0.5">Top 100, ook per streamingdienst</span>
+            <span className="block text-sm font-medium">{t('topTitle')}</span>
+            <span className="block text-xs text-muted mt-0.5">{t('topSub')}</span>
           </span>
           <span aria-hidden className="text-muted text-lg">›</span>
         </Link>
@@ -387,7 +389,7 @@ export default function Onboarding() {
                 segment === s.id ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
-              {s.label}
+              {t(s.label)}
             </button>
           ))}
         </div>
@@ -412,12 +414,12 @@ export default function Onboarding() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Zoek een film of serie..."
+              placeholder={t('placeholder')}
               className={`${input} pl-10`}
             />
           </div>
           <button onClick={handleSearch} disabled={loading} className={btnPrimary}>
-            Zoeken
+            {t('button')}
           </button>
         </div>
         )}
@@ -425,9 +427,7 @@ export default function Onboarding() {
         {segment === 'boeken' && (
           <div className="mb-6">
             <p className="text-muted text-sm mb-4 leading-relaxed laptop:max-w-2xl">
-              Films en series die op een boek gebaseerd zijn, de populairste eerst. Wat je al beoordeeld, favoriet gemaakt of
-              op je kijklijst gezet hebt, staat hier niet tussen. Gebaseerd op TMDB-trefwoorden, dus een enkele verfilming
-              kan ontbreken.
+              {t('booksIntro')}
             </p>
             <div className="flex gap-2 mb-4 laptop:max-w-xl">
               <div className="relative flex-1">
@@ -437,50 +437,49 @@ export default function Onboarding() {
                   value={bookQuery}
                   onChange={(e) => setBookQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleBookSearch()}
-                  placeholder="Zoek een boekverfilming..."
+                  placeholder={t('booksPlaceholder')}
                   className={`${input} pl-10`}
                 />
               </div>
               <button onClick={handleBookSearch} disabled={bookLoading} className={btnPrimary}>
-                Zoeken
+                {t('button')}
               </button>
             </div>
             {bookActiveQuery && (
               <p className="text-xs text-faint mb-3">
-                Resultaten voor &quot;{bookActiveQuery}&quot; — alleen titels die op een boek gebaseerd zijn. Laat de
-                zoekbalk leeg en zoek opnieuw voor de volledige lijst.
+                {t('booksResultsFor', { query: bookActiveQuery })}
               </p>
             )}
             <div className="flex flex-wrap gap-2">
               <button onClick={() => changeBookType('movie')} className={chip(bookType === 'movie', 'accent', 'sm')}>
-                Films
+                {tt('films')}
               </button>
               <button onClick={() => changeBookType('tv')} className={chip(bookType === 'tv', 'accent', 'sm')}>
-                Series
+                {tt('seriesPlural')}
               </button>
               <button onClick={toggleBookMine} className={chip(bookMineOnly, 'teal', 'sm')}>
-                Alleen op mijn diensten
+                {t('booksMineOnly')}
               </button>
               {!bookActiveQuery && (hiddenBookCount > 0 || bookShowKnown) && (
                 <button onClick={() => setBookShowKnown((v) => !v)} className={chip(bookShowKnown, 'teal', 'sm')}>
-                  {bookShowKnown ? 'Ook al beoordeeld tonen' : `Ook al beoordeeld tonen (${hiddenBookCount})`}
+                  {bookShowKnown ? t('booksShowKnown') : t('booksShowKnownCount', { count: hiddenBookCount })}
                 </button>
               )}
             </div>
             {bookError && <p className="text-sm text-coral mt-3">{bookError}</p>}
-            {bookLoading && visibleBooks.length === 0 && <p className="text-muted text-sm mt-4">Laden...</p>}
+            {bookLoading && visibleBooks.length === 0 && <p className="text-muted text-sm mt-4">{tt('loadingShort')}</p>}
             {!bookLoading && !bookError && bookResults.length > 0 && visibleBooks.length === 0 && (
               <p className="text-muted text-sm mt-4">
                 {bookPage < bookTotalPages
-                  ? 'Alles op deze pagina heb je al afgehandeld. Laad meer, of zet "Ook al beoordeeld tonen" aan.'
-                  : 'Je hebt alles in deze lijst al afgehandeld. Zet "Ook al beoordeeld tonen" aan om ze terug te zien.'}
+                  ? t('booksAllDonePage')
+                  : t('booksAllDone')}
               </p>
             )}
             {!bookLoading && !bookError && bookResults.length === 0 && (
               <p className="text-muted text-sm mt-4">
                 {bookActiveQuery
-                  ? 'Geen boekverfilming gevonden met deze titel. Probeer een andere schrijfwijze, of wissel tussen Films en Series.'
-                  : 'Niets gevonden. Zet "Alleen op mijn diensten" eens uit.'}
+                  ? t('booksNoMatch')
+                  : t('booksNothing')}
               </p>
             )}
           </div>
@@ -516,7 +515,7 @@ export default function Onboarding() {
                     <span className="flex-1 text-sm min-w-0">
                       <span className="block font-medium truncate">{movie.title}</span>
                       <span className="text-xs text-muted">
-                        {movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}
+                        {movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? tt('series') : tt('film')}
                       </span>
                     </span>
                     </button>
@@ -527,7 +526,7 @@ export default function Onboarding() {
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                      Favoriet
+                      {tt('favorite')}
                     </button>
                   </div>
                   <div className="flex gap-1.5 flex-wrap mt-3 pl-[56px]">
@@ -537,7 +536,7 @@ export default function Onboarding() {
                         onClick={() => rateMovie(movie, rating)}
                         className={`${chip(currentRating === rating, tone, "sm")}`}
                       >
-                        {label}
+                        {tt(label)}
                       </button>
                     ))}
                   </div>
@@ -549,21 +548,21 @@ export default function Onboarding() {
 
         {segment === 'boeken' && bookPage < bookTotalPages && bookResults.length > 0 && !bookActiveQuery && (
           <button onClick={() => loadBooks(bookType, bookMineOnly, bookPage + 1)} disabled={bookLoading} className={`${btnSecondary} w-full mb-6`}>
-            {bookLoading ? 'Laden...' : 'Meer laden'}
+            {bookLoading ? tt('loadingShort') : t('loadMore')}
           </button>
         )}
 
         {segment === 'titels' && (
           <>
-        <h2 className="font-display text-lg mb-3">Jouw favorieten ({favorites.length})</h2>
+        <h2 className="font-display text-lg mb-3">{t('yourFavorites', { count: favorites.length })}</h2>
 
         {favorites.length === 0 && (
-          <p className="text-muted text-sm mb-6">Nog geen favorieten toegevoegd.</p>
+          <p className="text-muted text-sm mb-6">{t('noFavorites')}</p>
         )}
 
         {movieFavorites.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm text-muted mb-2">Films ({movieFavorites.length})</h3>
+            <h3 className="text-sm text-muted mb-2">{t('filmsCount', { count: movieFavorites.length })}</h3>
             <div className="flex flex-col gap-1.5 laptop:grid laptop:grid-cols-2">
               {movieFavorites.map((movie) => (
                 <div key={`movie-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
@@ -573,7 +572,7 @@ export default function Onboarding() {
                   <button
                     onClick={() => removeFavorite(movie)}
                     className="text-muted hover:text-coral transition-colors p-1"
-                    aria-label="Verwijderen"
+                    aria-label={tt('remove')}
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -585,7 +584,7 @@ export default function Onboarding() {
 
         {tvFavorites.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm text-muted mb-2">Series ({tvFavorites.length})</h3>
+            <h3 className="text-sm text-muted mb-2">{t('seriesCount', { count: tvFavorites.length })}</h3>
             <div className="flex flex-col gap-1.5 laptop:grid laptop:grid-cols-2">
               {tvFavorites.map((movie) => (
                 <div key={`tv-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
@@ -595,7 +594,7 @@ export default function Onboarding() {
                   <button
                     onClick={() => removeFavorite(movie)}
                     className="text-muted hover:text-coral transition-colors p-1"
-                    aria-label="Verwijderen"
+                    aria-label={tt('remove')}
                   >
                     <TrashIcon className="w-4 h-4" />
                   </button>
@@ -605,10 +604,10 @@ export default function Onboarding() {
           </div>
         )}
 
-        <h2 className="font-display text-lg mb-3">Jouw beoordelingen ({ratedMovies.length})</h2>
+        <h2 className="font-display text-lg mb-3">{t('yourRatings', { count: ratedMovies.length })}</h2>
 
         {ratedMovies.length === 0 && (
-          <p className="text-muted text-sm mb-6">Nog geen films of series beoordeeld.</p>
+          <p className="text-muted text-sm mb-6">{t('noRatings')}</p>
         )}
 
         {ratedMovies.length > 0 && (
@@ -623,7 +622,7 @@ export default function Onboarding() {
                     className="flex-1 text-sm min-w-[140px] truncate text-left touch-manipulation"
                   >
                     {movie.title}{' '}
-                    <span className="text-xs text-faint">{movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                    <span className="text-xs text-faint">{movie.media_type === 'tv' ? tt('series') : tt('film')}</span>
                   </button>
                   <div className="flex gap-1.5 flex-wrap items-center">
                     {RATING_BUTTONS.map(({ rating, label, tone }) => (
@@ -632,7 +631,7 @@ export default function Onboarding() {
                         onClick={() => rateMovie(movie, rating)}
                         className={`${chip(movie.rating === rating, tone, 'sm')}`}
                       >
-                        {label}
+                        {tt(label)}
                       </button>
                     ))}
                     <button
@@ -641,7 +640,7 @@ export default function Onboarding() {
                       // aanroep nodig, gewoon een duidelijker knopje voor diezelfde actie.
                       onClick={() => rateMovie(movie, movie.rating)}
                       className="text-muted hover:text-coral transition-colors p-1"
-                      aria-label="Beoordeling verwijderen"
+                      aria-label={t('removeRating')}
                     >
                       <TrashIcon className="w-4 h-4" />
                     </button>
@@ -670,7 +669,7 @@ export default function Onboarding() {
                   ) : (
                     <PlusIcon className="w-4 h-4" />
                   )}
-                  Op kijklijst
+                  {tt('addToWatchlist')}
                 </button>
                 <button onClick={() => addFavorite({ ...infoItem, poster_path: infoItem.poster_path ?? null })} className={btnSecondary}>
                   {favorites.some((f) => f.id === infoItem.id && f.media_type === infoItem.media_type) ? (
@@ -678,7 +677,7 @@ export default function Onboarding() {
                   ) : (
                     <PlusIcon className="w-4 h-4" />
                   )}
-                  Favoriet
+                  {tt('favorite')}
                 </button>
               </div>
               <div className="flex gap-1.5 flex-wrap">
@@ -688,7 +687,7 @@ export default function Onboarding() {
                     onClick={() => rateMovie(infoItem, rating)}
                     className={chip(ratings.get(ratingKey(infoItem)) === rating, tone, 'sm')}
                   >
-                    {label}
+                    {tt(label)}
                   </button>
                 ))}
               </div>

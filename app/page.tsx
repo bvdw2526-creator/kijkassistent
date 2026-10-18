@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
@@ -68,12 +69,8 @@ type Movie = {
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen'
 type TogetherTier = 'intersection' | 'fallback' | 'empty' | 'none'
 
-const MODE_LABELS: Record<RecommendationMode, { label: string; hint: string }> = {
-  focused: { label: 'Puur mijn smaak', hint: 'Alleen wat ik echt leuk vind' },
-  balanced: { label: 'Mijn smaak, breder', hint: 'Leuk + oké vind ik' },
-  explore: { label: 'Verras me', hint: 'Doe maar wat aanbevelingen' },
-  samen: { label: 'Samen', hint: 'Wat we allebei leuk zouden vinden' },
-}
+// Teksten in messages/*.json onder home.<mode>Label en home.<mode>Hint.
+const MODES: RecommendationMode[] = ['focused', 'balanced', 'explore', 'samen']
 
 const EMPTY_RESULTS: Record<RecommendationMode, Movie[]> = { focused: [], balanced: [], explore: [], samen: [] }
 
@@ -86,10 +83,10 @@ function interleaveUpcoming<T>(base: T[], upcoming: T[]): T[] {
   return out
 }
 
-function formatReleaseDate(iso?: string, long = false): string {
+function formatReleaseDate(iso: string | undefined, locale: string, long = false): string {
   if (!iso) return ''
   return new Date(`${iso}T12:00:00`).toLocaleDateString(
-    'nl-NL',
+    locale === 'en' ? 'en-GB' : 'nl-NL',
     long ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short' }
   )
 }
@@ -213,15 +210,16 @@ type TasteMatch = {
   sharedTopTitles: number
 }
 
-function matchLabel(score: number): string {
-  if (score >= 75) return 'Bijna dezelfde smaak'
-  if (score >= 55) return 'Jullie passen goed bij elkaar'
-  if (score >= 35) return 'Jullie smaken overlappen deels'
-  return 'Jullie hebben elk een eigen smaak'
+// Sleutel onder "home" in messages/*.json.
+function matchLabelKey(score: number): 'matchSame' | 'matchGood' | 'matchPartly' | 'matchOwn' {
+  if (score >= 75) return 'matchSame'
+  if (score >= 55) return 'matchGood'
+  if (score >= 35) return 'matchPartly'
+  return 'matchOwn'
 }
 
-function joinNames(names: string[]): string {
-  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} en ${names[names.length - 1]}`
+function joinNames(names: string[], and: string): string {
+  return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} ${and} ${names[names.length - 1]}`
 }
 
 function MatchBar({ label, percent }: { label: string; percent: number }) {
@@ -244,12 +242,13 @@ const TOGETHER_MAX_POLLS = 12
 const TIP_POOL_SIZE = 5
 
 // Sfeer voor de tip: welke TMDB-genres erbij horen. "alles" filtert niet.
+// label = sleutel onder "home" in messages/*.json.
 const TIP_MOODS = [
-  { id: 'alles', label: 'Alles', genres: null },
-  { id: 'spannend', label: 'Spannend', genres: [53, 9648, 80, 28, 27, 10759] },
-  { id: 'lachen', label: 'Lachen', genres: [35] },
-  { id: 'ontspannen', label: 'Ontspannen', genres: [35, 10749, 10751, 16, 10402, 99] },
-  { id: 'emotioneel', label: 'Emotioneel', genres: [18, 10749] },
+  { id: 'alles', label: 'moodAlles', genres: null },
+  { id: 'spannend', label: 'moodSpannend', genres: [53, 9648, 80, 28, 27, 10759] },
+  { id: 'lachen', label: 'moodLachen', genres: [35] },
+  { id: 'ontspannen', label: 'moodOntspannen', genres: [35, 10749, 10751, 16, 10402, 99] },
+  { id: 'emotioneel', label: 'moodEmotioneel', genres: [18, 10749] },
 ] as const
 type TipMood = (typeof TIP_MOODS)[number]['id']
 // De sfeer kiest uit een ruimere groep dan de standaard tip, anders is er zelden een match.
@@ -263,14 +262,15 @@ const NON_TITLE_LABELS = new Set(['vergelijkbare verhaallijn', 'verhaal dat bij 
 const TRAIT_LABELS = new Set(['vergelijkbare verhaallijn', 'verrassing'])
 const isTraitLabel = (b: string) => b.startsWith('regisseur ') || b.startsWith('thema ') || TRAIT_LABELS.has(b)
 
-function explainTip(basedOn: string[] = []): string {
+// De labels in basedOn komen van de server en zijn (nog) Nederlands; we herkennen ze hier op die tekst.
+function explainTip(basedOn: string[] = [], t: ReturnType<typeof useTranslations<'home'>>, and: string): string {
   const likedTitles = basedOn.filter((b) => !NON_TITLE_LABELS.has(b) && !isTraitLabel(b) && !b.startsWith('jullie gedeelde '))
   const shared = basedOn.find((b) => b.startsWith('jullie gedeelde '))
   const parts: string[] = []
-  if (likedTitles.length > 0) parts.push(`Omdat jullie hielden van ${likedTitles.slice(0, 2).join(' en ')}.`)
-  else if (shared) parts.push(`Op basis van ${shared}.`)
-  if (basedOn.includes('verhaal dat bij jullie allebei past')) parts.push('Het verhaal past bij jullie allebei.')
-  return parts.join(' ') || 'Past goed bij jullie allebei.'
+  if (likedTitles.length > 0) parts.push(t('tipBecauseLiked', { titles: likedTitles.slice(0, 2).join(` ${and} `) }))
+  else if (shared) parts.push(t('tipBasedOn', { shared }))
+  if (basedOn.includes('verhaal dat bij jullie allebei past')) parts.push(t('tipStoryFits'))
+  return parts.join(' ') || t('tipFallback')
 }
 
 function PosterSkeletonGrid() {
@@ -312,6 +312,9 @@ let togetherSnapshot: TogetherSnapshot | null = null
 
 export default function Home() {
   const router = useRouter()
+  const t = useTranslations('home')
+  const tt = useTranslations('title')
+  const locale = useLocale()
   const [user, setUser] = useState<User | null>(null)
   const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
   const [loading, setLoading] = useState(true)
@@ -476,7 +479,7 @@ export default function Home() {
     } catch (err) {
       if (requestId !== requestIdRef.current) return
       setLoading(false)
-      setRefreshError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van aanbevelingen')
+      setRefreshError(err instanceof Error ? err.message : t('fetchError'))
       return
     }
     // Als er intussen een nieuwere aanvraag is gestart (bv. door snel na elkaar
@@ -486,7 +489,7 @@ export default function Home() {
     // die te vervangen door een lege.
     if (!res.ok || data.error) {
       setLoading(false)
-      setRefreshError(data.error || `Vernieuwen mislukt (status ${res.status})`)
+      setRefreshError(data.error || t('refreshFailed', { status: res.status }))
       return
     }
     setRefreshError(null)
@@ -530,7 +533,7 @@ export default function Home() {
     if (!session) {
       console.warn('loadTogetherRecommendations: geen actieve sessie, kan niet ophalen')
       if (requestId === togetherRequestIdRef.current) {
-        setTogetherError('Geen actieve sessie gevonden — herlaad de pagina en probeer opnieuw.')
+        setTogetherError(t('noSession'))
       }
       return
     }
@@ -545,7 +548,7 @@ export default function Home() {
       }
       if (!res.ok || data.error) {
         console.error('Samen-aanbevelingen ophalen mislukt:', data.error)
-        setTogetherError(data.error || `Onbekende fout (status ${res.status})`)
+        setTogetherError(data.error || t('unknownErrorStatus', { status: res.status }))
         return
       }
       // Nuttig om even in de devtools-console te bekijken als "Samen" leeg blijft:
@@ -579,7 +582,7 @@ export default function Home() {
     } catch (err) {
       if (requestId !== togetherRequestIdRef.current) return
       console.error('Samen-aanbevelingen ophalen mislukt:', err)
-      setTogetherError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van Samen-aanbevelingen')
+      setTogetherError(err instanceof Error ? err.message : t('togetherFetchError'))
     }
   }
 
@@ -661,7 +664,7 @@ export default function Home() {
     // In Samen gaat "op de watchlist" naar de gezamenlijke lijst ("Onze lijst"), niet naar je eigen.
     if (mode === 'samen') {
       if (!togetherConnectionId) {
-        setActionError('Geen actieve koppeling gevonden — herlaad de pagina en probeer opnieuw.')
+        setActionError(t('noConnection'))
         return
       }
       const { error: sharedError } = await supabase.from('couple_watchlist').insert({
@@ -678,7 +681,7 @@ export default function Home() {
       // 23505 = staat er al op (bv. door je partner): dan is het doel al bereikt.
       if (sharedError && sharedError.code !== '23505') {
         console.error('Op gezamenlijke watchlist zetten mislukt:', sharedError)
-        setActionError(`Kon niet op jullie lijst zetten: ${sharedError.message}`)
+        setActionError(t('errSharedList', { message: sharedError.message }))
         return
       }
       removeFromSamen((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -699,7 +702,7 @@ export default function Home() {
     })
     if (error) {
       console.error('Op watchlist zetten mislukt:', error)
-      setActionError(`Kon niet op de kijklijst zetten: ${error.message}`)
+      setActionError(t('errWatchlist', { message: error.message }))
       return
     }
     removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -721,7 +724,7 @@ export default function Home() {
     })
     if (error) {
       console.error('Favoriet toevoegen mislukt:', error)
-      setActionError(`Kon niet als favoriet opslaan: ${error.message}`)
+      setActionError(t('errFavorite', { message: error.message }))
       return
     }
     removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -749,7 +752,7 @@ export default function Home() {
     )
     if (error) {
       console.error('Rating opslaan mislukt:', error)
-      setActionError(`Kon de beoordeling niet opslaan: ${error.message}`)
+      setActionError(t('errRating', { message: error.message }))
       return
     }
 
@@ -797,7 +800,7 @@ export default function Home() {
     )
     if (error) {
       console.error('Samen-oordeel opslaan mislukt:', error)
-      setActionError(`Kon dit niet opslaan: ${error.message}`)
+      setActionError(t('errSave', { message: error.message }))
       return
     }
     removeFromSamen((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -815,7 +818,7 @@ export default function Home() {
     setHideTarget(null)
     if (error) {
       console.error('Verbergen mislukt:', error)
-      setActionError(`Kon de titel niet verbergen: ${error.message}`)
+      setActionError(t('errHide', { message: error.message }))
       return
     }
     removeFromPersonal((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -841,7 +844,7 @@ export default function Home() {
     )
     if (error) {
       console.error('Te oud opslaan mislukt:', error)
-      setActionError(`Kon de titel niet wegzetten: ${error.message}`)
+      setActionError(t('errTooOld', { message: error.message }))
       return
     }
     removeFromPersonal((m) => m.id === movie.id && m.media_type === movie.media_type)
@@ -875,7 +878,7 @@ export default function Home() {
     const { error } = await supabase.from('profiles').update({ min_year: minYear }).eq('id', user.id)
     if (error) {
       console.error('Grens opslaan mislukt:', error)
-      setActionError(`Kon de grens niet opslaan: ${error.message}`)
+      setActionError(t('errMinYear', { message: error.message }))
       return
     }
     loadRecommendations()
@@ -904,10 +907,10 @@ export default function Home() {
   // Op Halloween zelf zijn er maar twee keuzes: voor jezelf of samen.
   const modeButtons: { mode: RecommendationMode; label: string; hint: string; active: boolean }[] = halloween.day
     ? [
-        { mode: 'focused', label: 'Voor mij', hint: 'Halloween op mijn smaak', active: mode !== 'samen' },
-        { mode: 'samen', label: 'Samen', hint: 'Halloween voor ons allebei', active: mode === 'samen' },
+        { mode: 'focused', label: t('halloweenMeLabel'), hint: t('halloweenMeHint'), active: mode !== 'samen' },
+        { mode: 'samen', label: t('samenLabel'), hint: t('halloweenSamenHint'), active: mode === 'samen' },
       ]
-    : (Object.keys(MODE_LABELS) as RecommendationMode[]).map((m) => ({ mode: m, ...MODE_LABELS[m], active: mode === m }))
+    : MODES.map((m) => ({ mode: m, label: t(`${m}Label`), hint: t(`${m}Hint`), active: mode === m }))
   // De knop "Te oud": alleen in je eigen tabbladen, bij titels van vóór TOO_OLD_BEFORE (series: jaar van de eerste aflevering).
   const selectedYear = selected && !selected.upcoming ? yearOf(selected.release_date) : null
   const canMarkTooOld = mode !== 'samen' && selectedYear !== null && selectedYear < TOO_OLD_BEFORE
@@ -957,10 +960,12 @@ export default function Home() {
         <header className="flex items-center justify-between mb-5">
           <div>
             <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Kijkassistent</p>
-            <h1 className="font-display text-2xl mt-0.5">Voor jou</h1>
+            <h1 className="font-display text-2xl mt-0.5">{t('heading')}</h1>
           </div>
           <button
             onClick={handleLogout}
+            aria-label={t('logout')}
+            title={t('logout')}
             className="flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors px-3 py-2 rounded-full hover:bg-white/5"
           >
             <LogoutIcon className="w-4 h-4" />
@@ -1022,7 +1027,7 @@ export default function Home() {
                 tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
-              Films ({movieResults.length})
+              {t('filmsCount', { count: movieResults.length })}
             </button>
             <button
               onClick={() => setTab('tv')}
@@ -1030,7 +1035,7 @@ export default function Home() {
                 tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
-              Series ({tvResults.length})
+              {t('seriesCount', { count: tvResults.length })}
             </button>
           </div>
           <button
@@ -1042,7 +1047,7 @@ export default function Home() {
             disabled={loading}
             className="text-xs font-medium text-muted hover:text-foreground transition-colors disabled:opacity-50"
           >
-            {loading ? 'Vernieuwen...' : 'Vernieuwen'}
+            {loading ? t('refreshing') : t('refresh')}
           </button>
         </div>
 
@@ -1063,8 +1068,7 @@ export default function Home() {
 
         {samenExtras && togetherComputing && byMode.samen.length === 0 && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-6 mb-5 text-center leading-relaxed">
-            Jullie Samen-lijst wordt op de achtergrond samengesteld. Dat duurt de eerste keer even, meestal een minuutje.
-            Je hoeft niets te doen: hij verschijnt vanzelf.
+            {t('togetherComputing')}
           </p>
         )}
 
@@ -1077,31 +1081,32 @@ export default function Home() {
 
         {mode === 'samen' && togetherError && (
           <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">
-            Samen-aanbevelingen laden mislukt: {togetherError}
+            {t('togetherLoadFailed', { error: togetherError })}
           </p>
         )}
 
         {mode === 'samen' && togetherConnected === false && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-6 mb-5 text-center">
-            Je hebt nog geen partner gekoppeld.{' '}
-            <a href="/settings" className="text-accent hover:text-accent-hover transition-colors">
-              Koppel er een bij Instellingen
-            </a>{' '}
-            om samen aanbevelingen te zien.
+            {t.rich('noPartner', {
+              link: (chunks) => (
+                <a href="/settings" className="text-accent hover:text-accent-hover transition-colors">
+                  {chunks}
+                </a>
+              ),
+            })}
           </p>
         )}
 
         {samenExtras && togetherConnected && togetherTier === 'fallback' && visible.length > 0 && (
           <p className="text-sm text-muted border border-dashed border-line rounded-2xl px-4 py-3 mb-5">
-            Nog geen titel gevonden die bij jullie allebei al in de aanbevelingen stond — dit
-            zijn suggesties op basis van jullie gecombineerde genresmaak, iets minder zeker.
+            {t('fallbackNotice')}
           </p>
         )}
 
         {samenExtras && togetherConnected && rankedForTab.length > 0 && (
           <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mb-5">
             <p className="font-display text-xs tracking-[0.2em] uppercase text-accent mb-3">
-              {tab === 'movie' ? 'Filmtip' : 'Serietip'} van vanavond
+              {tab === 'movie' ? t('tipTonightFilm') : t('tipTonightSeries')}
             </p>
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 mb-4 [@media(pointer:fine)]:flex-wrap">
               {TIP_MOODS.map((m) => (
@@ -1117,15 +1122,14 @@ export default function Home() {
                       : 'border-line text-muted hover:border-line-strong'
                   }`}
                 >
-                  {m.label}
+                  {t(m.label)}
                 </button>
               ))}
             </div>
 
             {!tipItem && (
               <p className="text-sm text-muted leading-relaxed">
-                Geen {TIP_MOODS.find((m) => m.id === tipMood)?.label.toLowerCase()} titel gevonden in jullie beste{' '}
-                {tab === 'movie' ? 'films' : 'series'}. Probeer een andere sfeer.
+                {tab === 'movie' ? t('noMoodTipFilm') : t('noMoodTipSeries')}
               </p>
             )}
 
@@ -1157,20 +1161,20 @@ export default function Home() {
                   <span className="min-w-0">
                     <span className="block font-display text-xl leading-tight">{tipItem.title}</span>
                     <span className="block text-sm text-muted mt-1">
-                      {tipItem.media_type === 'tv' ? 'Serie' : 'Film'}
+                      {tipItem.media_type === 'tv' ? tt('series') : tt('film')}
                       {tipItem.watchOn ? ` · ${tipItem.watchOn}` : ''}
                     </span>
-                    <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn)}</span>
+                    <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn, t, tt('and'))}</span>
                   </span>
                 </button>
                 <div className="flex gap-2 mt-4">
                   <button onClick={() => handleAddToWatchlist(tipItem)} className={`${btnPrimary} flex-1`}>
                     <PlusIcon className="w-4 h-4" />
-                    Dit gaan we kijken
+                    {t('watchThis')}
                   </button>
                   {tipPool.length > 1 && (
                     <button onClick={() => setTipSkips((n) => n + 1)} className={btnGhost}>
-                      Andere tip
+                      {t('otherTip')}
                     </button>
                   )}
                 </div>
@@ -1182,30 +1186,32 @@ export default function Home() {
         {samenExtras && togetherConnected && togetherMatch && (
           <div className="rounded-2xl border border-line bg-surface p-4 mb-5">
             <div className="flex items-baseline justify-between gap-3">
-              <p className="text-sm font-medium">Jullie smaakmatch</p>
+              <p className="text-sm font-medium">{t('tasteMatch')}</p>
               <p className="font-display text-3xl text-accent leading-none">{togetherMatch.score}%</p>
             </div>
-            <p className="text-sm text-muted mt-1">{matchLabel(togetherMatch.score)}</p>
+            <p className="text-sm text-muted mt-1">{t(matchLabelKey(togetherMatch.score))}</p>
             <div className="flex flex-col gap-2 mt-4">
-              <MatchBar label="Genres" percent={togetherMatch.genrePercent} />
-              {togetherMatch.storyPercent !== null && <MatchBar label="Verhalen" percent={togetherMatch.storyPercent} />}
+              <MatchBar label={t('barGenres')} percent={togetherMatch.genrePercent} />
+              {togetherMatch.storyPercent !== null && <MatchBar label={t('barStories')} percent={togetherMatch.storyPercent} />}
             </div>
             <div className="mt-4 flex flex-col gap-1.5 text-sm text-foreground/85 leading-relaxed">
               {togetherMatch.sharedGenres.length > 0 && (
-                <p>Jullie delen je liefde voor {joinNames(togetherMatch.sharedGenres).toLowerCase()}.</p>
+                <p>{t('sharedLove', { genres: joinNames(togetherMatch.sharedGenres, tt('and')).toLowerCase() })}</p>
               )}
               {(togetherMatch.youMoreGenres.length > 0 || togetherMatch.partnerMoreGenres.length > 0) && (
                 <p className="text-muted">
-                  {togetherMatch.youMoreGenres.length > 0 && `Jij houdt meer van ${joinNames(togetherMatch.youMoreGenres).toLowerCase()}`}
+                  {togetherMatch.youMoreGenres.length > 0 && t('youMore', { genres: joinNames(togetherMatch.youMoreGenres, tt('and')).toLowerCase() })}
                   {togetherMatch.youMoreGenres.length > 0 && togetherMatch.partnerMoreGenres.length > 0 && ', '}
                   {togetherMatch.partnerMoreGenres.length > 0 &&
-                    `${togetherMatch.youMoreGenres.length > 0 ? 'je partner' : 'Je partner'} meer van ${joinNames(togetherMatch.partnerMoreGenres).toLowerCase()}`}
+                    t(togetherMatch.youMoreGenres.length > 0 ? 'partnerMoreAfter' : 'partnerMore', {
+                      genres: joinNames(togetherMatch.partnerMoreGenres, tt('and')).toLowerCase(),
+                    })}
                   .
                 </p>
               )}
               {togetherMatch.sharedTopTitles > 0 && (
                 <p className="text-muted">
-                  {togetherMatch.sharedTopTitles} {togetherMatch.sharedTopTitles === 1 ? 'titel staat' : 'titels staan'} bij jullie allebei bovenaan.
+                  {t('sharedTop', { count: togetherMatch.sharedTopTitles })}
                 </p>
               )}
             </div>
@@ -1219,12 +1225,12 @@ export default function Home() {
         {!showSkeleton && !togetherLoading && visible.length === 0 && !(mode === 'samen' && togetherConnected === false) && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center leading-relaxed">
             {halloween.day
-              ? `Geen Halloween-${tab === 'movie' ? 'films' : 'series'} gevonden op ${mode === 'samen' ? 'jullie' : 'jouw'} streamingdiensten die je nog niet kent.`
+              ? t(`emptyHalloween${tab === 'movie' ? 'Film' : 'Series'}${mode === 'samen' ? 'Ours' : 'Mine'}`)
               : mode === 'samen'
-              ? 'Nog geen gedeelde aanbevelingen gevonden. Voeg allebei favorieten/beoordelingen toe voor betere matches.'
+              ? t('emptySamen')
               : tab === 'movie'
-                ? 'Geen filmaanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete films toe of pas je diensten aan.'
-                : 'Geen serie-aanbevelingen gevonden op jouw streamingdiensten. Voeg favoriete series toe of pas je diensten aan.'}
+                ? t('emptyFilms')
+                : t('emptySeries')}
           </p>
         )}
 
@@ -1235,8 +1241,8 @@ export default function Home() {
             {visible.map((movie, i) => (
               <MovieCard
                 key={`${movie.media_type}-${movie.id}`}
-                movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? 'Nieuwe serie' : 'In de bioscoop' } : movie}
-                upcomingLabel={movie.upcoming ? `Binnenkort · ${formatReleaseDate(movie.release_date)}` : undefined}
+                movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? tt('newSeries') : tt('inCinemas') } : movie}
+                upcomingLabel={movie.upcoming ? tt('upcomingOn', { date: formatReleaseDate(movie.release_date, locale) }) : undefined}
                 priority={i < 4}
                 isNew={!halloween.day && mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
                 alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
@@ -1277,12 +1283,12 @@ export default function Home() {
                 {mode !== 'samen' && (
                   <button onClick={() => setHideTarget(selected)} className={btnGhost}>
                     <EyeOffIcon className="w-4 h-4" />
-                    Verbergen
+                    {tt('hide')}
                   </button>
                 )}
                 <button onClick={() => setSelected(null)} className={btnGhost}>
                   <CloseIcon className="w-4 h-4" />
-                  Sluiten
+                  {tt('close')}
                 </button>
               </div>
 
@@ -1303,13 +1309,13 @@ export default function Home() {
                 <div className="min-w-0">
                   <h2 className="font-display text-xl leading-tight">{selected.title}</h2>
                   <p className="text-sm text-muted mt-1.5">
-                    {selected.media_type === 'tv' ? 'Serie' : 'Film'}
+                    {selected.media_type === 'tv' ? tt('series') : tt('film')}
                     {/* Bij Binnenkort staat de datum al verderop in de popup. */}
                     {!selected.upcoming && selected.release_date ? ` · ${selected.release_date.slice(0, 4)}` : ''}
                   </p>
                   {selected.upcoming ? (
                     <span className="inline-block mt-2 rounded-full bg-teal/12 text-teal text-xs font-semibold px-2.5 py-1">
-                      Binnenkort
+                      {tt('upcoming')}
                     </span>
                   ) : selected.halloween ? (
                     // Uit de Halloween-rij: gesorteerd op smaak, maar geen gewone match.
@@ -1319,17 +1325,17 @@ export default function Home() {
                   ) : mode === 'explore' ? null : (
                     // Bij Verras me geen percentage: daar gaat het om ontdekken (zie hideMatch in MovieCard).
                     <span className="inline-block mt-2 rounded-full bg-accent/12 text-accent text-xs font-semibold px-2.5 py-1">
-                      {selected.matchPercent}% match
+                      {tt('match', { percent: selected.matchPercent })}
                     </span>
                   )}
                   {bookTitles.has(`${selected.media_type}-${selected.id}`) && (
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
-                      Gebaseerd op een boek
+                      {tt('basedOnBook')}
                     </span>
                   )}
                   {trueStoryTitles.has(`${selected.media_type}-${selected.id}`) && (
                     <span className="inline-block mt-2 ml-1.5 rounded-full bg-teal/12 text-teal text-xs font-medium px-2.5 py-1">
-                      Waargebeurd verhaal
+                      {tt('trueStory')}
                     </span>
                   )}
                   {selected.vote_average > 0 && (
@@ -1353,7 +1359,7 @@ export default function Home() {
                       className="mt-3 flex items-center gap-1.5 text-sm font-medium text-muted hover:text-foreground transition-colors touch-manipulation"
                     >
                       <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
-                      Soundtrack op Spotify
+                      {tt('soundtrack')}
                     </a>
                   )}
                 </div>
@@ -1368,9 +1374,9 @@ export default function Home() {
               {selected.upcoming && (
                 <p className="text-sm text-teal mb-6">
                   {selected.media_type === 'tv'
-                    ? `Eerste aflevering op ${formatReleaseDate(selected.release_date, true)}.`
-                    : `Verschijnt op ${formatReleaseDate(selected.release_date, true)} in de bioscoop.`}{' '}
-                  Nog niet te kijken, dus zet hem op je lijst om hem niet te missen.
+                    ? tt('firstEpisodeOn', { date: formatReleaseDate(selected.release_date, locale, true) })
+                    : tt('inCinemasOn', { date: formatReleaseDate(selected.release_date, locale, true) })}{' '}
+                  {tt('notYetWatchable')}
                 </p>
               )}
 
@@ -1381,7 +1387,7 @@ export default function Home() {
                   <div className="text-sm text-muted mb-6 space-y-1">
                     {liked.length > 0 && (
                       <p>
-                        Aanbevolen omdat je hield van:{' '}
+                        {tt('recommendedBecause')}{' '}
                         <span className="text-accent">
                           {liked.map((name, i) => {
                             const person = favoritePeople.get(name)
@@ -1403,7 +1409,7 @@ export default function Home() {
                     )}
                     {traits.length > 0 && (
                       <p>
-                        {liked.length > 0 ? 'Past ook bij je smaak:' : 'Aanbevolen vanwege:'}{' '}
+                        {liked.length > 0 ? tt('alsoFitsTaste') : tt('recommendedFor')}{' '}
                         <span className="text-accent">{traits.join(', ')}</span>
                       </p>
                     )}
@@ -1424,40 +1430,40 @@ export default function Home() {
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
                       <PlusIcon className="w-4 h-4" />
-                      Op onze lijst
+                      {t('onOurList')}
                     </button>
                     <button onClick={() => handleNotForUs(selected)} className={btnSecondary}>
                       <UsersIcon className="w-4 h-4" />
-                      Niet voor ons
+                      {t('notForUs')}
                     </button>
                   </div>
                   <p className="text-[11px] text-faint text-center mt-1.5">
-                    Niet voor ons: past niet bij jullie samen, telt niet mee voor je eigen smaak.
+                    {t('notForUsHint')}
                   </p>
                   {!selected.upcoming && (
                     <>
-                      <p className="text-xs text-muted mt-4 mb-2">Samen gezien? Hoe was het samen?</p>
+                      <p className="text-xs text-muted mt-4 mb-2">{t('seenTogether')}</p>
                       <div className="grid grid-cols-3 gap-2">
                         <button
                           onClick={() => handleSeenTogether(selected, 'love')}
                           className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-accent hover:text-accent"
                         >
                           <HeartIcon className="w-4 h-4" />
-                          <span className="text-xs font-medium">Leuk</span>
+                          <span className="text-xs font-medium">{t('togetherLove')}</span>
                         </button>
                         <button
                           onClick={() => handleSeenTogether(selected, 'ok')}
                           className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-teal hover:text-teal"
                         >
                           <OkIcon className="w-4 h-4" />
-                          <span className="text-xs font-medium">Oké</span>
+                          <span className="text-xs font-medium">{t('togetherOk')}</span>
                         </button>
                         <button
                           onClick={() => handleSeenTogether(selected, 'dislike')}
                           className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-coral hover:text-coral"
                         >
                           <DislikeIcon className="w-4 h-4" />
-                          <span className="text-xs font-medium">Niet leuk</span>
+                          <span className="text-xs font-medium">{t('togetherDislike')}</span>
                         </button>
                       </div>
                     </>
@@ -1467,12 +1473,12 @@ export default function Home() {
               <div className={`grid gap-2 mb-3 ${selected.upcoming ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <button onClick={() => handleAddToWatchlist(selected)} className={btnPrimary}>
                   <PlusIcon className="w-4 h-4" />
-                  Op kijklijst
+                  {tt('addToWatchlist')}
                 </button>
                 {!selected.upcoming && (
                   <button onClick={() => handleFavorite(selected)} className={btnSecondary}>
                     <StarIcon className="w-4 h-4" />
-                    Favoriet
+                    {tt('favorite')}
                   </button>
                 )}
               </div>
@@ -1486,21 +1492,21 @@ export default function Home() {
                   className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-accent hover:text-accent"
                 >
                   <HeartIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Zeker</span>
+                  <span className="text-xs font-medium">{tt('rateLove')}</span>
                 </button>
                 <button
                   onClick={() => handleRate(selected, 'ok')}
                   className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-teal hover:text-teal"
                 >
                   <OkIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Was oké</span>
+                  <span className="text-xs font-medium">{tt('rateOk')}</span>
                 </button>
                 <button
                   onClick={() => handleRate(selected, 'dislike')}
                   className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-coral hover:text-coral"
                 >
                   <DislikeIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Niet voor mij</span>
+                  <span className="text-xs font-medium">{tt('rateDislike')}</span>
                 </button>
               </div>
               )}
@@ -1512,7 +1518,7 @@ export default function Home() {
                   className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-line bg-surface py-3 text-foreground transition-all active:scale-[0.97] touch-manipulation hover:border-line-strong"
                 >
                   <ClockIcon className="w-4 h-4" />
-                  <span className="text-xs font-medium">Te oud</span>
+                  <span className="text-xs font-medium">{tt('tooOld')}</span>
                 </button>
               )}
 
@@ -1531,7 +1537,7 @@ export default function Home() {
                   className={`${btnGhost} w-full mt-2`}
                 >
                   <GlobeIcon className="w-4 h-4" />
-                  Het echte verhaal op Wikipedia
+                  {tt('realStory')}
                 </a>
               )}
             </div>
