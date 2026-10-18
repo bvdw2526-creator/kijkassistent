@@ -830,5 +830,25 @@
   "meta": {
     "title": "Kijkassistent: film and series tips on your streaming services",
     "description": "Kijkassistent picks films and series that suit your taste and that you can watch on your streaming services. Together with your partner, too."
+  },
+  "mail": {
+    "because": "Because you liked {titles}",
+    "and": "and",
+    "newOnServices": "New on your services",
+    "fitsTaste": "Suits your taste",
+    "subject": "Your watch tips for this weekend: {title} and more",
+    "film": "Film",
+    "series": "Series",
+    "filmLower": "film",
+    "seriesLower": "series",
+    "addToWatchlist": "Add to my watchlist",
+    "seenIt": "Seen it?",
+    "heading": "Your watch tips for this weekend",
+    "intro": "Picked for your taste, and available on your streaming services.",
+    "moreTips": "More tips in Kijkassistent",
+    "followUs": "Follow us for more watch tips:",
+    "footer": "You get this email once a week because you have a Kijkassistent account. You can <unsubscribe>unsubscribe</unsubscribe> with one click, or turn it off in <settings>Settings</settings>.",
+    "moreTipsText": "More tips: {url}",
+    "unsubscribeText": "Unsubscribe (one click): {url}"
   }
 }

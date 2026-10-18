@@ -7,6 +7,9 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { makeMailToken, TITLE_LINK_DAYS, UNSUBSCRIBE_LINK_DAYS } from './mailLinks'
 import { NEW_RELEASE_LABEL, type MediaType } from './recommendationEngine'
 import { SOCIAL_LINKS } from './socialLinks'
+import { serverTranslator, type ServerT } from './serverI18n'
+import { localizeTitles } from './localizeTitles'
+import type { Locale } from './locale'
 
 // Waar de links in de mail heen gaan: altijd de live app, ook als de mail lokaal wordt opgebouwd.
 export const MAIL_SITE_URL = 'https://www.kijkassistent.nl'
@@ -39,11 +42,12 @@ export type WeeklyMailResult = { mail: WeeklyMail } | { skipped: string }
 const NON_TITLE = new Set(['vergelijkbare verhaallijn', 'verrassing', NEW_RELEASE_LABEL])
 const isTitleReason = (b: string) => !NON_TITLE.has(b) && !b.startsWith('regisseur ') && !b.startsWith('thema ')
 
-function reasonFor(item: CachedItem): string {
+// Teksten van de mail: "mail" in messages/*.json, in de taal van het account (profiles.language).
+function reasonFor(item: CachedItem, t: ServerT): string {
   const liked = (item.basedOn ?? []).filter(isTitleReason)
-  if (liked.length > 0) return `Omdat je ${liked.slice(0, 2).join(' en ')} leuk vond`
-  if (item.basedOn?.includes(NEW_RELEASE_LABEL)) return 'Nieuw op je diensten'
-  return 'Past bij je smaak'
+  if (liked.length > 0) return t('because', { titles: liked.slice(0, 2).join(` ${t('and')} `) })
+  if (item.basedOn?.includes(NEW_RELEASE_LABEL)) return t('newOnServices')
+  return t('fitsTaste')
 }
 
 const escapeHtml = (s: string) =>
@@ -51,7 +55,7 @@ const escapeHtml = (s: string) =>
 
 export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin: string): Promise<WeeklyMailResult> {
   const [{ data: profile }, { data: cache }, { data: auth }, favorites, ratings, watchlist, hidden] = await Promise.all([
-    db.from('profiles').select('weekly_mail').eq('id', userId).single(),
+    db.from('profiles').select('weekly_mail, language').eq('id', userId).single(),
     db.from('recommendations_cache').select('focused, balanced').eq('user_id', userId).maybeSingle(),
     db.auth.admin.getUserById(userId),
     db.from('favorite_movies').select('tmdb_id, media_type').eq('user_id', userId),
@@ -83,11 +87,16 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
   }
   if (tips.length < MIN_TIPS) return { skipped: `te weinig tips (${tips.length})` }
 
+  // Zonder gekozen taal: Nederlands. Engels: ook de titels in het Engels (zie lib/localizeTitles.ts).
+  const locale: Locale = profile.language === 'en' ? 'en' : 'nl'
+  const t = serverTranslator(locale, 'mail')
+  const localized = await localizeTitles(db, tips, locale)
+
   const link = (token: string) => `${origin}/mail?t=${encodeURIComponent(token)}`
   const unsubscribeToken = makeMailToken({ u: userId, a: 'afmelden' }, UNSUBSCRIBE_LINK_DAYS)
-  const rendered = tips.map((item) => {
+  const rendered = localized.map((item) => {
     const year = parseInt((item.release_date ?? '').slice(0, 4), 10)
-    const t = {
+    const title = {
       id: item.id,
       mt: item.media_type,
       title: item.title,
@@ -97,14 +106,14 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
     }
     return {
       item,
-      year: t.year,
-      reason: reasonFor(item),
-      watchlistUrl: link(makeMailToken({ u: userId, a: 'kijklijst', t }, TITLE_LINK_DAYS)),
-      rateUrl: link(makeMailToken({ u: userId, a: 'beoordeel', t }, TITLE_LINK_DAYS)),
+      year: title.year,
+      reason: reasonFor(item, t),
+      watchlistUrl: link(makeMailToken({ u: userId, a: 'kijklijst', t: title }, TITLE_LINK_DAYS)),
+      rateUrl: link(makeMailToken({ u: userId, a: 'beoordeel', t: title }, TITLE_LINK_DAYS)),
     }
   })
 
-  const subject = `Je kijktips voor dit weekend: ${tips[0].title} en meer`
+  const subject = t('subject', { title: localized[0].title })
   const unsubscribeUrl = link(unsubscribeToken)
   const settingsUrl = `${origin}/settings`
 
@@ -119,7 +128,7 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
       const poster = item.poster_path
         ? `<img src="https://image.tmdb.org/t/p/w185${escapeHtml(item.poster_path)}" width="92" alt="" style="display:block;border-radius:10px;width:92px;height:auto;">`
         : `<div style="width:92px;height:138px;border-radius:10px;background:${C.line};"></div>`
-      const meta = [item.media_type === 'tv' ? 'Serie' : 'Film', year, item.watchOn].filter(Boolean).join(' · ')
+      const meta = [item.media_type === 'tv' ? t('series') : t('film'), year, item.watchOn].filter(Boolean).join(' · ')
       return `
       <tr><td style="padding:0 0 14px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.card};border-radius:16px;">
@@ -129,7 +138,7 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
               <div style="font-size:18px;font-weight:700;color:${C.white};line-height:1.25;">${escapeHtml(item.title)}</div>
               <div style="font-size:13px;color:${C.soft};margin-top:4px;">${escapeHtml(meta)}</div>
               <div style="font-size:13px;color:${C.orange};margin-top:6px;">${escapeHtml(reason)}</div>
-              <div style="margin-top:8px;">${button(watchlistUrl, 'Op mijn kijklijst', true)}${button(rateUrl, 'Al gezien?', false)}</div>
+              <div style="margin-top:8px;">${button(watchlistUrl, t('addToWatchlist'), true)}${button(rateUrl, t('seenIt'), false)}</div>
             </td>
           </tr>
         </table>
@@ -138,26 +147,28 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
     .join('')
 
   const html = `<!doctype html>
-<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>${escapeHtml(subject)}</title></head>
+<html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>${escapeHtml(subject)}</title></head>
 <body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg};">
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
         <tr><td style="padding:0 4px 18px 4px;">
           <div style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:${C.orange};font-weight:700;">Kijkassistent</div>
-          <div style="font-size:24px;font-weight:700;color:${C.white};margin-top:6px;">Je kijktips voor dit weekend</div>
-          <div style="font-size:14px;color:${C.soft};margin-top:6px;line-height:1.5;">Gekozen op jouw smaak, en te zien op jouw streamingdiensten.</div>
+          <div style="font-size:24px;font-weight:700;color:${C.white};margin-top:6px;">${escapeHtml(t('heading'))}</div>
+          <div style="font-size:14px;color:${C.soft};margin-top:6px;line-height:1.5;">${escapeHtml(t('intro'))}</div>
         </td></tr>
         ${tipHtml}
-        <tr><td align="center" style="padding:6px 0 22px 0;">${button(`${origin}/`, 'Meer tips in Kijkassistent', true)}</td></tr>
+        <tr><td align="center" style="padding:6px 0 22px 0;">${button(`${origin}/`, t('moreTips'), true)}</td></tr>
         <tr><td align="center" style="padding:0 4px 18px 4px;font-size:13px;color:${C.soft};">
-          Volg ons voor meer kijktips:<br>
+          ${escapeHtml(t('followUs'))}<br>
           ${SOCIAL_LINKS.map((s) => `<a href="${escapeHtml(s.href)}" style="color:${C.orange};font-weight:600;text-decoration:none;">${s.label}</a>`).join(' &nbsp;·&nbsp; ')}
         </td></tr>
         <tr><td style="padding:0 4px;font-size:12px;line-height:1.6;color:${C.dim};">
-          Je krijgt deze mail één keer per week omdat je een account hebt bij Kijkassistent.
-          <a href="${escapeHtml(unsubscribeUrl)}" style="color:${C.soft};">Afmelden</a> kan met één klik, of zet het uit bij
-          <a href="${escapeHtml(settingsUrl)}" style="color:${C.soft};">Instellingen</a>.
+          ${escapeHtml(t('footer'))
+            .replace('&lt;unsubscribe&gt;', `<a href="${escapeHtml(unsubscribeUrl)}" style="color:${C.soft};">`)
+            .replace('&lt;/unsubscribe&gt;', '</a>')
+            .replace('&lt;settings&gt;', `<a href="${escapeHtml(settingsUrl)}" style="color:${C.soft};">`)
+            .replace('&lt;/settings&gt;', '</a>')}
         </td></tr>
       </table>
     </td></tr>
@@ -165,22 +176,22 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
 </body></html>`
 
   const text = [
-    'Je kijktips voor dit weekend',
-    'Gekozen op jouw smaak, en te zien op jouw streamingdiensten.',
+    t('heading'),
+    t('intro'),
     '',
     ...rendered.flatMap(({ item, year, reason, watchlistUrl, rateUrl }) => [
-      `${item.title} (${[item.media_type === 'tv' ? 'serie' : 'film', year, item.watchOn].filter(Boolean).join(', ')})`,
+      `${item.title} (${[item.media_type === 'tv' ? t('seriesLower') : t('filmLower'), year, item.watchOn].filter(Boolean).join(', ')})`,
       reason,
-      `Op mijn kijklijst: ${watchlistUrl}`,
-      `Al gezien? ${rateUrl}`,
+      `${t('addToWatchlist')}: ${watchlistUrl}`,
+      `${t('seenIt')} ${rateUrl}`,
       '',
     ]),
-    `Meer tips: ${origin}/`,
+    t('moreTipsText', { url: `${origin}/` }),
     '',
-    'Volg ons voor meer kijktips:',
+    t('followUs'),
     ...SOCIAL_LINKS.map((s) => `${s.label}: ${s.href}`),
     '',
-    `Afmelden (één klik): ${unsubscribeUrl}`,
+    t('unsubscribeText', { url: unsubscribeUrl }),
   ].join('\n')
 
   return {
@@ -194,7 +205,7 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
         'List-Unsubscribe': `<${origin}/api/mail-action?t=${encodeURIComponent(unsubscribeToken)}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
-      tips: tips.map((t) => ({ title: t.title, media_type: t.media_type, id: t.id })),
+      tips: localized.map((tip) => ({ title: tip.title, media_type: tip.media_type, id: tip.id })),
     },
   }
 }

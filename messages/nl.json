@@ -830,5 +830,25 @@
   "meta": {
     "title": "Kijkassistent: film- en serietips op jouw streamingdiensten",
     "description": "Kijkassistent kiest films en series die bij jouw smaak passen en die je op jouw streamingdiensten kunt kijken. Ook samen met je partner."
+  },
+  "mail": {
+    "because": "Omdat je {titles} leuk vond",
+    "and": "en",
+    "newOnServices": "Nieuw op je diensten",
+    "fitsTaste": "Past bij je smaak",
+    "subject": "Je kijktips voor dit weekend: {title} en meer",
+    "film": "Film",
+    "series": "Serie",
+    "filmLower": "film",
+    "seriesLower": "serie",
+    "addToWatchlist": "Op mijn kijklijst",
+    "seenIt": "Al gezien?",
+    "heading": "Je kijktips voor dit weekend",
+    "intro": "Gekozen op jouw smaak, en te zien op jouw streamingdiensten.",
+    "moreTips": "Meer tips in Kijkassistent",
+    "followUs": "Volg ons voor meer kijktips:",
+    "footer": "Je krijgt deze mail één keer per week omdat je een account hebt bij Kijkassistent. <unsubscribe>Afmelden</unsubscribe> kan met één klik, of zet het uit bij <settings>Instellingen</settings>.",
+    "moreTipsText": "Meer tips: {url}",
+    "unsubscribeText": "Afmelden (één klik): {url}"
   }
 }

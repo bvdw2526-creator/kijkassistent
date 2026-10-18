@@ -3,11 +3,12 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { LOCALES, setLocaleCookie, type Locale } from '@/lib/locale'
+import { LOCALES, type Locale } from '@/lib/locale'
+import { chooseLocale } from '@/lib/localeAccount'
 import { CheckIcon } from './Icons'
 
-// Taalkeuze bij Instellingen, in dezelfde stijl als de skins. Voorlopig per apparaat (cookie); later ook bij het
-// account, zodat de tipsmail dezelfde taal krijgt.
+// Taalkeuze bij Instellingen, in dezelfde stijl als de skins. Geldt op dit apparaat én bij je account (zie
+// lib/localeAccount.ts), zodat de tipsmail dezelfde taal krijgt.
 export default function LanguageSetting() {
   const t = useTranslations('language')
   const locale = useLocale() as Locale
@@ -28,8 +29,10 @@ export default function LanguageSetting() {
               aria-pressed={active}
               onClick={() => {
                 if (active) return
-                setLocaleCookie(l)
-                startTransition(() => router.refresh())
+                startTransition(async () => {
+                  await chooseLocale(l)
+                  router.refresh()
+                })
               }}
               className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium transition-all touch-manipulation active:scale-[0.98] ${
                 active ? 'border-accent bg-accent/10 text-accent' : 'border-line hover:border-line-strong'

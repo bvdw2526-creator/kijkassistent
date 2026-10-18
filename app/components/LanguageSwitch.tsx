@@ -3,7 +3,8 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { setLocaleCookie, type Locale } from '@/lib/locale'
+import type { Locale } from '@/lib/locale'
+import { chooseLocale } from '@/lib/localeAccount'
 import { GlobeIcon } from './Icons'
 
 // Klein knopje "English" / "Nederlands" voor wie nog niet ingelogd is (startpagina). Ingelogd kies je de taal bij
@@ -19,8 +20,10 @@ export default function LanguageSwitch() {
       type="button"
       disabled={pending}
       onClick={() => {
-        setLocaleCookie(locale === 'nl' ? 'en' : 'nl')
-        startTransition(() => router.refresh())
+        startTransition(async () => {
+          await chooseLocale(locale === 'nl' ? 'en' : 'nl')
+          router.refresh()
+        })
       }}
       className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground transition-colors touch-manipulation disabled:opacity-60"
     >
