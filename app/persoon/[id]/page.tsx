@@ -81,7 +81,7 @@ function PersonPage() {
     return () => {
       cancelled = true
     }
-  }, [id, askedRole])
+  }, [id, askedRole, t])
 
   const keyOf = (item: { media_type: string; id: number }) => `${item.media_type}-${item.id}`
 

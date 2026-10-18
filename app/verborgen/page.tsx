@@ -53,7 +53,7 @@ export default function Verborgen() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   async function handleRestore(item: HiddenTitle) {
     const user = await getCurrentUser()

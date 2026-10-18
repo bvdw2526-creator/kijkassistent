@@ -84,7 +84,7 @@ export default function Profiel() {
       setLoading(false)
     }
     load()
-  }, [])
+  }, [t])
 
   useEffect(() => {
     let cancelled = false

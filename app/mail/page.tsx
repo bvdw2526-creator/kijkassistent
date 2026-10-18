@@ -61,7 +61,7 @@ function MailAction() {
         setLink(data)
       })
       .catch((err) => setError(err instanceof Error && err.message ? err.message : t('expired')))
-  }, [token])
+  }, [token, t])
 
   async function choose(keuze: string, message: string) {
     setBusy(true)
