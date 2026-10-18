@@ -17,6 +17,9 @@ export interface SearchOutcome {
   note: string | null
 }
 
+import { serverTranslator } from './serverI18n'
+import type { Locale } from './locale'
+
 const TMDB = 'https://api.themoviedb.org/3'
 const KNOWN_PAGES = 20
 const KNOWN_CACHE_SECONDS = 60 * 60 * 24
@@ -189,7 +192,9 @@ const GOOD_ENOUGH = 0.85
 const CLEARLY_BETTER = 0.85
 // Een gelijkenis uit onze lijst moet zoveel beter zijn dan wat TMDB gaf, anders houden we TMDB's resultaten.
 
-export async function searchTitles(query: string): Promise<SearchOutcome> {
+// locale: de taal van de uitleg in `note` (zie "searchNotes" in messages/*.json).
+export async function searchTitles(query: string, locale: Locale = 'nl'): Promise<SearchOutcome> {
+  const t = serverTranslator(locale, 'searchNotes')
   const exact = await tmdbSearch(query, 'nl-NL')
   const cleaned = normalizeQuery(query)
   if (exact.length > 0) {
@@ -200,7 +205,7 @@ export async function searchTitles(query: string): Promise<SearchOutcome> {
     const ids = new Set(close.map((c) => `${c.hit.media_type}-${c.hit.id}`))
     return {
       results: [...close.map((c) => c.hit), ...exact.filter((h) => !ids.has(`${h.media_type}-${h.id}`))],
-      note: `Bedoelde je misschien: ${close[0].hit.title}? Daaronder staan de andere resultaten voor "${query}".`,
+      note: t('didYouMean', { title: close[0].hit.title, query }),
     }
   }
 
@@ -215,9 +220,9 @@ export async function searchTitles(query: string): Promise<SearchOutcome> {
 
   if (cleanedNl.length > 0) return { results: cleanedNl, note: null }
   if (cleanedEn.length > 0) return { results: cleanedEn, note: null }
-  if (fuzzy.length > 0) return { results: fuzzy.map((f) => f.hit), note: `Geen exacte treffers voor "${query}". Bedoelde je misschien:` }
+  if (fuzzy.length > 0) return { results: fuzzy.map((f) => f.hit), note: t('noExactDidYouMean', { query }) }
   if (shortenedHits.length > 0) {
-    return { results: shortenedHits, note: `Geen exacte treffers voor "${query}". Dit zijn de resultaten voor "${shortened}":` }
+    return { results: shortenedHits, note: t('noExactShortened', { query, shortened }) }
   }
-  return { results: [], note: `Niets gevonden voor "${query}". Controleer de schrijfwijze of probeer een deel van de titel.` }
+  return { results: [], note: t('nothing', { query }) }
 }

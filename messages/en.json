@@ -789,5 +789,42 @@
     "doneWatchlist": "{count} films added to your watchlist",
     "warmFailed": "Preparing {count} films didn't work. That's fine: the first refresh of your recommendations may just take a little longer.",
     "toRecommendations": "Go to my recommendations"
+  },
+  "facts": {
+    "and": "and",
+    "billion": "${amount} billion",
+    "million": "${amount} million",
+    "director": "Director {name} also made {titles}, which you liked.",
+    "actor": "You also know {name} from {titles}, which you liked.",
+    "anniversaryTv": "First aired {years} years ago this week.",
+    "anniversaryMovie": "Released {years} years ago this week.",
+    "collection": "Film {position} of {total} in {name}.",
+    "money": "Cost about {budget} and made {revenue} worldwide."
+  },
+  "reasons": {
+    "similarStory": "similar storyline",
+    "surprise": "surprise",
+    "newOnServices": "new on your services",
+    "storyFitsBoth": "a story that suits you both",
+    "togetherValued": "what you both already enjoyed",
+    "director": "director {name}",
+    "theme": "theme: {theme}",
+    "preference": "your preference for {genres}",
+    "sharedPreference": "your shared preference for {genres}",
+    "partOf": "Part of {name}",
+    "popularOnServices": "Popular on your streaming services.",
+    "popularNow": "Popular right now."
+  },
+  "api": {
+    "notLoggedIn": "Not logged in",
+    "tooOften": "You're doing this a lot in a row. Please try again in a few minutes.",
+    "linkExpired": "This link has expired or is not valid.",
+    "saveFailed": "Saving failed. Please try again later."
+  },
+  "searchNotes": {
+    "didYouMean": "Did you mean: {title}? Below are the other results for \"{query}\".",
+    "noExactDidYouMean": "No exact matches for \"{query}\". Did you mean:",
+    "noExactShortened": "No exact matches for \"{query}\". These are the results for \"{shortened}\":",
+    "nothing": "Nothing found for \"{query}\". Check the spelling or try part of the title."
   }
 }

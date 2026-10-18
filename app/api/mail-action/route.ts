@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { readMailToken, type MailLinkPayload } from '@/lib/mailLinks'
 import { serviceClient } from '@/lib/serviceClient'
 import { TOO_OLD_REASON } from '@/lib/tooOld'
+import { localeFromRequest, serverTranslator } from '@/lib/serverI18n'
 
 // Acties uit de wekelijkse tipsmail, zonder in te loggen: de ondertekende link (lib/mailLinks.ts) bepaalt voor wie en
 // voor welke titel. GET leest alleen (voor de pagina /mail); er wordt pas iets opgeslagen bij een POST, dus na een tik op
@@ -13,7 +14,7 @@ const SOURCE_INFO = { mode: 'mail' }
 
 export async function GET(request: NextRequest) {
   const payload = readMailToken(request.nextUrl.searchParams.get('t'))
-  if (!payload) return NextResponse.json({ error: 'Deze link is verlopen of klopt niet.' }, { status: 400 })
+  if (!payload) return NextResponse.json({ error: serverTranslator(localeFromRequest(request), 'api')('linkExpired') }, { status: 400 })
   return NextResponse.json({ action: payload.a, title: payload.t ?? null })
 }
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
   }
   const payload = readMailToken(token)
-  if (!payload) return NextResponse.json({ error: 'Deze link is verlopen of klopt niet.' }, { status: 400 })
+  if (!payload) return NextResponse.json({ error: serverTranslator(localeFromRequest(request), 'api')('linkExpired') }, { status: 400 })
   if (isOneClick && payload.a !== 'afmelden') return NextResponse.json({ error: 'Ongeldig verzoek' }, { status: 400 })
 
   try {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('Actie uit de tipsmail mislukt:', err)
-    return NextResponse.json({ error: 'Opslaan mislukt. Probeer het later opnieuw.' }, { status: 500 })
+    return NextResponse.json({ error: serverTranslator(localeFromRequest(request), 'api')('saveFailed') }, { status: 500 })
   }
 }
 

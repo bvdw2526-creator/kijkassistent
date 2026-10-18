@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import { btnGhost, btnPrimary, chip } from './ui'
@@ -69,6 +69,17 @@ export default function WeeklyTip({
   const skipsRef = useRef(0)
   const weekStart = weekStartOf(new Date())
   const t = useTranslations('weeklyTip')
+  const tr = useTranslations('reasons')
+  const locale = useLocale()
+  // De uitleg wordt (in het Nederlands) bij de tip bewaard; de twee vaste zinnen tonen we in de taal van de app.
+  const explanationText = (text: string) =>
+    locale === 'nl'
+      ? text
+      : text === 'Populair op jouw streamingdiensten.'
+        ? tr('popularOnServices')
+        : text === 'Populair op dit moment.'
+          ? tr('popularNow')
+          : text
   const tt = useTranslations('title')
 
   async function loadPool(): Promise<Candidate[]> {
@@ -292,7 +303,7 @@ export default function WeeklyTip({
                 {mediaType === 'tv' ? tt('series') : tt('film')}
                 {shownTip.watch_on ? ` · ${shownTip.watch_on}` : ''}
               </span>
-              {shownTip.explanation && <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{shownTip.explanation}</span>}
+              {shownTip.explanation && <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{explanationText(shownTip.explanation)}</span>}
             </span>
           </button>
 

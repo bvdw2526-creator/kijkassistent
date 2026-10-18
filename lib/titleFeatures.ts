@@ -2,6 +2,7 @@
 // oorspronkelijke taal. Ze worden uit TMDB gehaald, in de gedeelde cache bewaard (tmdb_features_cache) en samen met de
 // smaakbronnen van de gebruiker gebruikt in lib/recommendationEngine.ts. Alleen op de server gebruikt.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { KEYWORD_NL } from './keywordLabels'
 
 type MediaType = 'movie' | 'tv'
 
@@ -67,70 +68,6 @@ const STRUCTURAL_KEYWORDS = new Set([
   'based on true story',
 ])
 
-// Nederlandse namen voor veelvoorkomende trefwoorden in de uitleg; de rest blijft zoals TMDB het noemt.
-const KEYWORD_NL: Record<string, string> = {
-  'based on comic': 'stripverhalen',
-  superhero: 'superhelden',
-  dystopia: 'dystopie',
-  'based on novel or book': 'boekverfilmingen',
-  'martial arts': 'vechtsport',
-  'hand to hand combat': 'vechtscènes',
-  'revenge': 'wraak',
-  'time travel': 'tijdreizen',
-  'artificial intelligence (a.i.)': 'kunstmatige intelligentie',
-  'serial killer': 'seriemoordenaars',
-  'heist': 'overvallen',
-  'post-apocalyptic future': 'de wereld na de ondergang',
-  'father daughter relationship': 'vader-dochterrelaties',
-  'new york city': 'New York',
-  'hero': 'helden',
-  ambiguous: 'dubbelzinnigheid',
-  murder: 'moord',
-  'psychological thriller': 'psychologische thrillers',
-  thriller: 'thrillers',
-  suspenseful: 'spanning',
-  detective: 'detectives',
-  spy: 'spionnen',
-  kidnapping: 'ontvoering',
-  'marvel cinematic universe (mcu)': 'het Marvel-universum',
-  friendship: 'vriendschap',
-  absurd: 'absurdisme',
-  psychopath: 'psychopaten',
-  'psychological horror': 'psychologische horror',
-  romantic: 'romantiek',
-  'dark comedy': 'zwarte komedie',
-  biography: 'biografieën',
-  cannibal: 'kannibalen',
-  psychological: 'psychologie',
-  frightened: 'angst',
-  romcom: 'romcoms',
-  magic: 'magie',
-  'teen superhero': 'tiener-superhelden',
-  sports: 'sport',
-  sitcom: 'sitcoms',
-  love: 'liefde',
-  spacecraft: 'ruimteschepen',
-  dark: 'duistere sfeer',
-  prison: 'gevangenis',
-  awestruck: 'ontzag',
-  marriage: 'huwelijk',
-  'manhattan, new york city': 'New York',
-  historical: 'historische verhalen',
-  manipulation: 'manipulatie',
-  supernatural: 'het bovennatuurlijke',
-  gritty: 'rauwe sfeer',
-  bewildered: 'verwarring',
-  family: 'familie',
-  '19th century': 'de 19e eeuw',
-  enthusiastic: 'enthousiasme',
-  'dying and death': 'de dood',
-  obsession: 'obsessie',
-  'police officer': 'politieagenten',
-  'space adventure': 'ruimteavonturen',
-  'superhero teamup': 'superhelden-teams',
-  villain: 'schurken',
-  excited: 'opwinding',
-}
 // Zoveel van de best passende trefwoorden telt per titel mee, en ook zoveel van de minst passende.
 const KEYWORD_TOP_N = 5
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { localeFromRequest, serverTranslator } from './serverI18n'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 
 // Limieten staan bewust ruim boven wat een mens doet — ze zijn een vangnet tegen misbruik
@@ -29,9 +30,10 @@ export type Guarded =
 // Vereist een ingelogde gebruiker én telt de aanroep mee voor de ratelimiet van deze
 // "bucket". Geeft bij een fout direct het antwoord terug dat de route moet retourneren.
 export async function guardRequest(request: NextRequest, bucket: string, limit: Limit): Promise<Guarded> {
+  const t = serverTranslator(localeFromRequest(request), 'api')
   const authHeader = request.headers.get('authorization')
   if (!authHeader) {
-    return { ok: false, response: NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 }) }
+    return { ok: false, response: NextResponse.json({ error: t('notLoggedIn') }, { status: 401 }) }
   }
 
   const supabase = createClient(
@@ -41,7 +43,7 @@ export async function guardRequest(request: NextRequest, bucket: string, limit: 
   )
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    return { ok: false, response: NextResponse.json({ error: 'Niet ingelogd' }, { status: 401 }) }
+    return { ok: false, response: NextResponse.json({ error: t('notLoggedIn') }, { status: 401 }) }
   }
 
   const { data: allowed, error } = await supabase.rpc('check_rate_limit', {
@@ -56,7 +58,7 @@ export async function guardRequest(request: NextRequest, bucket: string, limit: 
     return {
       ok: false,
       response: NextResponse.json(
-        { error: 'Je doet dit wat vaak achter elkaar. Probeer het over een paar minuten opnieuw.' },
+        { error: t('tooOften') },
         { status: 429, headers: { 'Retry-After': String(Math.min(limit.windowSeconds, 300)) } }
       ),
     }

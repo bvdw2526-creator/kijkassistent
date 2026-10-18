@@ -789,5 +789,42 @@
     "doneWatchlist": "{count} films op je kijklijst gezet",
     "warmFailed": "Bij {count} films lukte het voorbereiden niet. Dat is niet erg: het eerste vernieuwen van je aanbevelingen kan dan iets langer duren.",
     "toRecommendations": "Naar mijn aanbevelingen"
+  },
+  "facts": {
+    "and": "en",
+    "billion": "${amount} miljard",
+    "million": "${amount} miljoen",
+    "director": "Regisseur {name} maakte ook {titles}, die je leuk {count, plural, one {vond} other {vonden}}.",
+    "actor": "Je kent {name} ook van {titles}, die je leuk {count, plural, one {vond} other {vonden}}.",
+    "anniversaryTv": "Deze week {years} jaar geleden voor het eerst uitgezonden.",
+    "anniversaryMovie": "Deze week {years} jaar geleden uitgekomen.",
+    "collection": "{position}e film van {total} in {name}.",
+    "money": "Kostte ongeveer {budget} en bracht wereldwijd {revenue} op."
+  },
+  "reasons": {
+    "similarStory": "vergelijkbare verhaallijn",
+    "surprise": "verrassing",
+    "newOnServices": "nieuw op je diensten",
+    "storyFitsBoth": "verhaal dat bij jullie allebei past",
+    "togetherValued": "wat jullie samen al waardeerden",
+    "director": "regisseur {name}",
+    "theme": "thema {theme}",
+    "preference": "jouw voorkeur voor {genres}",
+    "sharedPreference": "jullie gedeelde voorkeur voor {genres}",
+    "partOf": "Onderdeel van {name}",
+    "popularOnServices": "Populair op jouw streamingdiensten.",
+    "popularNow": "Populair op dit moment."
+  },
+  "api": {
+    "notLoggedIn": "Niet ingelogd",
+    "tooOften": "Je doet dit wat vaak achter elkaar. Probeer het over een paar minuten opnieuw.",
+    "linkExpired": "Deze link is verlopen of klopt niet.",
+    "saveFailed": "Opslaan mislukt. Probeer het later opnieuw."
+  },
+  "searchNotes": {
+    "didYouMean": "Bedoelde je misschien: {title}? Daaronder staan de andere resultaten voor \"{query}\".",
+    "noExactDidYouMean": "Geen exacte treffers voor \"{query}\". Bedoelde je misschien:",
+    "noExactShortened": "Geen exacte treffers voor \"{query}\". Dit zijn de resultaten voor \"{shortened}\":",
+    "nothing": "Niets gevonden voor \"{query}\". Controleer de schrijfwijze of probeer een deel van de titel."
   }
 }

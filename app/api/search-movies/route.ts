@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import { searchTitles } from '@/lib/titleSearch'
+import { localeFromRequest } from '@/lib/serverI18n'
 
 export async function GET(request: NextRequest) {
   const guard = await guardRequest(request, 'search', LIMITS.search)
@@ -14,6 +15,6 @@ export async function GET(request: NextRequest) {
 
   // Films en series (multi search geeft ook acteurs terug, die laten we weg); bij geen goede treffer de beste gelijkenissen,
   // met een korte uitleg in `note`. Zie lib/titleSearch.ts.
-  const { results, note } = await searchTitles(query)
+  const { results, note } = await searchTitles(query, localeFromRequest(request))
   return NextResponse.json({ results, note })
 }

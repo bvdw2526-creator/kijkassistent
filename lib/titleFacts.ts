@@ -2,6 +2,8 @@
 // Geen verzonnen verhaaltjes: liever geen weetje dan een fout weetje.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getCreditsBulk, type MediaType } from '@/lib/recommendationEngine'
+import { serverTranslator, tmdbLanguage, type ServerT } from '@/lib/serverI18n'
+import type { Locale } from '@/lib/locale'
 
 const MAX_FACTS = 2
 // Zoveel eigen favorieten/"zeker leuk"-titels (recentste eerst) vergelijken we met de cast.
@@ -31,13 +33,18 @@ export interface TitleFactsInput {
   weekEnd: string
 }
 
-function dollars(amount: number): string {
-  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1).replace('.0', '').replace('.', ',')} miljard`
-  return `$${Math.round(amount / 1_000_000)} miljoen`
+function dollars(amount: number, t: ServerT, locale: Locale): string {
+  if (amount >= 1_000_000_000) {
+    const value = (amount / 1_000_000_000).toFixed(1).replace('.0', '')
+    return t('billion', { amount: locale === 'en' ? value : value.replace('.', ',') })
+  }
+  return t('million', { amount: Math.round(amount / 1_000_000) })
 }
 
-// Pure functie (zonder netwerk), zodat de tekstkeuzes los te testen zijn.
-export function buildFacts(input: TitleFactsInput): string[] {
+// Pure functie (zonder netwerk), zodat de tekstkeuzes los te testen zijn. Teksten: "facts" in messages/*.json.
+export function buildFacts(input: TitleFactsInput, locale: Locale = 'nl'): string[] {
+  const t = serverTranslator(locale, 'facts')
+  const join = (titles: string[]) => titles.join(` ${t('and')} `)
   const facts: string[] = []
 
   // 1. Jouw eigen link: dezelfde regisseur of acteur in iets wat je zeker leuk vond.
@@ -46,7 +53,7 @@ export function buildFacts(input: TitleFactsInput): string[] {
     const shared = input.liked.filter((l) => l.directors.some((d) => d.id === director.id))
     if (shared.length > 0) {
       const names = shared.slice(0, 2).map((s) => s.title)
-      facts.push(`Regisseur ${director.name} maakte ook ${names.join(' en ')}, die je leuk ${names.length > 1 ? 'vonden' : 'vond'}.`)
+      facts.push(t('director', { name: director.name, titles: join(names), count: names.length }))
       break
     }
   }
@@ -57,7 +64,7 @@ export function buildFacts(input: TitleFactsInput): string[] {
       const titles = input.liked.filter((l) => l.cast.some((c) => c.id === actor.id)).map((l) => l.title)
       if (titles.length > 0 && (!best || titles.length > best.titles.length)) best = { name: actor.name, titles }
     }
-    if (best) facts.push(`Je kent ${best.name} ook van ${best.titles.slice(0, 2).join(' en ')}, die je leuk ${best.titles.length > 1 ? 'vonden' : 'vond'}.`)
+    if (best) facts.push(t('actor', { name: best.name, titles: join(best.titles.slice(0, 2)), count: Math.min(best.titles.length, 2) }))
   }
 
   // 2. Jubileum: valt de verjaardag van de release in deze week?
@@ -69,9 +76,7 @@ export function buildFacts(input: TitleFactsInput): string[] {
       const yearsThen = y - year
       if (yearsThen >= 5 && anniversary >= input.weekStart && anniversary <= input.weekEnd) {
         facts.push(
-          input.type === 'tv'
-            ? `Deze week ${yearsThen} jaar geleden voor het eerst uitgezonden.`
-            : `Deze week ${yearsThen} jaar geleden uitgekomen.`
+          t(input.type === 'tv' ? 'anniversaryTv' : 'anniversaryMovie', { years: yearsThen })
         )
         break
       }
@@ -80,12 +85,12 @@ export function buildFacts(input: TitleFactsInput): string[] {
 
   // 3. Deel van een reeks.
   if (input.collection && input.collection.total >= 2) {
-    facts.push(`${input.collection.position}e film van ${input.collection.total} in ${input.collection.name}.`)
+    facts.push(t('collection', { position: input.collection.position, total: input.collection.total, name: input.collection.name }))
   }
 
   // 4. Kosten en opbrengst, alleen als TMDB beide cijfers heeft.
   if (input.type === 'movie' && input.budget >= 1_000_000 && input.revenue >= 1_000_000) {
-    facts.push(`Kostte ongeveer ${dollars(input.budget)} en bracht wereldwijd ${dollars(input.revenue)} op.`)
+    facts.push(t('money', { budget: dollars(input.budget, t, locale), revenue: dollars(input.revenue, t, locale) }))
   }
 
   return facts.slice(0, MAX_FACTS)
@@ -135,9 +140,10 @@ export async function getTitleFacts(
   userId: string,
   type: MediaType,
   id: number,
-  apiKey: string
+  apiKey: string,
+  locale: Locale = 'nl'
 ): Promise<string[]> {
-  const details = await tmdb<TmdbDetails>(`/${type}/${id}?language=nl-NL&append_to_response=credits`, apiKey)
+  const details = await tmdb<TmdbDetails>(`/${type}/${id}?language=${tmdbLanguage(locale)}&append_to_response=credits`, apiKey)
   if (!details) return []
 
   const directors =
@@ -149,7 +155,7 @@ export async function getTitleFacts(
   let collection: TitleFactsInput['collection'] = null
   if (type === 'movie' && details.belongs_to_collection) {
     const parts = await tmdb<{ parts?: { id: number; release_date?: string }[] }>(
-      `/collection/${details.belongs_to_collection.id}?language=nl-NL`,
+      `/collection/${details.belongs_to_collection.id}?language=${tmdbLanguage(locale)}`,
       apiKey
     )
     const released = (parts?.parts ?? []).filter((p) => p.release_date).sort((a, b) => a.release_date!.localeCompare(b.release_date!))

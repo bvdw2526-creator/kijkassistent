@@ -115,16 +115,19 @@ export async function GET(request: NextRequest) {
       ),
       supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
     ])
-    const genreCounts = new Map<string, number>()
+    // Op naam geteld (film- en seriegenre met dezelfde naam samen); het id gaat mee zodat de app de naam kan vertalen.
+    const genreCounts = new Map<string, { id: number; count: number }>()
     for (const t of likedTitles) {
       const details = detailsByKey.get(t.media_type + '-' + t.tmdb_id)
       if (!details) continue
       for (const genre of details.genres) {
-        genreCounts.set(genre.name, (genreCounts.get(genre.name) || 0) + 1)
+        const entry = genreCounts.get(genre.name) ?? { id: genre.id, count: 0 }
+        entry.count += 1
+        genreCounts.set(genre.name, entry)
       }
     }
     const topGenres = Array.from(genreCounts.entries())
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, { id, count }]) => ({ name, id, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
 

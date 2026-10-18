@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { guardRequest, LIMITS } from '@/lib/apiGuard'
 import { getTitleFacts } from '@/lib/titleFacts'
+import { localeFromRequest } from '@/lib/serverI18n'
 
 export const maxDuration = 60
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
   if (!apiKey) return NextResponse.json({ facts: [] })
 
   try {
-    const facts = await getTitleFacts(guard.supabase, guard.user.id, type, id, apiKey)
+    const facts = await getTitleFacts(guard.supabase, guard.user.id, type, id, apiKey, localeFromRequest(request))
     return NextResponse.json({ facts })
   } catch (err) {
     console.error('Weetjes ophalen mislukt:', err)

@@ -32,6 +32,7 @@ import TrailerLink from './components/TrailerLink'
 import BookSource from './components/BookSource'
 import { useBackToClose } from './components/useBackToClose'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
+import { useReasonLabel } from '@/lib/reasonLabels'
 
 type Movie = {
   id: number
@@ -263,12 +264,17 @@ const TRAIT_LABELS = new Set(['vergelijkbare verhaallijn', 'verrassing'])
 const isTraitLabel = (b: string) => b.startsWith('regisseur ') || b.startsWith('thema ') || TRAIT_LABELS.has(b)
 
 // De labels in basedOn komen van de server en zijn (nog) Nederlands; we herkennen ze hier op die tekst.
-function explainTip(basedOn: string[] = [], t: ReturnType<typeof useTranslations<'home'>>, and: string): string {
+function explainTip(
+  basedOn: string[] = [],
+  t: ReturnType<typeof useTranslations<'home'>>,
+  and: string,
+  reason: (label: string) => string
+): string {
   const likedTitles = basedOn.filter((b) => !NON_TITLE_LABELS.has(b) && !isTraitLabel(b) && !b.startsWith('jullie gedeelde '))
   const shared = basedOn.find((b) => b.startsWith('jullie gedeelde '))
   const parts: string[] = []
   if (likedTitles.length > 0) parts.push(t('tipBecauseLiked', { titles: likedTitles.slice(0, 2).join(` ${and} `) }))
-  else if (shared) parts.push(t('tipBasedOn', { shared }))
+  else if (shared) parts.push(t('tipBasedOn', { shared: reason(shared) }))
   if (basedOn.includes('verhaal dat bij jullie allebei past')) parts.push(t('tipStoryFits'))
   return parts.join(' ') || t('tipFallback')
 }
@@ -315,6 +321,7 @@ export default function Home() {
   const t = useTranslations('home')
   const tt = useTranslations('title')
   const locale = useLocale()
+  const reason = useReasonLabel()
   const [user, setUser] = useState<User | null>(null)
   const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
   const [loading, setLoading] = useState(true)
@@ -1164,7 +1171,7 @@ export default function Home() {
                       {tipItem.media_type === 'tv' ? tt('series') : tt('film')}
                       {tipItem.watchOn ? ` · ${tipItem.watchOn}` : ''}
                     </span>
-                    <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn, t, tt('and'))}</span>
+                    <span className="block text-sm text-foreground/85 mt-2 leading-relaxed">{explainTip(tipItem.basedOn, t, tt('and'), reason)}</span>
                   </span>
                 </button>
                 <div className="flex gap-2 mt-4">
@@ -1399,7 +1406,7 @@ export default function Home() {
                                     {name}
                                   </Link>
                                 ) : (
-                                  name
+                                  reason(name)
                                 )}
                               </span>
                             )
@@ -1410,7 +1417,7 @@ export default function Home() {
                     {traits.length > 0 && (
                       <p>
                         {liked.length > 0 ? tt('alsoFitsTaste') : tt('recommendedFor')}{' '}
-                        <span className="text-accent">{traits.join(', ')}</span>
+                        <span className="text-accent">{traits.map(reason).join(', ')}</span>
                       </p>
                     )}
                   </div>
