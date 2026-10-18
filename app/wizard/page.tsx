@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { supabase, authFetch } from '@/lib/supabase'
 import PersonInfoSheet from '../components/PersonInfoSheet'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
@@ -83,10 +84,18 @@ type FavoriteMovie = { id: number; title: string; media_type: 'movie' | 'tv' }
 type PersonResult = { id: number; name: string; profile_path: string | null }
 type FavoritePerson = { person_id: number; name: string; profile_path: string | null }
 
-const STEP_LABELS = ['Streaming', 'Favorieten', 'Genres', 'Acteurs', 'Klaar']
+// Sleutels onder "wizard" in messages/*.json.
+const STEP_LABELS = ['stepStreaming', 'stepFavorites', 'stepGenres', 'stepActors', 'stepDone'] as const
 
 export default function Wizard() {
   const router = useRouter()
+  const t = useTranslations('wizard')
+  const tt = useTranslations('title')
+  const tg = useTranslations('genres')
+  const tn = useTranslations('nav')
+  const ts = useTranslations('search')
+  const tp = useTranslations('people')
+  const tsv = useTranslations('services')
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState(1)
   const [userId, setUserId] = useState<string | null>(null)
@@ -170,7 +179,7 @@ export default function Wizard() {
     setError(null)
     const { error } = await supabase.from('profiles').update({ streaming_services: selectedServices }).eq('id', userId)
     if (error) {
-      setError(`Kon niet opslaan: ${error.message}`)
+      setError(t('errSave', { message: error.message }))
       return
     }
     setStep(2)
@@ -185,7 +194,7 @@ export default function Wizard() {
     setError(null)
     const { error } = await supabase.from('profiles').update({ excluded_genres: excludedGenres }).eq('id', userId)
     if (error) {
-      setError(`Kon niet opslaan: ${error.message}`)
+      setError(t('errSave', { message: error.message }))
       return
     }
     setStep(4)
@@ -197,7 +206,7 @@ export default function Wizard() {
     setError(null)
     const res = await authFetch(`/api/search-movies?query=${encodeURIComponent(movieQuery)}`)
     const data = await res.json()
-    if (!res.ok) setError(data.error || 'Zoeken mislukt')
+    if (!res.ok) setError(data.error || ts('failed'))
     setMovieResults(data.results || [])
     setMovieSearchNote(data.note ?? null)
     setMovieSearchLoading(false)
@@ -214,7 +223,7 @@ export default function Wizard() {
       media_type: movie.media_type,
     })
     if (error) {
-      setError(`Kon "${movie.title}" niet toevoegen: ${error.message}`)
+      setError(t('errAdd', { title: movie.title, message: error.message }))
       return
     }
     setFavorites([{ id: movie.id, title: movie.title, media_type: movie.media_type }, ...favorites])
@@ -230,7 +239,7 @@ export default function Wizard() {
       .eq('tmdb_id', movie.id)
       .eq('media_type', movie.media_type)
     if (error) {
-      setError(`Kon niet verwijderen: ${error.message}`)
+      setError(t('errRemove', { message: error.message }))
       return
     }
     setFavorites(favorites.filter((f) => !(f.id === movie.id && f.media_type === movie.media_type)))
@@ -242,7 +251,7 @@ export default function Wizard() {
     setError(null)
     const res = await authFetch(`/api/search-people?query=${encodeURIComponent(actorQuery)}&type=actor`)
     const data = await res.json()
-    if (!res.ok) setError(data.error || 'Zoeken mislukt')
+    if (!res.ok) setError(data.error || ts('failed'))
     setActorResults(data.results || [])
     setActorSearchLoading(false)
   }
@@ -258,7 +267,7 @@ export default function Wizard() {
       profile_path: person.profile_path,
     })
     if (error) {
-      setError(`Kon "${person.name}" niet toevoegen: ${error.message}`)
+      setError(t('errAdd', { title: person.name, message: error.message }))
       return
     }
     setFavoriteActors([{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...favoriteActors])
@@ -269,7 +278,7 @@ export default function Wizard() {
     setError(null)
     const { error } = await supabase.from('favorite_people').delete().eq('user_id', userId).eq('person_id', personId)
     if (error) {
-      setError(`Kon niet verwijderen: ${error.message}`)
+      setError(t('errRemove', { message: error.message }))
       return
     }
     setFavoriteActors(favoriteActors.filter((p) => p.person_id !== personId))
@@ -281,7 +290,7 @@ export default function Wizard() {
     setError(null)
     const res = await authFetch(`/api/search-people?query=${encodeURIComponent(directorQuery)}&type=director`)
     const data = await res.json()
-    if (!res.ok) setError(data.error || 'Zoeken mislukt')
+    if (!res.ok) setError(data.error || ts('failed'))
     setDirectorResults(data.results || [])
     setDirectorSearchLoading(false)
   }
@@ -297,7 +306,7 @@ export default function Wizard() {
       profile_path: person.profile_path,
     })
     if (error) {
-      setError(`Kon "${person.name}" niet toevoegen: ${error.message}`)
+      setError(t('errAdd', { title: person.name, message: error.message }))
       return
     }
     setFavoriteDirectors([{ person_id: person.id, name: person.name, profile_path: person.profile_path }, ...favoriteDirectors])
@@ -308,7 +317,7 @@ export default function Wizard() {
     setError(null)
     const { error } = await supabase.from('favorite_directors').delete().eq('user_id', userId).eq('person_id', personId)
     if (error) {
-      setError(`Kon niet verwijderen: ${error.message}`)
+      setError(t('errRemove', { message: error.message }))
       return
     }
     setFavoriteDirectors(favoriteDirectors.filter((p) => p.person_id !== personId))
@@ -321,7 +330,7 @@ export default function Wizard() {
     const { error } = await supabase.from('profiles').update({ onboarding_completed_at: new Date().toISOString() }).eq('id', userId)
     setFinishing(false)
     if (error) {
-      setError(`Kon niet afronden: ${error.message}`)
+      setError(t('errFinish', { message: error.message }))
       return
     }
     router.push('/')
@@ -345,7 +354,7 @@ export default function Wizard() {
       {/* Voortgang */}
       <div className="flex items-center gap-2 mb-1">
         {step > 1 && (
-          <button onClick={() => setStep(step - 1)} className="text-muted hover:text-foreground transition-colors p-1 -ml-1 flex-shrink-0" aria-label="Vorige stap">
+          <button onClick={() => setStep(step - 1)} className="text-muted hover:text-foreground transition-colors p-1 -ml-1 flex-shrink-0" aria-label={t('prevStep')}>
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
         )}
@@ -355,7 +364,7 @@ export default function Wizard() {
           ))}
         </div>
       </div>
-      <p className="text-xs text-faint mb-8">Stap {step} van {STEP_LABELS.length} — {STEP_LABELS[step - 1]}</p>
+      <p className="text-xs text-faint mb-8">{t('stepOf', { step, total: STEP_LABELS.length, label: t(STEP_LABELS[step - 1]) })}</p>
 
       {error && (
         <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
@@ -365,8 +374,8 @@ export default function Wizard() {
 
       {step === 1 && (
         <div className="flex-1 flex flex-col">
-          <h1 className="font-display text-2xl mb-1">Kies je streamingdiensten</h1>
-          <p className="text-muted mb-6">Kies je streamingdiensten. Heb je geen streamingdiensten? Kies dan &ldquo;Sla deze stap over&rdquo;.</p>
+          <h1 className="font-display text-2xl mb-1">{t('s1Title')}</h1>
+          <p className="text-muted mb-6">{t('s1Text')}</p>
           <div className="grid grid-cols-2 gap-2 mb-8">
             {AVAILABLE_SERVICES.map((service) => {
               const active = selectedServices.includes(service.id)
@@ -381,23 +390,23 @@ export default function Wizard() {
                   <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-md border transition-all ${active ? 'border-accent bg-accent' : 'border-control'}`}>
                     {active && <CheckIcon className="w-3 h-3 text-on-accent" />}
                   </span>
-                  <span className="text-sm font-medium">{service.label}</span>
+                  <span className="text-sm font-medium">{service.id === 'pathe_thuis' ? tsv('patheRent') : service.label}</span>
                 </button>
               )
             })}
           </div>
           <div className="mt-auto flex flex-col gap-2">
-            <button onClick={goToStep2} className={btnPrimary}>Volgende</button>
-            <button onClick={() => setStep(2)} className={btnGhost}>Sla deze stap over</button>
+            <button onClick={goToStep2} className={btnPrimary}>{t('next')}</button>
+            <button onClick={() => setStep(2)} className={btnGhost}>{t('skip')}</button>
           </div>
         </div>
       )}
 
       {step === 2 && (
         <div className="flex-1 flex flex-col">
-          <h1 className="font-display text-2xl mb-1">Kies je favorieten</h1>
-          <p className="text-muted mb-1">Kies minimaal {MIN_FAVORITES} films en series die je écht heel leuk vindt. Deze keuzes tellen zwaar mee in de aanbevelingen van je films of series.</p>
-          <p className="text-sm font-medium text-accent mb-6">{favorites.length} / {MIN_FAVORITES} gekozen</p>
+          <h1 className="font-display text-2xl mb-1">{t('s2Title')}</h1>
+          <p className="text-muted mb-1">{t('s2Text', { min: MIN_FAVORITES })}</p>
+          <p className="text-sm font-medium text-accent mb-6">{t('chosen', { count: favorites.length, min: MIN_FAVORITES })}</p>
 
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
@@ -407,11 +416,11 @@ export default function Wizard() {
                 value={movieQuery}
                 onChange={(e) => setMovieQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleMovieSearch()}
-                placeholder="Zoek een film of serie..."
+                placeholder={ts('placeholder')}
                 className={`${input} pl-10`}
               />
             </div>
-            <button onClick={handleMovieSearch} disabled={movieSearchLoading} className={btnPrimary}>Zoeken</button>
+            <button onClick={handleMovieSearch} disabled={movieSearchLoading} className={btnPrimary}>{ts('button')}</button>
           </div>
 
           {movieSearchNote && <p className="text-sm text-muted mb-3">{movieSearchNote}</p>}
@@ -430,7 +439,7 @@ export default function Wizard() {
                       <div className="w-9 aspect-[2/3] rounded-md bg-surface-2 flex-shrink-0" />
                     )}
                     <span className="flex-1 text-sm min-w-0 truncate">
-                      {movie.title} <span className="text-xs text-faint">{movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                      {movie.title} <span className="text-xs text-faint">{movie.release_date?.slice(0, 4)} · {movie.media_type === 'tv' ? tt('series') : tt('film')}</span>
                     </span>
                     <button
                       onClick={() => addFavoriteMovie(movie)}
@@ -439,7 +448,7 @@ export default function Wizard() {
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                      {added ? 'Toegevoegd' : 'Toevoegen'}
+                      {added ? t('added') : t('add')}
                     </button>
                   </div>
                 )
@@ -449,11 +458,11 @@ export default function Wizard() {
 
           {favorites.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-6">
-              <h3 className="text-sm text-muted mb-1">Jouw favorieten</h3>
+              <h3 className="text-sm text-muted mb-1">{t('yourFavorites')}</h3>
               {favorites.map((movie) => (
                 <div key={`${movie.media_type}-${movie.id}`} className={`${card} flex items-center gap-3 px-4 py-2.5`}>
                   <span className="flex-1 text-sm truncate">{movie.title}</span>
-                  <button onClick={() => removeFavoriteMovie(movie)} className="text-muted hover:text-coral transition-colors p-1" aria-label="Verwijderen">
+                  <button onClick={() => removeFavoriteMovie(movie)} className="text-muted hover:text-coral transition-colors p-1" aria-label={tt('remove')}>
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -468,8 +477,8 @@ export default function Wizard() {
               className={`${btnPrimary} w-full`}
             >
               {favorites.length < MIN_FAVORITES
-                ? `Nog ${MIN_FAVORITES - favorites.length} te gaan`
-                : 'Volgende'}
+                ? t('toGo', { count: MIN_FAVORITES - favorites.length })
+                : t('next')}
             </button>
           </div>
         </div>
@@ -477,54 +486,52 @@ export default function Wizard() {
 
       {step === 3 && (
         <div className="flex-1 flex flex-col">
-          <h1 className="font-display text-2xl mb-1">Sluit genres uit</h1>
-          <p className="text-muted mb-4">Selecteer hier de genres waar je echt niet van houdt, zodat deze niet meegenomen worden in de aanbevelingen.</p>
+          <h1 className="font-display text-2xl mb-1">{t('s3Title')}</h1>
+          <p className="text-muted mb-4">{t('s3Text')}</p>
 
           <div className="flex items-start gap-3 rounded-xl border border-coral/40 bg-coral/5 p-4 mb-6">
             <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-coral/15 text-coral">
               <CloseIcon className="w-4 h-4" />
             </span>
             <p className="text-sm leading-relaxed">
-              <span className="font-medium text-coral">Dit is een lijst van wat je níet wilt zien.</span> Een genre dat je
-              aantikt, verdwijnt helemaal uit je aanbevelingen, ook als een van je favorieten erin valt. Vind je alles goed?
-              Tik dan niets aan en ga verder.
+              {t.rich('s3Warning', { b: (chunks) => <span className="font-medium text-coral">{chunks}</span> })}
             </p>
           </div>
 
-          <h3 className="text-sm text-muted mb-2">Films</h3>
+          <h3 className="text-sm text-muted mb-2">{tt('films')}</h3>
           <div className="flex flex-wrap gap-2 mb-5">
             {MOVIE_GENRES.map((genre) => (
-              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
+              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
-          <h3 className="text-sm text-muted mb-2">Series</h3>
+          <h3 className="text-sm text-muted mb-2">{tt('seriesPlural')}</h3>
           <div className="flex flex-wrap gap-2 mb-4">
             {TV_GENRES.map((genre) => (
-              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
+              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
             ))}
           </div>
 
           <p className="text-sm text-muted mb-6">
             {excludedGenres.length === 0
-              ? 'Nog niets uitgesloten. Dat is prima.'
-              : `${excludedGenres.length} ${excludedGenres.length === 1 ? 'genre' : 'genres'} uitgesloten: dat komt niet meer in je aanbevelingen.`}
+              ? t('noneExcluded')
+              : t('excluded', { count: excludedGenres.length })}
           </p>
 
           <ExcludedGenreWarning excludedGenreIds={excludedGenres} onAllow={toggleGenre} />
 
           <div className="mt-auto pt-4 flex flex-col gap-2">
-            <button onClick={goToStep4} className={btnPrimary}>Volgende</button>
-            <button onClick={() => setStep(4)} className={btnGhost}>Sla deze stap over</button>
+            <button onClick={goToStep4} className={btnPrimary}>{t('next')}</button>
+            <button onClick={() => setStep(4)} className={btnGhost}>{t('skip')}</button>
           </div>
         </div>
       )}
 
       {step === 4 && (
         <div className="flex-1 flex flex-col">
-          <h1 className="font-display text-2xl mb-1">Favoriete acteurs &amp; regisseurs</h1>
-          <p className="text-muted mb-6">Optioneel — films en series met hen erin komen hoger in je aanbevelingen.</p>
+          <h1 className="font-display text-2xl mb-1">{t('s4Title')}</h1>
+          <p className="text-muted mb-6">{t('s4Text')}</p>
 
-          <h3 className="text-sm text-muted mb-2">Acteurs &amp; actrices</h3>
+          <h3 className="text-sm text-muted mb-2">{t('actors')}</h3>
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
@@ -533,11 +540,11 @@ export default function Wizard() {
                 value={actorQuery}
                 onChange={(e) => setActorQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleActorSearch()}
-                placeholder="Zoek een acteur of actrice..."
+                placeholder={tp('actorPlaceholder')}
                 className={`${input} pl-10`}
               />
             </div>
-            <button onClick={handleActorSearch} disabled={actorSearchLoading} className={btnPrimary}>Zoeken</button>
+            <button onClick={handleActorSearch} disabled={actorSearchLoading} className={btnPrimary}>{ts('button')}</button>
           </div>
           {actorResults.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-4">
@@ -560,7 +567,7 @@ export default function Wizard() {
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                      {added ? 'Toegevoegd' : 'Toevoegen'}
+                      {added ? t('added') : t('add')}
                     </button>
                   </div>
                 )
@@ -577,7 +584,7 @@ export default function Wizard() {
                     <div className="w-8 h-8 rounded-full bg-surface-2 flex-shrink-0" />
                   )}
                   <span className="flex-1 text-sm truncate">{person.name}</span>
-                  <button onClick={() => removeFavoriteActor(person.person_id)} className="text-muted hover:text-coral transition-colors p-1" aria-label="Verwijderen">
+                  <button onClick={() => removeFavoriteActor(person.person_id)} className="text-muted hover:text-coral transition-colors p-1" aria-label={tt('remove')}>
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -585,7 +592,7 @@ export default function Wizard() {
             </div>
           )}
 
-          <h3 className="text-sm text-muted mb-2">Regisseurs</h3>
+          <h3 className="text-sm text-muted mb-2">{t('directors')}</h3>
           <div className="flex gap-2 mb-3">
             <div className="relative flex-1">
               <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" />
@@ -594,11 +601,11 @@ export default function Wizard() {
                 value={directorQuery}
                 onChange={(e) => setDirectorQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleDirectorSearch()}
-                placeholder="Zoek een regisseur..."
+                placeholder={tp('directorPlaceholder')}
                 className={`${input} pl-10`}
               />
             </div>
-            <button onClick={handleDirectorSearch} disabled={directorSearchLoading} className={btnPrimary}>Zoeken</button>
+            <button onClick={handleDirectorSearch} disabled={directorSearchLoading} className={btnPrimary}>{ts('button')}</button>
           </div>
           {directorResults.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-4">
@@ -621,7 +628,7 @@ export default function Wizard() {
                       }`}
                     >
                       {added ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
-                      {added ? 'Toegevoegd' : 'Toevoegen'}
+                      {added ? t('added') : t('add')}
                     </button>
                   </div>
                 )
@@ -638,7 +645,7 @@ export default function Wizard() {
                     <div className="w-8 h-8 rounded-full bg-surface-2 flex-shrink-0" />
                   )}
                   <span className="flex-1 text-sm truncate">{person.name}</span>
-                  <button onClick={() => removeFavoriteDirector(person.person_id)} className="text-muted hover:text-coral transition-colors p-1" aria-label="Verwijderen">
+                  <button onClick={() => removeFavoriteDirector(person.person_id)} className="text-muted hover:text-coral transition-colors p-1" aria-label={tt('remove')}>
                     <TrashIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -647,16 +654,16 @@ export default function Wizard() {
           )}
 
           <div className="mt-auto pt-4 flex flex-col gap-2">
-            <button onClick={() => setStep(5)} className={btnPrimary}>Volgende</button>
-            <button onClick={() => setStep(5)} className={btnGhost}>Sla deze stap over</button>
+            <button onClick={() => setStep(5)} className={btnPrimary}>{t('next')}</button>
+            <button onClick={() => setStep(5)} className={btnGhost}>{t('skip')}</button>
           </div>
         </div>
       )}
 
       {step === 5 && (
         <div className="flex-1 flex flex-col">
-          <h1 className="font-display text-2xl mb-1">Je bent er klaar voor</h1>
-          <p className="text-muted mb-6">Een paar dingen die handig zijn om te weten.</p>
+          <h1 className="font-display text-2xl mb-1">{t('s5Title')}</h1>
+          <p className="text-muted mb-6">{t('s5Text')}</p>
 
           <div className="flex flex-col gap-3 mb-8">
             <div className={`${card} p-4 flex gap-3`}>
@@ -664,8 +671,8 @@ export default function Wizard() {
                 <HomeIcon className="w-4.5 h-4.5 text-accent" />
               </div>
               <div>
-                <p className="font-medium text-sm mb-1">Voor jou</p>
-                <p className="text-sm text-muted leading-relaxed">Drie tabbladen — van &ldquo;Puur mijn smaak&rdquo; tot &ldquo;Verras me&rdquo; — elk met andere aanbevelingen. Beoordeel wat je ziet, hoe meer hoe scherper het wordt.</p>
+                <p className="font-medium text-sm mb-1">{tn('forYou')}</p>
+                <p className="text-sm text-muted leading-relaxed">{t('tipForYou')}</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
@@ -673,8 +680,8 @@ export default function Wizard() {
                 <SearchIcon className="w-4.5 h-4.5 text-teal" />
               </div>
               <div>
-                <p className="font-medium text-sm mb-1">Zoeken</p>
-                <p className="text-sm text-muted leading-relaxed">Hier kun je altijd nog meer favorieten toevoegen of iets direct beoordelen — ook zonder het als favoriet te markeren.</p>
+                <p className="font-medium text-sm mb-1">{tn('search')}</p>
+                <p className="text-sm text-muted leading-relaxed">{t('tipSearch')}</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
@@ -682,8 +689,8 @@ export default function Wizard() {
                 <SettingsIcon className="w-4.5 h-4.5 text-muted" />
               </div>
               <div>
-                <p className="font-medium text-sm mb-1">Instellingen</p>
-                <p className="text-sm text-muted leading-relaxed">Streamingdiensten, genres uitsluiten en favoriete acteurs/regisseurs kun je hier altijd nog aanpassen.</p>
+                <p className="font-medium text-sm mb-1">{tn('settings')}</p>
+                <p className="text-sm text-muted leading-relaxed">{t('tipSettings')}</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
@@ -691,8 +698,8 @@ export default function Wizard() {
                 <BookmarkIcon className="w-4.5 h-4.5 text-accent" />
               </div>
               <div>
-                <p className="font-medium text-sm mb-1">Kom je van Letterboxd?</p>
-                <p className="text-sm text-muted leading-relaxed">Op een pc of laptop kun je bij Instellingen je films en beoordelingen uit Letterboxd importeren. Dan begint Kijkassistent niet bij nul.</p>
+                <p className="font-medium text-sm mb-1">{t('letterboxdTitle')}</p>
+                <p className="text-sm text-muted leading-relaxed">{t('tipLetterboxd')}</p>
               </div>
             </div>
             <div className={`${card} p-4 flex gap-3`}>
@@ -700,15 +707,15 @@ export default function Wizard() {
                 <UsersIcon className="w-4.5 h-4.5 text-coral" />
               </div>
               <div>
-                <p className="font-medium text-sm mb-1">Samen</p>
-                <p className="text-sm text-muted leading-relaxed">Koppel je partner (ook bij Instellingen) om aanbevelingen te zien die jullie allebei goed zouden vinden.</p>
+                <p className="font-medium text-sm mb-1">{tt('together')}</p>
+                <p className="text-sm text-muted leading-relaxed">{t('tipTogether')}</p>
               </div>
             </div>
           </div>
 
           <div className="mt-auto">
             <button onClick={handleFinish} disabled={finishing} className={`${btnPrimary} w-full`}>
-              {finishing ? 'Bezig...' : 'Beginnen'}
+              {finishing ? tt('loadingShort') : t('start')}
             </button>
           </div>
         </div>
@@ -728,7 +735,7 @@ export default function Wizard() {
             className={`${btnPrimary} w-full`}
           >
             <PlusIcon className="w-4 h-4" />
-            Favoriet
+            {tt('favorite')}
           </button>
         </PersonInfoSheet>
       )}

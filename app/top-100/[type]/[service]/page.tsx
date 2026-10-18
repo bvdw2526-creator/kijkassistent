@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { TOP_TYPES, TOP_SERVICES } from '@/lib/topLists'
 import TopListPage from '../../../components/TopListPage'
 
@@ -10,12 +11,12 @@ type Params = { params: Promise<{ type: string; service: string }> }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { type, service } = await params
-  const info = TOP_TYPES[type]
   const provider = TOP_SERVICES[service]
-  if (!info || !provider) return {}
+  if (!TOP_TYPES[type] || !provider) return {}
+  const t = await getTranslations('top')
   return {
-    title: `De beste ${info.label} op ${provider.label}`,
-    description: `De best beoordeelde ${info.label} die je nu bij ${provider.label} in Nederland kunt kijken, gewogen op het oordeel van duizenden kijkers.`,
+    title: t('headingOn', { type: t(type), service: provider.label }),
+    description: t('metaServiceDescription', { type: t(type), service: provider.label }),
   }
 }
 

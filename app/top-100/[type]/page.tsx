@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
 import { TOP_TYPES } from '@/lib/topLists'
 import TopListPage from '../../components/TopListPage'
 
@@ -10,11 +11,11 @@ type Params = { params: Promise<{ type: string }> }
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { type } = await params
-  const info = TOP_TYPES[type]
-  if (!info) return {}
+  if (!TOP_TYPES[type]) return {}
+  const t = await getTranslations('top')
   return {
-    title: `Top 100: de beste ${info.label} aller tijden`,
-    description: `De best beoordeelde ${info.label}, gewogen op het oordeel van duizenden kijkers. Zie ook per streamingdienst wat je in Nederland kunt kijken.`,
+    title: t('metaTypeTitle', { type: t(type) }),
+    description: t('metaTypeDescription', { type: t(type) }),
   }
 }
 

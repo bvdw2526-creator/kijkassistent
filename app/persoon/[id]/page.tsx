@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import BottomNav from '../../components/BottomNav'
 import MovieCard from '../../components/MovieCard'
@@ -16,10 +17,11 @@ import type { PersonTitle } from '../../api/person-titles/route'
 // (Zoeken, je favoriete acteurs en regisseurs) en vanuit de uitleg bij een aanbeveling op Voor jou.
 
 type Rating = 'love' | 'ok' | 'dislike'
-const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' | 'coral' }[] = [
-  { rating: 'love', label: 'Zeker meer zoals dit', tone: 'accent' },
-  { rating: 'ok', label: 'Was oké', tone: 'teal' },
-  { rating: 'dislike', label: 'Niet voor mij', tone: 'coral' },
+// label = sleutel onder "title" in messages/*.json.
+const RATING_BUTTONS: { rating: Rating; label: 'moreLikeThisRating' | 'rateOk' | 'rateDislike'; tone: 'accent' | 'teal' | 'coral' }[] = [
+  { rating: 'love', label: 'moreLikeThisRating', tone: 'accent' },
+  { rating: 'ok', label: 'rateOk', tone: 'teal' },
+  { rating: 'dislike', label: 'rateDislike', tone: 'coral' },
 ]
 
 type Data = {
@@ -30,14 +32,19 @@ type Data = {
   items: PersonTitle[]
 }
 
-function formatReleaseDate(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
+function formatReleaseDate(iso: string, locale: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(locale === 'en' ? 'en-GB' : 'nl-NL', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function PersonPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
   const askedRole = useSearchParams().get('rol')
+  const t = useTranslations('personPage')
+  const tt = useTranslations('title')
+  const th = useTranslations('home')
+  const ts = useTranslations('search')
+  const locale = useLocale()
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
@@ -68,7 +75,7 @@ function PersonPage() {
           }
         })
         .catch((err) => {
-          if (!cancelled) setError(err instanceof Error ? err.message : 'Laden mislukt')
+          if (!cancelled) setError(err instanceof Error ? err.message : t('loadFailed'))
         })
     })
     return () => {
@@ -76,11 +83,11 @@ function PersonPage() {
     }
   }, [id, askedRole])
 
-  const keyOf = (t: { media_type: string; id: number }) => `${t.media_type}-${t.id}`
+  const keyOf = (item: { media_type: string; id: number }) => `${item.media_type}-${item.id}`
 
   function setStatus(item: PersonTitle, status: PersonTitle['status']) {
     setData((current) =>
-      current ? { ...current, items: current.items.map((t) => (keyOf(t) === keyOf(item) ? { ...t, status } : t)) } : current
+      current ? { ...current, items: current.items.map((x) => (keyOf(x) === keyOf(item) ? { ...x, status } : x)) } : current
     )
   }
 
@@ -101,7 +108,7 @@ function PersonPage() {
       { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true }
     )
     if (insertError) {
-      setActionError(`Kon niet op de kijklijst zetten: ${insertError.message}`)
+      setActionError(t('errWatchlist', { message: insertError.message }))
       return
     }
     if (item.status !== 'gezien') setStatus(item, 'kijklijst')
@@ -116,7 +123,7 @@ function PersonPage() {
       .insert({ user_id: user.id, tmdb_id: item.id, title: item.title, media_type: item.media_type })
     // 23505 = staat er al: dan is het doel al bereikt.
     if (insertError && insertError.code !== '23505') {
-      setActionError(`Kon niet als favoriet opslaan: ${insertError.message}`)
+      setActionError(t('errFavorite', { message: insertError.message }))
       return
     }
     // Eén oordeel per titel: de favoriet vervangt een beoordeling (zie de migratie 20261017_favorite_or_rating).
@@ -139,7 +146,7 @@ function PersonPage() {
         { onConflict: 'user_id,tmdb_id,media_type' }
       )
     if (upsertError) {
-      setActionError(`Kon de beoordeling niet opslaan: ${upsertError.message}`)
+      setActionError(t('errRating', { message: upsertError.message }))
       return
     }
     setRatings((current) => new Map(current).set(keyOf(item), rating))
@@ -147,17 +154,17 @@ function PersonPage() {
   }
 
   const items = data?.items ?? []
-  const filtered = mineOnly ? items.filter((t) => t.watchOn) : items
-  const movies = filtered.filter((t) => t.media_type === 'movie')
-  const shows = filtered.filter((t) => t.media_type === 'tv')
+  const filtered = mineOnly ? items.filter((x) => x.watchOn) : items
+  const movies = filtered.filter((x) => x.media_type === 'movie')
+  const shows = filtered.filter((x) => x.media_type === 'tv')
   const visible = tab === 'movie' ? movies : shows
 
   if (loggedIn === false) {
     return (
       <main className="max-w-md mx-auto px-6 py-16">
-        <p className="text-muted mb-6">Log in om de films en series van deze persoon te zien.</p>
+        <p className="text-muted mb-6">{t('loginToSee')}</p>
         <Link href="/login" className={btnPrimary}>
-          Log in
+          {t('login')}
         </Link>
       </main>
     )
@@ -171,7 +178,7 @@ function PersonPage() {
           className="flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors mb-4 -ml-1 touch-manipulation"
         >
           <ChevronLeftIcon className="w-4 h-4" />
-          Terug
+          {t('back')}
         </button>
 
         <header className="flex items-center gap-4 mb-5">
@@ -184,19 +191,19 @@ function PersonPage() {
           )}
           <div className="min-w-0">
             <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">
-              {data ? (data.role === 'regisseur' ? 'Regisseur' : 'Acteur of actrice') : ' '}
+              {data ? (data.role === 'regisseur' ? t('director') : t('actor')) : ' '}
             </p>
             <h1 className="font-display text-2xl mt-0.5 leading-tight">{data?.name || ' '}</h1>
             {data && (
               <p className="text-sm text-muted mt-1">
-                {items.length} {items.length === 1 ? 'titel' : 'titels'}
+                {t('titles', { count: items.length })}
               </p>
             )}
           </div>
         </header>
 
         {error && (
-          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">Laden mislukt: {error}</p>
+          <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">{t('loadFailedMsg', { error })}</p>
         )}
 
         {data && (
@@ -208,7 +215,7 @@ function PersonPage() {
                   tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
                 }`}
               >
-                Films ({movies.length})
+                {th('filmsCount', { count: movies.length })}
               </button>
               <button
                 onClick={() => setTab('tv')}
@@ -216,12 +223,12 @@ function PersonPage() {
                   tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
                 }`}
               >
-                Series ({shows.length})
+                {th('seriesCount', { count: shows.length })}
               </button>
             </div>
             {data.hasServices && (
               <button onClick={() => setMineOnly((v) => !v)} className={chip(mineOnly, 'teal', 'sm')}>
-                Alleen op mijn diensten
+                {ts('booksMineOnly')}
               </button>
             )}
           </div>
@@ -238,24 +245,24 @@ function PersonPage() {
         {data && visible.length === 0 && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center leading-relaxed">
             {mineOnly
-              ? `Geen ${tab === 'movie' ? 'films' : 'series'} op jouw diensten. Zet "Alleen op mijn diensten" uit om alles te zien.`
-              : `Geen ${tab === 'movie' ? 'films' : 'series'} gevonden.`}
+              ? t(tab === 'movie' ? 'noneOnServicesFilms' : 'noneOnServicesSeries')
+              : t(tab === 'movie' ? 'noneFilms' : 'noneSeries')}
           </p>
         )}
 
         {visible.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 laptop:grid-cols-5 gap-3">
-            {visible.map((t, i) => (
+            {visible.map((item, i) => (
               <MovieCard
-                key={keyOf(t)}
-                movie={t}
+                key={keyOf(item)}
+                movie={item}
                 priority={i < 4}
                 hideMatch
-                upcomingLabel={t.upcoming ? `Binnenkort · ${formatReleaseDate(t.release_date)}` : undefined}
-                badge={t.status === 'gezien' ? 'Gezien' : t.status === 'kijklijst' ? 'Op kijklijst' : undefined}
+                upcomingLabel={item.upcoming ? tt('upcomingOn', { date: formatReleaseDate(item.release_date, locale) }) : undefined}
+                badge={item.status === 'gezien' ? t('seen') : item.status === 'kijklijst' ? t('onWatchlist') : undefined}
                 onClick={() => {
                   setActionError(null)
-                  setSelected(t)
+                  setSelected(item)
                 }}
               />
             ))}
@@ -270,17 +277,17 @@ function PersonPage() {
           )}
           <div className={`grid gap-2 mb-3 ${selected.upcoming ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <button onClick={() => addToWatchlist(selected)} className={btnPrimary}>
-              {data?.items.find((t) => keyOf(t) === keyOf(selected))?.status === 'kijklijst' ? (
+              {data?.items.find((x) => keyOf(x) === keyOf(selected))?.status === 'kijklijst' ? (
                 <CheckIcon className="w-4 h-4" />
               ) : (
                 <PlusIcon className="w-4 h-4" />
               )}
-              Op kijklijst
+              {tt('addToWatchlist')}
             </button>
             {!selected.upcoming && (
               <button onClick={() => addFavorite(selected)} className={btnSecondary}>
                 <PlusIcon className="w-4 h-4" />
-                Favoriet
+                {tt('favorite')}
               </button>
             )}
           </div>
@@ -292,7 +299,7 @@ function PersonPage() {
                   onClick={() => rate(selected, rating)}
                   className={chip(ratings.get(keyOf(selected)) === rating, tone, 'sm')}
                 >
-                  {label}
+                  {tt(label)}
                 </button>
               ))}
             </div>

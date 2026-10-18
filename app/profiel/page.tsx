@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { supabase, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card } from '../components/ui'
@@ -15,10 +16,10 @@ type ProfileStats = {
   tvCount: number
   // fav ontbreekt in een oudere bewaarde kopie.
   ratingCounts: { fav?: number; love: number; ok: number; dislike: number }
-  topGenres: { name: string; count: number }[]
+  topGenres: { name: string; id?: number; count: number }[]
   topActors: ActorHighlight[]
   // Ontbreekt in een oudere bewaarde kopie, vandaar optioneel.
-  dislikedGenres?: { name: string; disliked: number; total: number }[]
+  dislikedGenres?: { name: string; id?: number; disliked: number; total: number }[]
   streaming: { lovedTotal: number; services: { id: string; label: string; owned: boolean; count: number }[] }
 }
 
@@ -33,6 +34,8 @@ function StatSkeleton() {
 }
 
 export default function Profiel() {
+  const t = useTranslations('stats')
+  const tg = useTranslations('genres')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
@@ -65,7 +68,7 @@ export default function Profiel() {
         })
         const data = await res.json()
         if (!res.ok || data.error) {
-          if (!hadCache) setError(data.error || `Onbekende fout (status ${res.status})`)
+          if (!hadCache) setError(data.error || t('unknownErrorStatus', { status: res.status }))
           setLoading(false)
           return
         }
@@ -76,7 +79,7 @@ export default function Profiel() {
           // Opslaan lukt niet: volgende keer opnieuw laden.
         }
       } catch (err) {
-        if (!hadCache) setError(err instanceof Error ? err.message : 'Onbekende fout bij het ophalen van je kijkprofiel')
+        if (!hadCache) setError(err instanceof Error ? err.message : t('fetchError'))
       }
       setLoading(false)
     }
@@ -114,12 +117,15 @@ export default function Profiel() {
   }, [])
 
   const maxGenreCount = stats?.topGenres[0]?.count ?? 0
+  // Genrenamen komen (nog) in het Nederlands van de server; met een id erbij in de taal van de app.
+  const genreName = (genre: { name: string; id?: number }) =>
+    genre.id !== undefined && tg.has(`g${genre.id}`) ? tg(`g${genre.id}`) : genre.name
 
   return (
     <>
       <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
-        <h1 className="font-display text-2xl mb-1">Stats</h1>
-        <p className="text-muted mb-6">Wat je favorieten en beoordelingen over je smaak zeggen.</p>
+        <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
+        <p className="text-muted mb-6">{t('intro')}</p>
 
         {error && (
           <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-3.5 py-2.5 mb-6">
@@ -131,8 +137,11 @@ export default function Profiel() {
 
         {!loading && stats && stats.totalWatched === 0 && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-10 text-center leading-relaxed">
-            Nog niets om te laten zien — voeg favorieten toe of geef een paar beoordelingen bij{' '}
-            <Link href="/onboarding" className="text-accent hover:text-accent-hover transition-colors">Zoeken</Link>.
+            {t.rich('empty', {
+              link: (chunks) => (
+                <Link href="/onboarding" className="text-accent hover:text-accent-hover transition-colors">{chunks}</Link>
+              ),
+            })}
           </p>
         )}
 
@@ -142,27 +151,27 @@ export default function Profiel() {
             {/* Grote cijfers */}
             <div className={`${card} p-5`}>
               <p className="font-display text-4xl text-accent leading-none">{stats.totalWatched}</p>
-              <p className="text-sm text-muted mt-1.5">titels gezien</p>
+              <p className="text-sm text-muted mt-1.5">{t('titlesSeen')}</p>
               <p className="text-sm text-faint mt-3">
-                {stats.movieCount} {stats.movieCount === 1 ? 'film' : 'films'} · {stats.tvCount} {stats.tvCount === 1 ? 'serie' : 'series'}
+                {t('counts', { films: stats.movieCount, series: stats.tvCount })}
               </p>
             </div>
 
             {/* Voortgang van de Top 100 */}
             {topProgress && topProgress.films.total > 0 && (
               <div className={`${card} p-5`}>
-                <p className="text-sm font-medium mb-1">Top 100 gezien</p>
-                <p className="text-xs text-faint mb-4">De best beoordeelde titels, zie ook per streamingdienst</p>
+                <p className="text-sm font-medium mb-1">{t('topSeen')}</p>
+                <p className="text-xs text-faint mb-4">{t('topSeenSub')}</p>
                 <div className="flex flex-col gap-3">
                   {[
-                    { label: 'Films', href: '/top-100/films', ...topProgress.films },
-                    { label: 'Series', href: '/top-100/series', ...topProgress.series },
+                    { label: t('films'), href: '/top-100/films', ...topProgress.films },
+                    { label: t('series'), href: '/top-100/series', ...topProgress.series },
                   ].map(({ label, href, seen, total }) => (
                     <Link key={label} href={href} className="block group">
                       <div className="flex items-baseline justify-between mb-1.5">
                         <span className="text-sm">{label}</span>
                         <span className="text-sm text-muted group-hover:text-foreground transition-colors">
-                          {seen} van {total}
+                          {t('seenOf', { seen, total })}
                         </span>
                       </div>
                       <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
@@ -180,13 +189,13 @@ export default function Profiel() {
             {/* Favoriete genres */}
             {stats.topGenres.length > 0 && (
               <div className={`${card} p-5`}>
-                <p className="text-sm font-medium mb-1">Jouw favoriete genres</p>
-                <p className="text-xs text-faint mb-4">Gebaseerd op je favorieten en beoordelingen</p>
+                <p className="text-sm font-medium mb-1">{t('favoriteGenres')}</p>
+                <p className="text-xs text-faint mb-4">{t('favoriteGenresSub')}</p>
                 <div className="flex flex-col gap-2.5">
                   {stats.topGenres.map((genre, i) => (
                     <div key={genre.name} className="flex items-center gap-3">
                       <span className="text-xs font-mono text-faint w-4 flex-shrink-0">{i + 1}</span>
-                      <span className="text-sm flex-1 min-w-0 truncate">{genre.name}</span>
+                      <span className="text-sm flex-1 min-w-0 truncate">{genreName(genre)}</span>
                       <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
                         <div
                           className="h-full rounded-full bg-accent transition-all"
@@ -205,13 +214,13 @@ export default function Profiel() {
               <div className={`${card} p-5`}>
                 <div className="flex items-center gap-2 mb-1">
                   <DislikeIcon className="w-4 h-4 text-coral" />
-                  <p className="text-sm font-medium">Niet jouw ding</p>
+                  <p className="text-sm font-medium">{t('notYourThing')}</p>
                 </div>
-                <p className="text-xs text-faint mb-4">Genres die je veel vaker &quot;niet voor mij&quot; geeft dan gemiddeld</p>
+                <p className="text-xs text-faint mb-4">{t('notYourThingSub')}</p>
                 <div className="flex flex-col gap-2.5">
                   {stats.dislikedGenres.map((genre) => (
                     <div key={genre.name} className="flex items-center gap-3">
-                      <span className="text-sm flex-1 min-w-0 truncate">{genre.name}</span>
+                      <span className="text-sm flex-1 min-w-0 truncate">{genreName(genre)}</span>
                       <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
                         <div
                           className="h-full rounded-full bg-coral transition-all"
@@ -219,7 +228,7 @@ export default function Profiel() {
                         />
                       </div>
                       <span className="text-xs text-muted w-16 text-right flex-shrink-0">
-                        {genre.disliked} van {genre.total}
+                        {t('seenOf', { seen: genre.disliked, total: genre.total })}
                       </span>
                     </div>
                   ))}
@@ -230,10 +239,9 @@ export default function Profiel() {
             {/* Streamingdienst met de meeste titels die je echt leuk vindt */}
             {stats.streaming.lovedTotal > 0 && stats.streaming.services.some((s) => s.count > 0) && (
               <div className={`${card} p-5`}>
-                <p className="text-sm font-medium mb-1">Waar staat jouw smaak?</p>
+                <p className="text-sm font-medium mb-1">{t('whereTaste')}</p>
                 <p className="text-xs text-faint mb-4">
-                  {stats.streaming.services[0].label} heeft de meeste van je {stats.streaming.lovedTotal} favorieten en
-                  &quot;zeker leuk&quot;-titels. Alleen abonnementsaanbod van nu.
+                  {t('whereTasteSub', { service: stats.streaming.services[0].label, total: stats.streaming.lovedTotal })}
                 </p>
                 <div className="flex flex-col gap-2.5">
                   {stats.streaming.services.map((service) => {
@@ -248,7 +256,7 @@ export default function Profiel() {
                           />
                         </div>
                         <span className="text-xs text-muted w-16 text-right flex-shrink-0">
-                          {service.count}×{service.owned ? ' · jij' : ''}
+                          {service.count}×{service.owned ? t('you') : ''}
                         </span>
                       </div>
                     )

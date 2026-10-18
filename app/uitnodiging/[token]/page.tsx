@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import { rememberInvite } from '@/lib/invite'
 import { btnPrimary, btnSecondary } from '../../components/ui'
@@ -17,6 +18,9 @@ export default function Uitnodiging() {
   const [status, setStatus] = useState<Status>('loading')
   const [inviter, setInviter] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslations('invite')
+  const common = useTranslations('common')
+  const tt = useTranslations('title')
 
   useEffect(() => {
     let cancelled = false
@@ -63,11 +67,11 @@ export default function Uitnodiging() {
 
       {status === 'invalid' && (
         <>
-          <h1 className="font-display text-3xl mb-2">Uitnodiging niet geldig</h1>
+          <h1 className="font-display text-3xl mb-2">{t('invalidTitle')}</h1>
           <p className="text-muted mb-8 leading-relaxed">
-            Deze link is al gebruikt of verlopen. Vraag je partner om een nieuwe link te maken bij Instellingen.
+            {t('invalidText')}
           </p>
-          <Link href="/" className={btnSecondary}>Naar de app</Link>
+          <Link href="/" className={btnSecondary}>{t('toApp')}</Link>
         </>
       )}
 
@@ -76,10 +80,9 @@ export default function Uitnodiging() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/12 text-accent mb-5">
             <UsersIcon className="w-6 h-6" />
           </div>
-          <h1 className="font-display text-3xl mb-2">Samen kijken</h1>
+          <h1 className="font-display text-3xl mb-2">{t('title')}</h1>
           <p className="text-muted mb-8 leading-relaxed">
-            <span className="text-foreground">{inviter}</span> nodigt je uit om te koppelen. Daarna krijgen jullie
-            aanbevelingen die bij jullie allebei passen.
+            {t.rich('text', { b: () => <span className="text-foreground">{inviter}</span> })}
           </p>
 
           {error && (
@@ -90,12 +93,12 @@ export default function Uitnodiging() {
 
           {status === 'login-needed' ? (
             <div className="flex flex-col gap-3">
-              <Link href="/register" className={btnPrimary}>Account aanmaken</Link>
-              <Link href="/login" className={btnSecondary}>Ik heb al een account</Link>
+              <Link href="/register" className={btnPrimary}>{common('createAccount')}</Link>
+              <Link href="/login" className={btnSecondary}>{t('haveAccount')}</Link>
             </div>
           ) : (
             <button onClick={accept} disabled={status === 'accepting'} className={btnPrimary}>
-              {status === 'accepting' ? 'Bezig...' : 'Koppelen'}
+              {status === 'accepting' ? tt('loadingShort') : t('link')}
             </button>
           )}
         </>
@@ -106,12 +109,11 @@ export default function Uitnodiging() {
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal/12 text-teal mb-5">
             <CheckIcon className="w-6 h-6" />
           </div>
-          <h1 className="font-display text-3xl mb-2">Jullie zijn gekoppeld</h1>
+          <h1 className="font-display text-3xl mb-2">{t('doneTitle')}</h1>
           <p className="text-muted mb-8 leading-relaxed">
-            Bekijk de tab &quot;Samen&quot; bij Voor jou voor aanbevelingen die jullie allebei leuk vinden. Hoe meer
-            jullie allebei beoordelen, hoe scherper ze worden.
+            {t('doneText')}
           </p>
-          <Link href="/" className={btnPrimary}>Verder</Link>
+          <Link href="/" className={btnPrimary}>{t('continue')}</Link>
         </>
       )}
 

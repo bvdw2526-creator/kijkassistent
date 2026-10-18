@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getTopList, TOP_TYPES, TOP_SERVICES, TOP_SIZE } from '@/lib/topLists'
 import { withLatinTitles } from '@/lib/titleFallback'
 import TopList from './TopList'
@@ -11,25 +12,30 @@ export default async function TopListPage({ typeSlug, serviceSlug }: { typeSlug:
   const raw = await getTopList(typeInfo.type, service ? service.providerId : null)
   const items = await withLatinTitles(raw)
 
-  const where = service ? ` op ${service.label}` : ''
-  const heading = items.length >= TOP_SIZE ? `Top ${TOP_SIZE}: de beste ${typeInfo.label}${where}` : `De beste ${typeInfo.label}${where}`
+  const t = await getTranslations('top')
+  const type = t(typeSlug)
+  const heading =
+    items.length >= TOP_SIZE
+      ? service
+        ? t('headingTopOn', { size: TOP_SIZE, type, service: service.label })
+        : t('headingTop', { size: TOP_SIZE, type })
+      : service
+        ? t('headingOn', { type, service: service.label })
+        : t('heading', { type })
 
   return (
     <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/top-100" className="text-sm text-muted hover:text-foreground transition-colors">
-        ← Alle lijsten
+        {t('allLists')}
       </Link>
       <h1 className="font-display text-3xl mt-4 mb-2">{heading}</h1>
       <p className="text-muted mb-6 laptop:max-w-2xl">
-        {service
-          ? `De best beoordeelde ${typeInfo.label} die je nu bij ${service.label} in Nederland kunt kijken (met een abonnement). `
-          : `De best beoordeelde ${typeInfo.label}, ongeacht waar je ze kunt kijken. `}
-        We rangschikken op het gewogen gebruikersoordeel van TMDB: een titel heeft veel stemmen nodig om hoog te komen, zodat
-        pas uitgekomen titels niet bovenaan staan.
+        {service ? t('introOn', { type, service: service.label }) : t('introAll', { type })}
+        {t('method')}
       </p>
 
       {items.length === 0 ? (
-        <p className="text-sm text-muted">De lijst kon niet worden opgehaald. Probeer het later opnieuw.</p>
+        <p className="text-sm text-muted">{t('failed')}</p>
       ) : (
         <TopList items={items} />
       )}

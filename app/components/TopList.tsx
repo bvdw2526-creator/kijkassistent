@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import type { TopItem } from '@/lib/topLists'
 import TitleInfoSheet from './TitleInfoSheet'
@@ -13,18 +14,20 @@ import { HeartIcon, OkIcon, DislikeIcon, StarIcon, PlusIcon, CheckIcon } from '.
 type Rating = 'love' | 'ok' | 'dislike'
 type Mark = Rating | 'fav'
 
+// label = sleutel onder "stats" in messages/*.json.
 const markStyle: Record<Mark, { label: string; className: string }> = {
-  love: { label: 'Zeker leuk', className: 'text-accent' },
-  ok: { label: 'Was oké', className: 'text-teal' },
-  dislike: { label: 'Niet voor mij', className: 'text-coral' },
-  fav: { label: 'Favoriet', className: 'text-accent' },
+  love: { label: 'catLove', className: 'text-accent' },
+  ok: { label: 'catOk', className: 'text-teal' },
+  dislike: { label: 'catDislike', className: 'text-coral' },
+  fav: { label: 'catFav', className: 'text-accent' },
 }
 
 // Zelfde keuzes als bij Zoeken.
-const RATING_BUTTONS: { rating: Rating; label: string; tone: 'accent' | 'teal' | 'coral' }[] = [
-  { rating: 'love', label: 'Zeker meer zoals dit', tone: 'accent' },
-  { rating: 'ok', label: 'Was oké', tone: 'teal' },
-  { rating: 'dislike', label: 'Niet voor mij', tone: 'coral' },
+// label = sleutel onder "title" in messages/*.json.
+const RATING_BUTTONS: { rating: Rating; label: 'moreLikeThisRating' | 'rateOk' | 'rateDislike'; tone: 'accent' | 'teal' | 'coral' }[] = [
+  { rating: 'love', label: 'moreLikeThisRating', tone: 'accent' },
+  { rating: 'ok', label: 'rateOk', tone: 'teal' },
+  { rating: 'dislike', label: 'rateDislike', tone: 'coral' },
 ]
 
 const keyOf = (item: { media_type: string; id: number }) => `${item.media_type}-${item.id}`
@@ -47,6 +50,9 @@ export default function TopList({ items }: { items: TopItem[] }) {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
   const [open, setOpen] = useState<TopItem | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const t = useTranslations('top')
+  const tt = useTranslations('title')
+  const ts = useTranslations('stats')
 
   useEffect(() => {
     let cancelled = false
@@ -89,7 +95,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
         .eq('media_type', item.media_type)
         .select()
       if (error || !data || data.length === 0) {
-        setActionError(`Kon de beoordeling niet verwijderen${error ? `: ${error.message}` : '.'}`)
+        setActionError(error ? t('errRemoveRatingMsg', { message: error.message }) : t('errRemoveRating'))
         return
       }
       setRatings((current) => {
@@ -107,7 +113,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
       )
       .select()
     if (error || !data || data.length === 0) {
-      setActionError(`Kon de beoordeling niet opslaan${error ? `: ${error.message}` : '.'}`)
+      setActionError(error ? t('errSaveRatingMsg', { message: error.message }) : t('errSaveRating'))
       return
     }
     setRatings((current) => new Map(current).set(key, rating))
@@ -130,7 +136,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
       .insert({ user_id: user.id, tmdb_id: item.id, title: item.title, media_type: item.media_type })
     // 23505 = staat al bij je favorieten: dan is het doel al bereikt.
     if (error && error.code !== '23505') {
-      setActionError(`Kon niet als favoriet opslaan: ${error.message}`)
+      setActionError(t('errFavorite', { message: error.message }))
       return
     }
     setFavorites((current) => new Set(current).add(key))
@@ -153,7 +159,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
       { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true }
     )
     if (error) {
-      setActionError(`Kon niet op de kijklijst zetten: ${error.message}`)
+      setActionError(t('errWatchlist', { message: error.message }))
       return
     }
     setWatchlist((current) => new Set(current).add(key))
@@ -164,7 +170,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
       {loggedIn === true && (
         <div className={`${card} px-4 py-3 mb-5 laptop:max-w-xl`}>
           <p className="text-sm font-medium">
-            Je hebt {seen} van de {items.length} gezien
+            {t('seenOf', { seen, total: items.length })}
           </p>
           <div className="mt-2 h-1.5 rounded-full bg-line overflow-hidden">
             <div className="h-full rounded-full bg-accent" style={{ width: `${items.length ? (seen / items.length) * 100 : 0}%` }} />
@@ -174,15 +180,18 @@ export default function TopList({ items }: { items: TopItem[] }) {
       {loggedIn === false && (
         <div className={`${card} px-4 py-3 mb-5 laptop:max-w-xl`}>
           <p className="text-sm">
-            Wil je zien welke je al gezien hebt en welke bij jou passen?{' '}
-            <Link href="/register" className="text-accent underline underline-offset-2">
-              Maak een account
-            </Link>{' '}
-            of{' '}
-            <Link href="/login" className="text-accent underline underline-offset-2">
-              log in
-            </Link>
-            .
+            {t.rich('loggedOut', {
+              register: (chunks) => (
+                <Link href="/register" className="text-accent underline underline-offset-2">
+                  {chunks}
+                </Link>
+              ),
+              login: (chunks) => (
+                <Link href="/login" className="text-accent underline underline-offset-2">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         </div>
       )}
@@ -206,7 +215,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
                 </span>
               </span>
               {mark && (
-                <span className={`flex-shrink-0 ${markStyle[mark].className}`} title={markStyle[mark].label} aria-label={markStyle[mark].label}>
+                <span className={`flex-shrink-0 ${markStyle[mark].className}`} title={ts(markStyle[mark].label)} aria-label={ts(markStyle[mark].label)}>
                   <MarkIcon mark={mark} />
                 </span>
               )}
@@ -245,17 +254,17 @@ export default function TopList({ items }: { items: TopItem[] }) {
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <button onClick={() => addToWatchlist(open, details?.posterPath ?? open.poster_path)} className={btnPrimary}>
                   {watchlist.has(keyOf(open)) ? <CheckIcon className="w-4 h-4" /> : <PlusIcon className="w-4 h-4" />}
-                  Op kijklijst
+                  {tt('addToWatchlist')}
                 </button>
                 <button onClick={() => addFavorite(open)} className={btnSecondary}>
                   {favorites.has(keyOf(open)) ? <CheckIcon className="w-4 h-4" /> : <PlusIcon className="w-4 h-4" />}
-                  Favoriet
+                  {tt('favorite')}
                 </button>
               </div>
               <div className="flex gap-1.5 flex-wrap">
                 {RATING_BUTTONS.map(({ rating, label, tone }) => (
                   <button key={rating} onClick={() => rate(open, rating)} className={chip(ratings.get(keyOf(open)) === rating, tone, 'sm')}>
-                    {label}
+                    {tt(label)}
                   </button>
                 ))}
               </div>

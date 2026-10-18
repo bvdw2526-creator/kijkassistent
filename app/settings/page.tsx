@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import LegalLinks from '../components/LegalLinks'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import ExcludeChip from '../components/ExcludeChip'
@@ -135,6 +136,12 @@ function Collapsible({
 }
 
 export default function Settings() {
+  const t = useTranslations('settings')
+  const tg = useTranslations('genres')
+  const tsk = useTranslations('skins')
+  const tt = useTranslations('title')
+  const tw = useTranslations('whatsNew')
+  const tsv = useTranslations('services')
   const [selected, setSelected] = useState<string[]>([])
   const [excludedGenres, setExcludedGenres] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
@@ -203,7 +210,7 @@ export default function Settings() {
     if (error) {
       console.error('Grens opslaan mislukt:', error)
       setMinYear(previous)
-      setErrorMessage(`Kon de grens niet opslaan: ${error.message}`)
+      setErrorMessage(t('errMinYear', { message: error.message }))
     }
   }
 
@@ -216,7 +223,7 @@ export default function Settings() {
     if (error) {
       console.error('Tipsmail-instelling opslaan mislukt:', error)
       setWeeklyMail(!next)
-      setErrorMessage(`Kon de instelling niet opslaan: ${error.message}`)
+      setErrorMessage(t('errSetting', { message: error.message }))
     }
   }
 
@@ -248,7 +255,7 @@ export default function Settings() {
         .eq('id', user.id)
       if (error) {
         console.error('Voorkeuren opslaan mislukt:', error)
-        setErrorMessage(`Kon niet opslaan: ${error.message}`)
+        setErrorMessage(t('errSave', { message: error.message }))
         setSaveState('error')
         return
       }
@@ -285,7 +292,7 @@ export default function Settings() {
     const { error } = await supabase.rpc('delete_my_account')
     if (error) {
       console.error('Account verwijderen mislukt:', error)
-      setErrorMessage(`Kon je account niet verwijderen: ${error.message}`)
+      setErrorMessage(t('errDelete', { message: error.message }))
       setDeleting(false)
       setConfirmDelete(false)
       return
@@ -312,14 +319,14 @@ export default function Settings() {
     setInviteLinkLoading(false)
     if (error || !data) {
       console.error('Uitnodigingslink maken mislukt:', error)
-      setErrorMessage(`Kon de link niet maken: ${error?.message ?? 'onbekende fout'}`)
+      setErrorMessage(t('errLink', { message: error?.message ?? t('unknownError') }))
       return
     }
     setInviteLink(`${window.location.origin}/uitnodiging/${data}`)
   }
 
   async function shareInviteLink() {
-    const text = 'Kijk samen met mij! Koppel je aan mij in Kijkassistent:'
+    const text = t('shareText')
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Kijkassistent', text, url: inviteLink })
@@ -332,7 +339,7 @@ export default function Settings() {
       await navigator.clipboard.writeText(inviteLink)
       setLinkCopied(true)
     } catch {
-      setErrorMessage('Kopiëren lukt niet. Selecteer de link en kopieer hem zelf.')
+      setErrorMessage(t('copyFailed'))
     }
   }
 
@@ -346,8 +353,8 @@ export default function Settings() {
       console.error('Partner uitnodigen mislukt:', error)
       setErrorMessage(
         error.message.includes('Geen account gevonden')
-          ? 'Geen account gevonden met dit e-mailadres.'
-          : `Kon niet uitnodigen: ${error.message}. Is de migratie "partner_connections" al uitgevoerd in Supabase?`
+          ? t('noAccountForEmail')
+          : t('errInvite', { message: error.message })
       )
       return
     }
@@ -363,7 +370,7 @@ export default function Settings() {
       .eq('id', id)
     if (error) {
       console.error('Uitnodiging accepteren mislukt:', error)
-      setErrorMessage(`Kon de uitnodiging niet accepteren: ${error.message}`)
+      setErrorMessage(t('errAccept', { message: error.message }))
       return
     }
     loadConnections()
@@ -374,7 +381,7 @@ export default function Settings() {
     const { error } = await supabase.from('partner_connections').delete().eq('id', id)
     if (error) {
       console.error('Koppeling verwijderen mislukt:', error)
-      setErrorMessage(`Kon de koppeling niet verwijderen: ${error.message}`)
+      setErrorMessage(t('errRemoveLink', { message: error.message }))
       return
     }
     setConnections(connections.filter((c) => c.id !== id))
@@ -398,19 +405,19 @@ export default function Settings() {
   const acceptedPartner = connections.find((c) => c.status === 'accepted')
   const hasIncoming = connections.some((c) => c.status === 'pending' && c.direction === 'incoming')
   const partnerSummary = acceptedPartner
-    ? `Gekoppeld met ${acceptedPartner.other_email}`
+    ? t('linkedWith', { email: acceptedPartner.other_email })
     : hasIncoming
-      ? 'Er wacht een uitnodiging op je'
+      ? t('invitationWaiting')
       : connections.length > 0
-        ? 'Wacht op reactie'
-        : 'Nog niet gekoppeld'
-  const genreSummary = excludedGenres.length > 0 ? `${excludedGenres.length} uitgesloten` : 'Niets uitgesloten'
+        ? t('waitingForReply')
+        : t('notLinked')
+  const genreSummary = excludedGenres.length > 0 ? t('excludedCount', { count: excludedGenres.length }) : t('nothingExcluded')
 
   return (
     <>
       <main className="max-w-sm laptop:max-w-5xl mx-auto px-5 pt-6 pb-32">
-        <h1 className="font-display text-2xl mb-1">Mijn voorkeuren</h1>
-        <p className="text-muted mb-6 laptop:mb-8">Stel in wat je aanbevelingen beter maakt. Wijzigingen worden automatisch opgeslagen.</p>
+        <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
+        <p className="text-muted mb-6 laptop:mb-8">{t('intro')}</p>
 
         {!onboardingComplete && (
           <Link
@@ -418,8 +425,8 @@ export default function Settings() {
             className="flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3.5 mb-3 hover:border-accent transition-colors"
           >
             <span>
-              <span className="block text-sm font-medium text-accent">Maak je profiel af</span>
-              <span className="block text-xs text-muted mt-0.5">Rond de starthulp af voor scherpere aanbevelingen</span>
+              <span className="block text-sm font-medium text-accent">{t('finishProfile')}</span>
+              <span className="block text-xs text-muted mt-0.5">{t('finishProfileSub')}</span>
             </span>
           </Link>
         )}
@@ -433,8 +440,8 @@ export default function Settings() {
         {/* Op laptop twee kolommen: links wat je kijkt en je lijsten, rechts de rest. Elders gewoon onder elkaar. */}
         <div className="laptop:grid laptop:grid-cols-2 laptop:gap-x-12 laptop:items-start">
           <div>
-            <GroupTitle title="Wat je kijkt" />
-            <SectionTitle title="Streamingdiensten" hint="Selecteer waar je een abonnement op hebt. Pathé Thuis is huren per titel: aanvinken betekent dat titels die je daar kunt huren ook worden getoond." />
+            <GroupTitle title={t('groupWatch')} />
+            <SectionTitle title={t('services')} hint={t('servicesHint')} />
             <div className="grid grid-cols-2 gap-2 mb-6">
               {AVAILABLE_SERVICES.map((service) => {
                 const active = selected.includes(service.id)
@@ -451,26 +458,26 @@ export default function Settings() {
                     }`}>
                       {active && <CheckIcon className="w-3 h-3 text-on-accent" />}
                     </span>
-                    <span className="text-sm font-medium">{service.label}</span>
+                    <span className="text-sm font-medium">{service.id === 'pathe_thuis' ? tsv('patheRent') : service.label}</span>
                   </button>
                 )
               })}
             </div>
 
-            <Collapsible title="Genres uitsluiten" summary={genreSummary}>
+            <Collapsible title={t('excludeGenres')} summary={genreSummary}>
               <p className="text-muted text-sm mb-3 leading-relaxed">
-                Vink hier alleen aan wat je niet wilt zien. Aangevinkte genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt.
+                {t('excludeHint')}
               </p>
-              <h4 className="text-sm text-muted mb-2">Films</h4>
+              <h4 className="text-sm text-muted mb-2">{t('films')}</h4>
               <div className="flex flex-wrap gap-2 mb-4">
                 {MOVIE_GENRES.map((genre) => (
-                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
+                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
                 ))}
               </div>
-              <h4 className="text-sm text-muted mb-2">Series</h4>
+              <h4 className="text-sm text-muted mb-2">{t('series')}</h4>
               <div className="flex flex-wrap gap-2">
                 {TV_GENRES.map((genre) => (
-                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={genre.label} onClick={() => toggleGenre(genre.id)} />
+                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
                 ))}
               </div>
             </Collapsible>
@@ -481,8 +488,8 @@ export default function Settings() {
 
             <div className="mt-6">
               <SectionTitle
-                title="Niet ouder dan"
-                hint="Films en series van vóór dit jaar komen niet in je aanbevelingen. Bij series telt het jaar van de eerste aflevering. Zoeken, de Top 100 en je kijklijst blijven alles tonen."
+                title={t('minYear')}
+                hint={t('minYearHint')}
               />
               <div className="flex flex-wrap gap-2">
                 {[null, ...MIN_YEAR_OPTIONS].map((year) => {
@@ -496,14 +503,14 @@ export default function Settings() {
                         active ? 'border-accent bg-accent/12 text-accent' : 'border-line text-muted hover:border-line-strong hover:text-foreground'
                       }`}
                     >
-                      {year === null ? 'Alles' : `Vanaf ${year}`}
+                      {year === null ? t('all') : t('fromYear', { year })}
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            <GroupTitle title="Mail" />
+            <GroupTitle title={t('groupMail')} />
             <button
               role="switch"
               aria-checked={weeklyMail}
@@ -511,8 +518,8 @@ export default function Settings() {
               className={`${linkRow} w-full text-left touch-manipulation`}
             >
               <span>
-                <span className="block text-sm font-medium">Wekelijkse tipsmail</span>
-                <span className="block text-xs text-muted mt-0.5">Elke week een paar tips op jouw smaak en jouw diensten</span>
+                <span className="block text-sm font-medium">{t('weeklyMail')}</span>
+                <span className="block text-xs text-muted mt-0.5">{t('weeklyMailSub')}</span>
               </span>
               <span className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${weeklyMail ? 'bg-accent' : 'bg-control'}`}>
                 <span
@@ -521,77 +528,77 @@ export default function Settings() {
               </span>
             </button>
 
-            <GroupTitle title="Mijn lijsten" />
+            <GroupTitle title={t('groupLists')} />
             <Link href="/onboarding" className={linkRow}>
               <span>
-                <span className="block text-sm font-medium">Favorieten beheren</span>
-                <span className="block text-xs text-muted mt-0.5">Films, series, acteurs en regisseurs vind je bij Zoeken</span>
+                <span className="block text-sm font-medium">{t('manageFavorites')}</span>
+                <span className="block text-xs text-muted mt-0.5">{t('manageFavoritesSub')}</span>
               </span>
             </Link>
             <Link href="/verborgen" className={linkRow}>
               <span>
-                <span className="block text-sm font-medium">Verborgen films of series beheren</span>
-                <span className="block text-xs text-muted mt-0.5">Bekijk wat je hebt verborgen en zet het terug</span>
+                <span className="block text-sm font-medium">{t('manageHidden')}</span>
+                <span className="block text-xs text-muted mt-0.5">{t('manageHiddenSub')}</span>
               </span>
             </Link>
             {/* Alleen op een computer: de export van Letterboxd haal je ook op een computer op. */}
             <Link href="/import" className={`hidden [@media(pointer:fine)]:flex ${linkRow}`}>
               <span>
-                <span className="block text-sm font-medium">Importeren uit Letterboxd</span>
-                <span className="block text-xs text-muted mt-0.5">Neem je films en beoordelingen over met je Letterboxd-export</span>
+                <span className="block text-sm font-medium">{t('importLetterboxd')}</span>
+                <span className="block text-xs text-muted mt-0.5">{t('importLetterboxdSub')}</span>
               </span>
             </Link>
           </div>
 
           <div>
-            <GroupTitle title="Samen kijken" />
-            <Collapsible title="Partner koppelen" summary={partnerSummary} openWhen={hasIncoming}>
+            <GroupTitle title={t('groupTogether')} />
+            <Collapsible title={t('linkPartner')} summary={partnerSummary} openWhen={hasIncoming}>
               <p className="text-muted text-sm mb-4 leading-relaxed">
-                Nodig je partner uit voor de Samen-aanbevelingen. Diegene moet de uitnodiging zelf accepteren voordat jullie smaak wordt gecombineerd.
+                {t('partnerIntro')}
               </p>
 
               <div className="mb-5">
                 {!inviteLink ? (
                   <button onClick={createInviteLink} disabled={inviteLinkLoading} className={`${btnPrimary} w-full`}>
                     <UsersIcon className="w-4 h-4" />
-                    {inviteLinkLoading ? 'Bezig...' : 'Uitnodigingslink maken'}
+                    {inviteLinkLoading ? tt('loadingShort') : t('createInviteLink')}
                   </button>
                 ) : (
                   <div className={`${card} p-4`}>
-                    <p className="text-xs text-muted mb-2">Deel deze link met je partner. Hij werkt één keer en is 7 dagen geldig.</p>
+                    <p className="text-xs text-muted mb-2">{t('shareLinkHint')}</p>
                     <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} className={`${input} text-xs mb-3`} />
                     <div className="flex gap-2">
                       <button onClick={shareInviteLink} className={`${btnPrimary} flex-1`}>
                         {linkCopied ? <CheckIcon className="w-4 h-4" /> : null}
-                        {linkCopied ? 'Gekopieerd' : 'Delen'}
+                        {linkCopied ? t('copied') : t('share')}
                       </button>
                       <button onClick={createInviteLink} disabled={inviteLinkLoading} className="text-sm text-muted px-3">
-                        Nieuwe link
+                        {t('newLink')}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              <p className="text-xs text-faint mb-2">Of nodig iemand uit die al een account heeft, via het e-mailadres:</p>
+              <p className="text-xs text-faint mb-2">{t('orByEmail')}</p>
               <div className="flex gap-2 mb-4">
                 <input
                   type="email"
                   value={partnerEmail}
                   onChange={(e) => setPartnerEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && sendInvite()}
-                  placeholder="E-mailadres van je partner"
+                  placeholder={t('partnerEmail')}
                   className={`${input} flex-1`}
                 />
                 <button onClick={sendInvite} disabled={inviteLoading} className={btnPrimary}>
-                  Uitnodigen
+                  {t('invite')}
                 </button>
               </div>
 
               {connections.length === 0 && (
                 <p className="text-muted text-sm flex items-center gap-2">
                   <UsersIcon className="w-4 h-4 text-faint" />
-                  Nog geen koppeling met een partner.
+                  {t('noConnection')}
                 </p>
               )}
               {connections.length > 0 && (
@@ -602,10 +609,10 @@ export default function Settings() {
                         {c.other_email}
                         <span className="block text-xs text-faint mt-0.5">
                           {c.status === 'accepted'
-                            ? 'Gekoppeld'
+                            ? t('linked')
                             : c.direction === 'incoming'
-                              ? 'Wil koppelen'
-                              : 'Wacht op reactie'}
+                              ? t('wantsToLink')
+                              : t('waitingForReply')}
                         </span>
                       </span>
                       <div className="flex gap-2">
@@ -614,13 +621,13 @@ export default function Settings() {
                             onClick={() => acceptConnection(c.id)}
                             className="text-sm font-medium border border-teal text-teal rounded-full px-3.5 py-1.5 hover:bg-teal/10 transition-colors touch-manipulation active:scale-[0.96]"
                           >
-                            Accepteren
+                            {t('accept')}
                           </button>
                         )}
                         <button
                           onClick={() => removeConnection(c.id)}
                           className="text-muted hover:text-coral transition-colors p-1.5"
-                          aria-label="Verwijderen"
+                          aria-label={tt('remove')}
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -631,10 +638,10 @@ export default function Settings() {
               )}
             </Collapsible>
 
-            <GroupTitle title="Uiterlijk" />
+            <GroupTitle title={t('groupLooks')} />
             <LanguageSetting />
             <div className="mt-8" />
-            <SectionTitle title="Skin" hint="Kies de kleuren van de app. De keuze geldt op dit apparaat." />
+            <SectionTitle title={t('skin')} hint={t('skinHint')} />
             <div className="flex flex-col gap-2">
               {SKINS.map((s) => {
                 const active = skin === s.id
@@ -653,8 +660,8 @@ export default function Settings() {
                       ))}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className={`block text-sm font-medium ${active ? 'text-accent' : ''}`}>{s.label}</span>
-                      <span className="block text-xs text-muted mt-0.5 leading-snug">{s.description}</span>
+                      <span className={`block text-sm font-medium ${active ? 'text-accent' : ''}`}>{tsk(`${s.id}Label`)}</span>
+                      <span className="block text-xs text-muted mt-0.5 leading-snug">{tsk(`${s.id}Description`)}</span>
                     </span>
                     {active && <CheckIcon className="w-4 h-4 flex-shrink-0 text-accent" />}
                   </button>
@@ -662,49 +669,49 @@ export default function Settings() {
               })}
             </div>
 
-            <GroupTitle title="Over de app" />
+            <GroupTitle title={t('groupAbout')} />
             <button
               onClick={() => setShowWhatsNew(true)}
               className="w-full text-left rounded-xl border border-line px-4 py-3.5 mb-2 hover:border-line-strong transition-colors touch-manipulation"
             >
-              <span className="block text-sm font-medium">Wat is er nieuw</span>
-              <span className="block text-xs text-muted mt-0.5">De laatste verbeteringen aan Kijkassistent</span>
+              <span className="block text-sm font-medium">{tw('title')}</span>
+              <span className="block text-xs text-muted mt-0.5">{t('whatsNewSub')}</span>
             </button>
 
             {isAdmin && (
               <Link href="/beheer" className={linkRow}>
                 <span>
-                  <span className="block text-sm font-medium">Gebruiksoverzicht</span>
-                  <span className="block text-xs text-muted mt-0.5">Wie de app gebruikt, per dag en per gebruiker (alleen voor jou)</span>
+                  <span className="block text-sm font-medium">{t('usage')}</span>
+                  <span className="block text-xs text-muted mt-0.5">{t('usageSub')}</span>
                 </span>
               </Link>
             )}
 
             <div className="mt-10">
-              <Collapsible title="Account verwijderen" tone="danger">
+              <Collapsible title={t('deleteAccount')} tone="danger">
                 <p className="text-muted text-sm mb-3 leading-relaxed">
-                  Wist je account en al je gegevens (favorieten, beoordelingen, kijklijst en koppelingen). Dit kan niet ongedaan worden gemaakt.
+                  {t('deleteIntro')}
                 </p>
                 {!confirmDelete ? (
                   <button
                     onClick={() => setConfirmDelete(true)}
                     className="text-sm font-medium text-coral border border-coral/40 rounded-full px-4 py-2.5 hover:bg-coral/10 transition-colors touch-manipulation"
                   >
-                    Account verwijderen
+                    {t('deleteAccount')}
                   </button>
                 ) : (
                   <div className="rounded-xl border border-coral/40 bg-coral/5 p-4">
-                    <p className="text-sm mb-3">Weet je het zeker? Je account en alles wat naar jou leidt, worden direct en definitief gewist. Wat je van titels vond, bewaren we alleen anoniem.</p>
+                    <p className="text-sm mb-3">{t('deleteConfirm')}</p>
                     <div className="flex gap-2">
                       <button
                         onClick={handleDeleteAccount}
                         disabled={deleting}
                         className="text-sm font-semibold bg-coral text-on-accent rounded-full px-4 py-2.5 disabled:opacity-50 touch-manipulation"
                       >
-                        {deleting ? 'Verwijderen...' : 'Ja, verwijder alles'}
+                        {deleting ? t('deleting') : t('deleteYes')}
                       </button>
                       <button onClick={() => setConfirmDelete(false)} disabled={deleting} className="text-sm text-muted px-4 py-2.5">
-                        Annuleren
+                        {tt('cancel')}
                       </button>
                     </div>
                   </div>
@@ -726,7 +733,7 @@ export default function Settings() {
             }`}
           >
             {saveState === 'saved' && <CheckIcon className="w-4 h-4 text-teal" />}
-            {saveState === 'saving' ? 'Opslaan...' : saveState === 'saved' ? 'Opgeslagen' : 'Opslaan mislukt'}
+            {saveState === 'saving' ? t('saving') : saveState === 'saved' ? t('saved') : t('saveFailed')}
           </span>
         )}
       </div>

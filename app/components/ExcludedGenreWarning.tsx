@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 
 type FavoriteGenres = { title: string; genres: { id: number; name: string }[] }
@@ -16,6 +17,8 @@ export default function ExcludedGenreWarning({
   onAllow: (genreId: number) => void
 }) {
   const [favorites, setFavorites] = useState<FavoriteGenres[]>([])
+  const t = useTranslations('genreWarning')
+  const tg = useTranslations('genres')
 
   useEffect(() => {
     let cancelled = false
@@ -60,7 +63,8 @@ export default function ExcludedGenreWarning({
   for (const fav of favorites) {
     for (const genre of fav.genres) {
       if (!excluded.has(genre.id)) continue
-      const entry = conflicts.get(genre.id) ?? { name: genre.name, titles: [] }
+      // De genrenaam uit de cache is Nederlands; via het id in de taal van de app (onbekend id: de naam uit de cache).
+      const entry = conflicts.get(genre.id) ?? { name: tg.has(`g${genre.id}`) ? tg(`g${genre.id}`) : genre.name, titles: [] }
       if (!entry.titles.includes(fav.title)) entry.titles.push(fav.title)
       conflicts.set(genre.id, entry)
     }
@@ -69,10 +73,9 @@ export default function ExcludedGenreWarning({
 
   return (
     <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 mb-6">
-      <p className="text-sm font-medium text-accent">Klopt dit? Je favorieten vallen in genres die je hebt uitgesloten</p>
+      <p className="text-sm font-medium text-accent">{t('title')}</p>
       <p className="text-xs text-muted mt-1 leading-relaxed">
-        Uitgesloten genres worden nooit aanbevolen, ook niet als een favoriet erop lijkt. Dat maakt je aanbevelingen erg
-        smal. Vink alleen aan wat je écht niet wilt zien.
+        {t('text')}
       </p>
       <ul className="mt-3 flex flex-col gap-2">
         {Array.from(conflicts.entries()).map(([id, { name, titles }]) => (
@@ -82,14 +85,14 @@ export default function ExcludedGenreWarning({
               <span className="text-muted">
                 {' '}
                 — {titles.slice(0, 3).join(', ')}
-                {titles.length > 3 ? ` en ${titles.length - 3} andere` : ''}
+                {titles.length > 3 ? t('andOthers', { count: titles.length - 3 }) : ''}
               </span>
             </span>
             <button
               onClick={() => onAllow(id)}
               className="flex-shrink-0 text-xs font-medium rounded-full border border-accent text-accent px-3 py-1.5 touch-manipulation hover:bg-accent/10 transition-colors"
             >
-              Weer toestaan
+              {t('allow')}
             </button>
           </li>
         ))}

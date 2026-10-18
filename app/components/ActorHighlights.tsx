@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { btnSecondary, card } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
@@ -21,15 +22,16 @@ export default function ActorHighlights({ actors }: { actors: ActorHighlight[] }
   const [open, setOpen] = useState<ActorHighlight | null>(null)
   const [info, setInfo] = useState<TitleInfoItem | null>(null)
   const maxCount = actors[0]?.count ?? 0
+  const t = useTranslations('stats')
 
   return (
     <>
       <div className={`${card} p-5 border-accent/30`}>
         <div className="flex items-center gap-2 mb-1">
           <UsersIcon className="w-4 h-4 text-accent" />
-          <p className="text-sm font-medium">Wist je dit al?</p>
+          <p className="text-sm font-medium">{t('didYouKnow')}</p>
         </div>
-        <p className="text-xs text-faint mb-3">Deze mensen duiken opvallend vaak op in wat je hebt gezien. Tik op een naam voor de titels.</p>
+        <p className="text-xs text-faint mb-3">{t('didYouKnowSub')}</p>
         <div className="flex flex-col gap-0.5">
           {actors.map((actor, i) => (
             <button
@@ -46,7 +48,7 @@ export default function ActorHighlights({ actors }: { actors: ActorHighlight[] }
                   style={{ width: `${maxCount > 0 ? (actor.count / maxCount) * 100 : 0}%` }}
                 />
               </div>
-              <span className="text-xs text-muted w-16 text-right flex-shrink-0">{actor.count}× gezien</span>
+              <span className="text-xs text-muted w-16 text-right flex-shrink-0">{t('timesSeen', { count: actor.count })}</span>
               <span className="text-faint text-sm w-3 flex-shrink-0" aria-hidden>
                 {actor.titles ? '›' : ''}
               </span>
@@ -65,6 +67,8 @@ export default function ActorHighlights({ actors }: { actors: ActorHighlight[] }
 function ActorSheet({ actor, onPick, onClose }: { actor: ActorHighlight; onPick: (item: TitleInfoItem) => void; onClose: () => void }) {
   useBackToClose(true, onClose)
   const titles = actor.titles ?? []
+  const t = useTranslations('stats')
+  const tt = useTranslations('title')
 
   return (
     <div
@@ -84,12 +88,12 @@ function ActorSheet({ actor, onPick, onClose }: { actor: ActorHighlight; onPick:
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <h2 className="font-display text-xl truncate">{actor.name}</h2>
-              <p className="text-sm text-muted">In {titles.length} titels die je hebt gezien</p>
+              <p className="text-sm text-muted">{t('inTitles', { count: titles.length })}</p>
             </div>
             <button
               onClick={onClose}
               className="rounded-full p-2.5 text-muted hover:text-foreground hover:bg-white/5 transition-colors touch-manipulation"
-              aria-label="Sluiten"
+              aria-label={tt('close')}
             >
               <CloseIcon className="w-4 h-4" />
             </button>
@@ -98,14 +102,14 @@ function ActorSheet({ actor, onPick, onClose }: { actor: ActorHighlight; onPick:
 
         <div className="overflow-y-auto px-6 py-2">
           <ul className="flex flex-col divide-y divide-line">
-            {titles.map((t) => (
-              <li key={`${t.media_type}-${t.id}`}>
+            {titles.map((title) => (
+              <li key={`${title.media_type}-${title.id}`}>
                 <button
-                  onClick={() => onPick({ id: t.id, media_type: t.media_type, title: t.title })}
+                  onClick={() => onPick({ id: title.id, media_type: title.media_type, title: title.title })}
                   className="w-full flex items-baseline justify-between gap-3 py-2.5 text-left text-sm hover:text-accent transition-colors touch-manipulation"
                 >
-                  <span className="min-w-0 truncate">{t.title}</span>
-                  <span className="text-xs text-faint flex-shrink-0">{t.media_type === 'tv' ? 'Serie' : 'Film'}</span>
+                  <span className="min-w-0 truncate">{title.title}</span>
+                  <span className="text-xs text-faint flex-shrink-0">{title.media_type === 'tv' ? tt('series') : tt('film')}</span>
                 </button>
               </li>
             ))}
@@ -115,7 +119,7 @@ function ActorSheet({ actor, onPick, onClose }: { actor: ActorHighlight; onPick:
         {actor.id !== undefined && (
           <div className="px-6 pt-3 pb-5 border-t border-line">
             <Link href={`/persoon/${actor.id}?rol=acteur`} className={`${btnSecondary} w-full`}>
-              Alle films en series van {actor.name}
+              {t('allOf', { name: actor.name })}
             </Link>
           </div>
         )}

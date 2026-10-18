@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { card, btnSecondary } from '../components/ui'
@@ -14,8 +15,8 @@ type HiddenTitle = {
   hidden_at: string
 }
 
-function formatHiddenDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam' })
+function formatHiddenDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale === 'en' ? 'en-GB' : 'nl-NL', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Amsterdam' })
 }
 
 // Beheer van de titels die je hebt verborgen (zie "Verbergen" in de popup op Voor jou). Hier zet je ze terug.
@@ -24,6 +25,9 @@ export default function Verborgen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const t = useTranslations('hidden')
+  const tt = useTranslations('title')
+  const locale = useLocale()
 
   useEffect(() => {
     let cancelled = false
@@ -40,7 +44,7 @@ export default function Verborgen() {
       if (cancelled) return
       if (loadError) {
         console.error('Verborgen titels ophalen mislukt:', loadError)
-        setError(`Kon de verborgen titels niet ophalen: ${loadError.message}`)
+        setError(t('errLoad', { message: loadError.message }))
       } else {
         setItems((data || []) as HiddenTitle[])
       }
@@ -68,7 +72,7 @@ export default function Verborgen() {
     setBusyKey(null)
     if (deleteError || !removed || removed.length === 0) {
       console.error('Terugzetten mislukt:', deleteError)
-      setError(`Kon "${item.title}" niet terugzetten${deleteError ? `: ${deleteError.message}` : '.'}`)
+      setError(deleteError ? t('errRestoreMsg', { title: item.title, message: deleteError.message }) : t('errRestore', { title: item.title }))
       return
     }
     setItems((current) => current.filter((i) => !(i.tmdb_id === item.tmdb_id && i.media_type === item.media_type)))
@@ -79,12 +83,11 @@ export default function Verborgen() {
       <main className="max-w-sm mx-auto px-5 pt-6 pb-28">
         <Link href="/settings" className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground transition-colors mb-4">
           <ChevronLeftIcon className="w-4 h-4" />
-          Instellingen
+          {t('back')}
         </Link>
-        <h1 className="font-display text-2xl mb-1">Verborgen films en series</h1>
+        <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
         <p className="text-muted mb-6">
-          Deze titels komen niet meer in je aanbevelingen. Ze tellen niet mee voor je smaak. Zet je een titel terug, dan kan hij
-          weer verschijnen.
+          {t('intro')}
         </p>
 
         {error && (
@@ -99,7 +102,7 @@ export default function Verborgen() {
         )}
 
         {!loading && items.length === 0 && !error && (
-          <p className="text-sm text-muted">Je hebt niets verborgen. Bij een film of serie op Voor jou vind je onderin de knop Verbergen.</p>
+          <p className="text-sm text-muted">{t('empty')}</p>
         )}
 
         {!loading && items.length > 0 && (
@@ -111,11 +114,11 @@ export default function Verborgen() {
                   <span className="min-w-0">
                     <span className="block text-sm font-medium truncate">{item.title}</span>
                     <span className="block text-xs text-muted mt-0.5">
-                      {item.media_type === 'tv' ? 'Serie' : 'Film'} · verborgen op {formatHiddenDate(item.hidden_at)}
+                      {item.media_type === 'tv' ? tt('series') : tt('film')} · {t('hiddenOn', { date: formatHiddenDate(item.hidden_at, locale) })}
                     </span>
                   </span>
                   <button onClick={() => handleRestore(item)} disabled={busyKey === key} className={`${btnSecondary} !px-4 !py-2 text-sm flex-shrink-0`}>
-                    Terugzetten
+                    {t('restore')}
                   </button>
                 </li>
               )
