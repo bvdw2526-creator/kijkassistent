@@ -4,7 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "nl.kijkassistent.app",
-      "sha256_cert_fingerprints": ["VUL_HIER_DE_SHA256_VINGERAFDRUK_VAN_DE_PLAY_CONSOLE_IN"]
+      "sha256_cert_fingerprints": [
+        "1A:18:68:5D:61:C8:80:7B:87:01:58:C4:1E:9F:D1:E5:8E:AE:F7:99:18:40:24:99:F8:6D:F1:48:17:0C:6C:E2",
+        "E4:4D:29:49:A1:0E:AB:67:74:1A:5B:9D:87:9A:BC:4A:84:74:54:E0:D6:51:37:56:C4:2F:7B:73:2F:4E:FF:75"
+      ]
     }
   }
 ]
