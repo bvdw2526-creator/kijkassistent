@@ -2,12 +2,12 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import { btnPrimary, btnGhost, card } from '../components/ui'
 import {
   DEFAULT_STAR_MAP,
-  STAR_ACTION_LABELS,
   STAR_VALUES,
   readLetterboxdFile,
   starKey,
@@ -44,9 +44,19 @@ function toTimestamp(date: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T12:00:00` : new Date().toISOString().slice(0, 19)
 }
 
-function starsLabel(stars: number): string {
+// Het getal bij "x sterren", bv. 3½.
+function starsNumber(stars: number): string {
   const whole = Math.floor(stars)
-  return `${whole > 0 ? whole : ''}${stars % 1 ? '½' : ''} ${stars === 1 ? 'ster' : 'sterren'}`.trim()
+  return `${whole > 0 ? whole : ''}${stars % 1 ? '½' : ''}`
+}
+
+// Sleutels onder "import" in messages/*.json.
+const ACTION_KEYS: Record<StarAction, 'actionDislike' | 'actionOk' | 'actionLove' | 'actionFavorite' | 'actionSkip'> = {
+  dislike: 'actionDislike',
+  ok: 'actionOk',
+  love: 'actionLove',
+  favorite: 'actionFavorite',
+  skip: 'actionSkip',
 }
 
 const selectClass =
@@ -68,6 +78,7 @@ async function fetchAllRows(table: 'ratings' | 'favorite_movies' | 'watchlist', 
 }
 
 export default function ImportPage() {
+  const t = useTranslations('import')
   const [step, setStep] = useState<Step>('file')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -100,7 +111,7 @@ export default function ImportPage() {
       matchesRef.current = new Map()
       setStep('mapping')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Het bestand kon niet worden gelezen')
+      setError(err instanceof Error ? err.message : t('errRead'))
     }
     setBusy(false)
   }
@@ -132,7 +143,7 @@ export default function ImportPage() {
 
   // ---------- 3. films opzoeken bij TMDB ----------
   async function matchBatch(batch: LbFilm[]): Promise<void> {
-    let lastError = 'Opzoeken mislukt'
+    let lastError = t('errLookup')
     // Niet zinvol om opnieuw te proberen: niet ingelogd of te vaak achter elkaar.
     let fatal = false
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -145,9 +156,9 @@ export default function ImportPage() {
         const body = await res.json()
         if (res.status === 429 || res.status === 401) {
           fatal = true
-          throw new Error(body.error || 'Even te vaak achter elkaar. Probeer het straks opnieuw.')
+          throw new Error(body.error || t('errTooOften'))
         }
-        if (!res.ok || !Array.isArray(body.matches)) throw new Error(body.error || `Opzoeken mislukt (status ${res.status})`)
+        if (!res.ok || !Array.isArray(body.matches)) throw new Error(body.error || t('errLookupStatus', { status: res.status }))
         batch.forEach((film, i) => matchesRef.current.set(film.uri, (body.matches[i] as Match | null) ?? null))
         return
       } catch (err) {
@@ -162,7 +173,7 @@ export default function ImportPage() {
   async function startMatching() {
     const wanted = buildTargets()
     if (wanted.length === 0) {
-      setError('Met deze keuzes valt er niets te importeren. Kies bij minstens één aantal sterren iets anders dan "Overslaan".')
+      setError(t('errNothing'))
       return
     }
     setError(null)
@@ -185,7 +196,7 @@ export default function ImportPage() {
       await Promise.all(Array.from({ length: MATCH_CONCURRENCY }, worker))
 
       const user = await getCurrentUser()
-      if (!user) throw new Error('Je bent niet ingelogd')
+      if (!user) throw new Error(t('errNotLoggedIn'))
       const [ratings, favorites, watchlist] = await Promise.all([
         fetchAllRows('ratings', user.id),
         fetchAllRows('favorite_movies', user.id),
@@ -196,7 +207,7 @@ export default function ImportPage() {
       setStep('review')
     } catch (err) {
       setMatches(new Map(matchesRef.current))
-      setError(err instanceof Error ? err.message : 'Opzoeken mislukt')
+      setError(err instanceof Error ? err.message : t('errLookup'))
     }
   }
 
@@ -205,12 +216,12 @@ export default function ImportPage() {
     if (!existing) return
     setStep('importing')
     setError(null)
-    setPhase('Beoordelingen en favorieten opslaan')
+    setPhase(t('phaseSave'))
     setProgress({ done: 0, total: 0 })
 
     try {
       const user = await getCurrentUser()
-      if (!user) throw new Error('Je bent niet ingelogd')
+      if (!user) throw new Error(t('errNotLoggedIn'))
 
       // Eén rij per film, ook als twee Letterboxd-regels op dezelfde TMDB-titel uitkomen.
       const byId = new Map<number, { target: Target; match: Match }>()
@@ -252,17 +263,17 @@ export default function ImportPage() {
 
       for (const part of chunks(ratingRows, WRITE_BATCH)) {
         const { error: writeError } = await supabase.from('ratings').upsert(part, { onConflict: 'user_id,tmdb_id,media_type' })
-        if (writeError) throw new Error(`Beoordelingen opslaan mislukt: ${writeError.message}`)
+        if (writeError) throw new Error(t('errRatings', { message: writeError.message }))
       }
       for (const part of chunks(favoriteRows, WRITE_BATCH)) {
         const { error: writeError } = await supabase.from('favorite_movies').insert(part)
-        if (writeError) throw new Error(`Favorieten opslaan mislukt: ${writeError.message}`)
+        if (writeError) throw new Error(t('errFavorites', { message: writeError.message }))
       }
       for (const part of chunks(watchlistRows, WRITE_BATCH)) {
         const { error: writeError } = await supabase
           .from('watchlist')
           .upsert(part, { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true })
-        if (writeError) throw new Error(`Kijklijst opslaan mislukt: ${writeError.message}`)
+        if (writeError) throw new Error(t('errWatchlist', { message: writeError.message }))
       }
 
       // Smaak leren kennen: de titels die straks als bron meetellen, in porties vooraf inlezen.
@@ -271,7 +282,7 @@ export default function ImportPage() {
         plans.filter((p) => p.target.action === action).sort(newestFirst).slice(0, WARM_LIMITS[action])
       const warmList = [...pick('favorite'), ...pick('love'), ...pick('ok')].map((p) => ({ id: p.match.id, title: p.match.title }))
 
-      setPhase('Je smaak leren kennen')
+      setPhase(t('phaseLearn'))
       setProgress({ done: 0, total: warmList.length })
       let warmFailed = 0
       const queue = chunks(warmList, WARM_BATCH)
@@ -302,7 +313,7 @@ export default function ImportPage() {
       setSummary({ ratings: ratingRows.length, favorites: favoriteRows.length, watchlist: watchlistRows.length, warmFailed })
       setStep('done')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Importeren mislukt')
+      setError(err instanceof Error ? err.message : t('errImport'))
       setStep('review')
     }
   }
@@ -340,18 +351,18 @@ export default function ImportPage() {
   return (
     <>
       <main className="max-w-xl mx-auto px-5 pt-6 pb-28">
-        <Link href="/settings" className="text-sm text-muted hover:text-foreground transition-colors">← Instellingen</Link>
-        <h1 className="font-display text-2xl mt-3 mb-1">Importeren uit Letterboxd</h1>
+        <Link href="/settings" className="text-sm text-muted hover:text-foreground transition-colors">{t('back')}</Link>
+        <h1 className="font-display text-2xl mt-3 mb-1">{t('heading')}</h1>
 
         {/* Alleen op een computer: op telefoon en tablet is de export van Letterboxd er ook niet. */}
         <div className="[@media(pointer:fine)]:hidden mt-6">
           <p className={`${card} p-5 text-muted leading-relaxed`}>
-            Importeren werkt alleen op een computer. Open Kijkassistent op je laptop of pc, en kom dan hier terug.
+            {t('computerOnly')}
           </p>
         </div>
 
         <div className="hidden [@media(pointer:fine)]:block">
-          <p className="text-muted mb-6">Stap {stepNumber} van 4</p>
+          <p className="text-muted mb-6">{t('stepOf', { step: stepNumber })}</p>
 
           {error && (
             <p className="text-sm text-coral border border-coral/40 bg-coral/5 rounded-xl px-4 py-3 mb-5">{error}</p>
@@ -360,20 +371,18 @@ export default function ImportPage() {
           {step === 'file' && (
             <div className="flex flex-col gap-4">
               <p className="text-muted leading-relaxed">
-                Neem je films en beoordelingen van Letterboxd over. Je kiest zelf wat een aantal sterren in Kijkassistent
-                wordt. Het bestand wordt alleen in je eigen browser gelezen; het wordt niet naar ons gestuurd. Alleen de
-                films die je importeert worden opgeslagen.
+                {t('intro')}
               </p>
               <div className={`${card} p-5`}>
-                <p className="text-sm font-medium mb-2">Zo haal je je export op</p>
+                <p className="text-sm font-medium mb-2">{t('howTo')}</p>
                 <ol className="list-decimal pl-5 text-sm text-muted space-y-1 leading-relaxed">
-                  <li>Log in op <span className="text-foreground">letterboxd.com</span> op je computer.</li>
-                  <li>Ga naar <span className="text-foreground">Instellingen → Data</span> en kies <span className="text-foreground">Export your data</span>.</li>
-                  <li>Je krijgt een zip-bestand. Kies dat hieronder (uitpakken hoeft niet).</li>
+                  <li>{t.rich('howTo1', { b: (c) => <span className="text-foreground">{c}</span> })}</li>
+                  <li>{t.rich('howTo2', { b: (c) => <span className="text-foreground">{c}</span> })}</li>
+                  <li>{t('howTo3')}</li>
                 </ol>
               </div>
               <label className={`${btnPrimary} cursor-pointer ${busy ? 'opacity-50 pointer-events-none' : ''}`}>
-                {busy ? 'Bestand lezen...' : 'Kies je Letterboxd-zip'}
+                {busy ? t('reading') : t('chooseZip')}
                 <input
                   type="file"
                   accept=".zip,.csv"
@@ -387,9 +396,11 @@ export default function ImportPage() {
           {step === 'mapping' && data && (
             <div className="flex flex-col gap-5">
               <p className="text-muted leading-relaxed">
-                <span className="text-foreground">{fileName}</span>: {data.ratings.length} beoordeelde films
-                {data.watchlist.length > 0 ? `, ${data.watchlist.length} op je Letterboxd-watchlist` : ''}. Wat moet een aantal sterren
-                in Kijkassistent worden?
+                {t.rich('mappingIntro', {
+                  b: () => <span className="text-foreground">{fileName}</span>,
+                  count: data.ratings.length,
+                  watchlist: data.watchlist.length > 0 ? t('onWatchlistSuffix', { count: data.watchlist.length }) : '',
+                })}
               </p>
 
               <div className={`${card} p-4 flex flex-col gap-2.5`}>
@@ -400,15 +411,15 @@ export default function ImportPage() {
                     <div key={key} className={`flex items-center justify-between gap-3 ${count === 0 ? 'opacity-45' : ''}`}>
                       <span className="text-sm">
                         <span className="text-accent">{'★'.repeat(Math.floor(stars))}{stars % 1 ? '½' : ''}</span>{' '}
-                        <span className="text-muted">{starsLabel(stars)} · {count} {count === 1 ? 'film' : 'films'}</span>
+                        <span className="text-muted">{t('stars', { stars: starsNumber(stars), count: stars === 1 ? 1 : 2 })} · {t('films', { count })}</span>
                       </span>
                       <select
                         value={starMap[key]}
                         onChange={(e) => setStarMap((m) => ({ ...m, [key]: e.target.value as StarAction }))}
                         className={selectClass}
                       >
-                        {(Object.keys(STAR_ACTION_LABELS) as StarAction[]).map((a) => (
-                          <option key={a} value={a}>{STAR_ACTION_LABELS[a]}</option>
+                        {(Object.keys(ACTION_KEYS) as StarAction[]).map((a) => (
+                          <option key={a} value={a}>{t(ACTION_KEYS[a])}</option>
                         ))}
                       </select>
                     </div>
@@ -420,32 +431,32 @@ export default function ImportPage() {
                 {unratedCount > 0 && (
                   <label className="flex items-center justify-between gap-3 text-sm">
                     <span>
-                      Gezien, maar niet beoordeeld <span className="text-muted">({unratedCount})</span>
+                      {t('unrated')} <span className="text-muted">({unratedCount})</span>
                     </span>
                     <select value={unratedAction} onChange={(e) => setUnratedAction(e.target.value as 'skip' | 'ok')} className={selectClass}>
-                      <option value="skip">Overslaan</option>
-                      <option value="ok">Was oké</option>
+                      <option value="skip">{t('actionSkip')}</option>
+                      <option value="ok">{t('actionOk')}</option>
                     </select>
                   </label>
                 )}
                 {data.watchlist.length > 0 && (
                   <label className="flex items-center gap-3 text-sm">
                     <input type="checkbox" checked={includeWatchlist} onChange={(e) => setIncludeWatchlist(e.target.checked)} className="accent-accent w-4 h-4" />
-                    <span>Ook mijn Letterboxd-watchlist op mijn kijklijst zetten <span className="text-muted">({data.watchlist.length})</span></span>
+                    <span>{t('includeWatchlist')} <span className="text-muted">({data.watchlist.length})</span></span>
                   </label>
                 )}
                 <label className="flex items-center justify-between gap-3 text-sm">
-                  <span>Als ik een film al beoordeeld heb in Kijkassistent</span>
+                  <span>{t('alreadyRatedLabel')}</span>
                   <select value={keepExisting ? 'keep' : 'overwrite'} onChange={(e) => setKeepExisting(e.target.value === 'keep')} className={selectClass}>
-                    <option value="keep">Mijn eigen beoordeling houden</option>
-                    <option value="overwrite">Overschrijven met Letterboxd</option>
+                    <option value="keep">{t('keep')}</option>
+                    <option value="overwrite">{t('overwrite')}</option>
                   </select>
                 </label>
               </div>
 
               <div className="flex gap-2">
-                <button onClick={() => { setStep('file'); setError(null) }} className={btnGhost}>Terug</button>
-                <button onClick={startMatching} className={`${btnPrimary} flex-1`}>Volgende: films opzoeken</button>
+                <button onClick={() => { setStep('file'); setError(null) }} className={btnGhost}>{t('back2')}</button>
+                <button onClick={startMatching} className={`${btnPrimary} flex-1`}>{t('nextLookup')}</button>
               </div>
             </div>
           )}
@@ -453,13 +464,12 @@ export default function ImportPage() {
           {step === 'matching' && (
             <div className="flex flex-col gap-4">
               <p className="text-muted leading-relaxed">
-                We zoeken je films op bij TMDB, de filmdatabase achter Kijkassistent. Dat duurt bij veel films even; je
-                kunt dit venster open laten staan.
+                {t('matchingIntro')}
               </p>
               <div className={`${card} p-5`}>
                 <div className="flex justify-between text-sm mb-2">
-                  <span>Films opzoeken</span>
-                  <span className="text-muted">{progress.done} van {progress.total}</span>
+                  <span>{t('lookingUp')}</span>
+                  <span className="text-muted">{t('progress', { done: progress.done, total: progress.total })}</span>
                 </div>
                 <div className="h-2 rounded-full bg-background overflow-hidden">
                   <div className="h-full bg-accent transition-all" style={{ width: `${percent}%` }} />
@@ -467,8 +477,8 @@ export default function ImportPage() {
               </div>
               {error && (
                 <div className="flex gap-2">
-                  <button onClick={() => { setStep('mapping'); setError(null) }} className={btnGhost}>Terug</button>
-                  <button onClick={startMatching} className={`${btnPrimary} flex-1`}>Opnieuw proberen</button>
+                  <button onClick={() => { setStep('mapping'); setError(null) }} className={btnGhost}>{t('back2')}</button>
+                  <button onClick={startMatching} className={`${btnPrimary} flex-1`}>{t('retry')}</button>
                 </div>
               )}
             </div>
@@ -477,8 +487,7 @@ export default function ImportPage() {
           {step === 'review' && (
             <div className="flex flex-col gap-5">
               <p className="text-muted leading-relaxed">
-                Klaar om te importeren: <span className="text-foreground">{found.length}</span> van de {targets.length} films
-                gevonden.
+                {t.rich('ready', { b: () => <span className="text-foreground">{found.length}</span>, total: targets.length })}
               </p>
               <div className={`${card} p-4 flex flex-col gap-2 text-sm`}>
                 {(['favorite', 'love', 'ok', 'dislike', 'watchlist'] as const).map((a) => {
@@ -486,15 +495,14 @@ export default function ImportPage() {
                   if (n === 0) return null
                   return (
                     <div key={a} className="flex justify-between">
-                      <span>{a === 'watchlist' ? 'Op je kijklijst' : STAR_ACTION_LABELS[a]}</span>
+                      <span>{a === 'watchlist' ? t('onWatchlist') : t(ACTION_KEYS[a])}</span>
                       <span className="text-muted">{n}</span>
                     </div>
                   )
                 })}
                 {alreadyRated > 0 && (
                   <p className="text-xs text-muted mt-1 leading-relaxed">
-                    {alreadyRated} {alreadyRated === 1 ? 'film had' : 'films hadden'} je al beoordeeld in Kijkassistent:{' '}
-                    {keepExisting ? 'die beoordeling blijft staan.' : 'die wordt overschreven.'}
+                    {t(keepExisting ? 'alreadyRatedKeep' : 'alreadyRatedOverwrite', { count: alreadyRated })}
                   </p>
                 )}
               </div>
@@ -502,20 +510,20 @@ export default function ImportPage() {
               {notFound.length > 0 && (
                 <details className={`${card} p-4 text-sm`}>
                   <summary className="cursor-pointer">
-                    {notFound.length} {notFound.length === 1 ? 'film' : 'films'} niet gevonden (worden overgeslagen)
+                    {t('notFound', { count: notFound.length })}
                   </summary>
                   <ul className="mt-3 space-y-1 text-muted max-h-56 overflow-y-auto">
-                    {notFound.slice(0, 300).map((t) => (
-                      <li key={t.film.uri}>{t.film.name}{t.film.year ? ` (${t.film.year})` : ''}</li>
+                    {notFound.slice(0, 300).map((target) => (
+                      <li key={target.film.uri}>{target.film.name}{target.film.year ? ` (${target.film.year})` : ''}</li>
                     ))}
                   </ul>
                 </details>
               )}
 
               <div className="flex gap-2">
-                <button onClick={() => { setStep('mapping'); setError(null) }} className={btnGhost}>Terug</button>
+                <button onClick={() => { setStep('mapping'); setError(null) }} className={btnGhost}>{t('back2')}</button>
                 <button onClick={runImport} disabled={found.length === 0} className={`${btnPrimary} flex-1`}>
-                  Importeer {found.length} films
+                  {t('importN', { count: found.length })}
                 </button>
               </div>
             </div>
@@ -526,15 +534,14 @@ export default function ImportPage() {
               <div className={`${card} p-5`}>
                 <div className="flex justify-between text-sm mb-2">
                   <span>{phase}</span>
-                  {progress.total > 0 && <span className="text-muted">{progress.done} van {progress.total}</span>}
+                  {progress.total > 0 && <span className="text-muted">{t('progress', { done: progress.done, total: progress.total })}</span>}
                 </div>
                 <div className="h-2 rounded-full bg-background overflow-hidden">
                   <div className="h-full bg-accent transition-all" style={{ width: `${progress.total > 0 ? percent : 8}%` }} />
                 </div>
               </div>
               <p className="text-sm text-muted leading-relaxed">
-                Je smaak leren kennen kan een paar minuten duren bij veel films. Laat dit venster open, dan gaat straks het
-                eerste vernieuwen van je aanbevelingen snel.
+                {t('learnNote')}
               </p>
             </div>
           )}
@@ -542,18 +549,17 @@ export default function ImportPage() {
           {step === 'done' && summary && (
             <div className="flex flex-col gap-4">
               <div className={`${card} p-5 flex flex-col gap-2 text-sm`}>
-                <p className="font-medium text-base mb-1">Klaar!</p>
-                <p>{summary.ratings} beoordelingen geïmporteerd</p>
-                <p>{summary.favorites} favorieten toegevoegd</p>
-                {summary.watchlist > 0 && <p>{summary.watchlist} films op je kijklijst gezet</p>}
+                <p className="font-medium text-base mb-1">{t('done')}</p>
+                <p>{t('doneRatings', { count: summary.ratings })}</p>
+                <p>{t('doneFavorites', { count: summary.favorites })}</p>
+                {summary.watchlist > 0 && <p>{t('doneWatchlist', { count: summary.watchlist })}</p>}
                 {summary.warmFailed > 0 && (
                   <p className="text-xs text-muted mt-1 leading-relaxed">
-                    Bij {summary.warmFailed} films lukte het voorbereiden niet. Dat is niet erg: het eerste vernieuwen van je
-                    aanbevelingen kan dan iets langer duren.
+                    {t('warmFailed', { count: summary.warmFailed })}
                   </p>
                 )}
               </div>
-              <button onClick={finish} className={btnPrimary}>Naar mijn aanbevelingen</button>
+              <button onClick={finish} className={btnPrimary}>{t('toRecommendations')}</button>
             </div>
           )}
         </div>
