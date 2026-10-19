@@ -955,7 +955,10 @@ export default function Home() {
   const ordinary = movies.filter((m) => !m.upcoming)
   const movieResults = ordinary.filter((m) => m.media_type === 'movie').sort((a, b) => b.matchPercent - a.matchPercent)
   const tvResults = ordinary.filter((m) => m.media_type === 'tv').sort((a, b) => b.matchPercent - a.matchPercent)
-  // Titels die nog moeten uitkomen tellen niet mee in Films (x) / Series (x) en komen tussen de rest.
+  // Titels die nog moeten uitkomen komen tussen de rest en tellen mee in Films (x) / Series (x),
+  // zodat het getal klopt met wat je ziet als je op het tabblad klikt.
+  const movieCount = movies.filter((m) => m.media_type === 'movie').length
+  const tvCount = movies.filter((m) => m.media_type === 'tv').length
   const upcomingOfTab = movies.filter((m) => m.upcoming && m.media_type === tab).sort((a, b) => b.matchPercent - a.matchPercent)
   const visible = interleaveUpcoming(tab === 'movie' ? movieResults : tvResults, upcomingOfTab)
   const showSkeleton = (halloween.day ? halloween.loading : loading) && movies.length === 0
@@ -1054,7 +1057,7 @@ export default function Home() {
                 tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
-              {t('filmsCount', { count: movieResults.length })}
+              {t('filmsCount', { count: movieCount })}
             </button>
             <button
               onClick={() => setTab('tv')}
@@ -1062,7 +1065,7 @@ export default function Home() {
                 tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
-              {t('seriesCount', { count: tvResults.length })}
+              {t('seriesCount', { count: tvCount })}
             </button>
           </div>
           <button
