@@ -1,0 +1,25 @@
+{
+  "appId": "nl.kijkassistent.app",
+  "appName": "Kijkassistent",
+  "webDir": "www",
+  "server": {
+    "url": "https://www.kijkassistent.nl",
+    "androidScheme": "https",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "appendUserAgent": "KijkassistentApp/Android",
+    "backgroundColor": "#10151C"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#10151C",
+      "showSpinner": false
+    },
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}
