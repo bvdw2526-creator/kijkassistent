@@ -14,7 +14,7 @@ export default async function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 18 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 19 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -47,6 +47,11 @@ export default async function Privacy() {
             gezamenlijke beoordelingen voor &quot;Samen&quot;.
           </li>
           <li>Tijdelijk opgeslagen aanbevelingen, zodat de app snel laadt, en welke tip van de week je hebt gekregen.</li>
+          <li>
+            Hoe vaak je Kijkassistent per dag opent en waarmee: de Android-app, de op je startscherm geïnstalleerde versie
+            of de browser. Zo zien we of de app goed gebruikt wordt. Dit zien alleen wij, zonder je naam of e-mailadres,
+            en we bewaren het hooguit 18 maanden.
+          </li>
           <li>
             Als je je Letterboxd-export importeert: het bestand wordt alleen in je eigen browser gelezen en niet naar ons
             gestuurd. Alleen de films en beoordelingen die je zelf kiest te importeren worden opgeslagen, net als
@@ -140,7 +145,7 @@ function PrivacyEn() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacy statement</h1>
-      <p className="text-muted mb-2">Last updated: 18 October 2026</p>
+      <p className="text-muted mb-2">Last updated: 19 October 2026</p>
       <p className="text-muted text-sm mb-8">
         This is a translation of the Dutch privacy statement. If the two differ, the Dutch version applies.
       </p>
@@ -176,6 +181,11 @@ function PrivacyEn() {
             shared ratings for &quot;Together&quot;.
           </li>
           <li>Temporarily stored recommendations, so the app loads quickly, and which tip of the week you received.</li>
+          <li>
+            How often you open Kijkassistent per day and with what: the Android app, the version installed on your home
+            screen or the browser. This shows us whether the app is being used well. Only we can see this, without your
+            name or email address, and we keep it for at most 18 months.
+          </li>
           <li>
             If you import your Letterboxd export: the file is only read in your own browser and is not sent to us. Only
             the films and ratings you choose to import are stored, just like everything you add yourself.
