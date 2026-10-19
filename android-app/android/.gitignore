@@ -104,3 +104,6 @@ app/src/main/res/xml/config.xml
 keystore.properties
 *.keystore
 *.jks
+
+# Instellingen van Android Studio
+.idea/
