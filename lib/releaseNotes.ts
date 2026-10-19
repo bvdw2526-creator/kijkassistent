@@ -12,6 +12,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-19',
+    date: '19 oktober 2026',
+    items: [
+      "Nieuwe skin voor boekenliefhebbers: de Boekenclub. Zet hem aan bij Instellingen onder 'Uiterlijk' en je krijgt bovenaan Voor jou een rij boekverfilmingen op jouw diensten. Ook in je gewone advies komen boekverfilmingen dan vaker voor, en bij Zoeken staan alle boekverfilmingen vooraan.",
+    ],
+    itemsEn: [
+      "A new skin for book lovers: the Book Club. Turn it on in Settings under 'Appearance' and you'll get a row of book adaptations on your services at the top of For you. Book adaptations will also show up more often in your regular recommendations, and Search opens on all book adaptations.",
+    ],
+  },
+  {
     // Tweede update op dezelfde dag: een nieuw id, zodat ook wie de eerste al zag het kaartje nog een keer krijgt.
     id: '2026-10-18b',
     date: '18 oktober 2026',

@@ -120,6 +120,29 @@
   --coral-soft: rgba(200, 85, 61, 0.14);
 }
 
+/* Boekenclub: een bibliotheek bij avond. Donker notenhout, verguld goud als accent (zoals de letters op een rug van
+   leer), groen van een leeslamp of linnen band als tweede kleur. */
+:root[data-skin="boekenclub"] {
+  --background: #13100D;
+  --surface: #1D1814;
+  --surface-2: #27201A;
+  --border: #3A2F25;
+  --border-strong: #574636;
+  --border-soft: #2B231C;
+  --control: #4D3F31;
+  --foreground: #F2EADF;
+  --muted: #B5A794;
+  --faint: #7A6C5B;
+  --accent: #D8B06A;
+  --accent-hover: #E8C484;
+  --on-accent: #1A1309;
+  --accent-soft: rgba(216, 176, 106, 0.14);
+  --teal: #86B38F;
+  --teal-soft: rgba(134, 179, 143, 0.14);
+  --coral: #C0574B;
+  --coral-soft: rgba(192, 87, 75, 0.14);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -194,6 +217,15 @@ body {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 320' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23E08A3C' stop-opacity='.16'/%3E%3Cstop offset='1' stop-color='%23E08A3C' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 196 C110 140 210 138 310 178 S 470 236 560 190 S 680 140 720 158 V320 H0Z' fill='url(%23d)'/%3E%3Cpath d='M0 248 C150 196 270 214 390 240 S 610 206 720 228 V320 H0Z' fill='url(%23d)'/%3E%3C/svg%3E") no-repeat top center / 100% 320px,
     radial-gradient(circle at 78% 104px, rgba(243, 233, 218, 0.20) 0, rgba(243, 233, 218, 0.20) 30px, rgba(224, 138, 60, 0.22) 34px, transparent 150px) no-repeat top center / 100% 520px,
     radial-gradient(ellipse 95% 100% at 50% 0%, rgba(224, 138, 60, 0.18), transparent 70%) no-repeat top center / 100% 520px,
+    var(--background);
+}
+
+/* Boekenclub: een open boek rechtsboven (getekend, geen afbeelding) in het warme licht van een leeslamp. */
+:root[data-skin="boekenclub"] .bg-glow {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 300' preserveAspectRatio='xMidYMin meet'%3E%3Cg fill='none' stroke='%23D8B06A' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M560 140 C530 122 492 118 458 126 L458 70 C492 62 530 66 560 84 Z' stroke-opacity='.30' stroke-width='3'/%3E%3Cpath d='M560 140 C590 122 628 118 662 126 L662 70 C628 62 590 66 560 84 Z' stroke-opacity='.30' stroke-width='3'/%3E%3Cpath d='M474 86 C500 82 526 85 548 96 M474 100 C500 96 526 99 548 110 M574 96 C596 85 622 82 646 86 M574 110 C596 99 622 96 646 100' stroke-opacity='.16' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E") no-repeat center 48px / min(100%, 720px) 300px,
+    radial-gradient(circle at 18% 0%, rgba(232, 196, 132, 0.16), transparent 380px) no-repeat top left / 100% 520px,
+    radial-gradient(ellipse 95% 100% at 50% 0%, rgba(216, 176, 106, 0.12), transparent 70%) no-repeat top center / 100% 520px,
     var(--background);
 }
 

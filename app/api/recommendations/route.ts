@@ -68,7 +68,11 @@ export async function GET(request: NextRequest) {
   // Het voorvoegsel maakt eerder bewaarde resultaten (zonder binnenkort-titels) ongeldig.
   // De methode zit in de handtekening: wisselen van berekening maakt opgeslagen lijsten vanzelf ongeldig.
   const hiddenKeys = (inputs.hidden ?? []).map((h) => `${h.media_type}-${h.tmdb_id}`).sort()
-  const profileSignature = `u20|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',')
+  // ?boeken=1: de Boekenclub-skin staat aan op dit apparaat; boekverfilmingen krijgen extra punten. Een eigen handtekening,
+  // zodat wisselen van skin een nieuwe berekening geeft in plaats van de bewaarde lijst van de andere skin.
+  const bookBonus = request.nextUrl.searchParams.get('boeken') === '1'
+  const profileSignature =
+    `u20|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',') + (bookBonus ? '|boek' : '')
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')
@@ -119,7 +123,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
-  const taste = await computeTasteProfile(supabase, inputs, { availableOnSourceIds: userSourceIds, staleRefresher: stale })
+  const taste = await computeTasteProfile(supabase, inputs, { availableOnSourceIds: userSourceIds, staleRefresher: stale, bookBonus })
   const { sortedByMode } = taste
 
   // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts).

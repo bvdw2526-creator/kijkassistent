@@ -5,7 +5,8 @@ import { DEFAULT_SKIN, SKIN_BANNER_DISMISSED_KEY, SKIN_STORAGE_KEY, isSkinId, ty
 
 const SKIN_CHANGED_EVENT = 'kijkassistent:skin-gewijzigd'
 
-function readSkin(): SkinId {
+// De skin op dit apparaat, op het moment van aanroepen (buiten React, bv. bij het ophalen van de aanbevelingen).
+export function readSkin(): SkinId {
   try {
     const stored = localStorage.getItem(SKIN_STORAGE_KEY)
     return isSkinId(stored) ? stored : DEFAULT_SKIN

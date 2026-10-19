@@ -78,6 +78,8 @@ interface ScoredCandidate extends TmdbItem {
   // Hoe goed trefwoorden, regisseur, tijdperk en taal bij je smaak passen (zie lib/titleFeatures.ts), en de korte redenen.
   featureScore: number
   contentLabels: string[]
+  // Bonus voor een boekverfilming met de Boekenclub-skin aan (zie BOOK_ADAPTATION_BONUS); anders 0.
+  bookScore: number
   // Straf door "niet voor mij" (zie MAX_DISLIKE_SOURCES) en het aantal afgekeurde titels waar deze kandidaat op lijkt.
   dislikeScore: number
   dislikeHits: number
@@ -242,6 +244,13 @@ const TMDB_CREDITS_CACHE_MAX_AGE_HOURS = 24 * 7
 // (3) en veel hoger dan een losse discover-hit, zodat een titel met een favoriete
 // acteur/actrice ook echt naar boven komt, ook zonder andere match met het smaakprofiel.
 const ACTOR_MATCH_WEIGHT = 5
+// TMDB-trefwoord "based on novel or book": door de community getagd, bekende verfilmingen hebben het vrijwel altijd.
+export const BOOK_KEYWORD_ID = 818
+// Extra punten voor een boekverfilming zolang de Boekenclub-skin aan staat (zie options.bookBonus in computeTasteProfile).
+// Gemeten op 18 okt 2026 (profiel van de beheerder, pool 2.425 titels waarvan 346 boekverfilmingen): boekverfilmingen in
+// Puur / Breder / Verras me bij bonus 0: 8/45, 16/88, 10/60; bij 6: 14, 47, 28; bij 10: 15, 68, 37. Bij 6 komen er
+// duidelijk meer bij zonder dat de lijsten er vol mee staan; Puur blijft door de verhaal-drempel vanzelf begrensd.
+const BOOK_ADAPTATION_BONUS = 6
 // Zelfde gewicht als een favoriete acteur/actrice — geen van beide weegt zwaarder,
 // simpel te verfijnen later als daar aanleiding toe is.
 const DIRECTOR_MATCH_WEIGHT = 5
@@ -1788,10 +1797,12 @@ export async function computeTasteProfile(
   // explainKey ("movie-123"): houd voor deze ene titel bij waar hij afvalt (zie TitleExplanation).
   // staleRefresher: verlopen cacherijen (kijkinformatie, "lijkt hierop", rolverdeling, details) gelden dan als bruikbaar in
   // plaats van live opgehaald te worden; ze worden verzameld om na het antwoord te verversen (zie StaleCacheRefresher).
+  // bookBonus: de Boekenclub-skin staat aan; boekverfilmingen krijgen extra punten (zie BOOK_ADAPTATION_BONUS).
   options: {
     availableOnSourceIds?: Set<number>
     explainKey?: string
     staleRefresher?: StaleCacheRefresher
+    bookBonus?: boolean
   } = {}
 ): Promise<TasteProfile> {
   const explainKey = options.explainKey
@@ -2021,6 +2032,7 @@ export async function computeTasteProfile(
         neighborMax: 0,
         featureScore: 0,
         contentLabels: [],
+        bookScore: 0,
         dislikeScore: 0,
         dislikeHits: 0,
         basedOn: new Set<string>(),
@@ -2314,6 +2326,22 @@ export async function computeTasteProfile(
     }
   }
 
+  // Boekenclub-skin: boekverfilmingen krijgen er punten bij. Bij alle kandidaten, niet alleen de groep hierboven: anders
+  // schuiven de boekverfilmingen die al bovenaan stonden alleen naar een ander tabblad en komen er geen nieuwe bij (gemeten
+  // 19 okt 2026). Alleen uit de bewaarde trefwoorden (geen live TMDB-aanvragen); een titel zonder bewaarde trefwoorden
+  // krijgt de bonus nog niet.
+  if (options.bookBonus) {
+    const bookFeatures = await getFeaturesBulk(
+      supabase,
+      candidates.map((c) => ({ media_type: c.media_type, tmdb_id: c.id })),
+      { maxLive: 0 }
+    )
+    for (const candidate of candidates) {
+      const features = bookFeatures.get(`${candidate.media_type}-${candidate.id}`)
+      if (features?.keywords.some((k) => k.id === BOOK_KEYWORD_ID)) candidate.bookScore = BOOK_ADAPTATION_BONUS
+    }
+  }
+
   // Alleen cast/regisseurs opzoeken als er favoriete acteurs/actrices en/of favoriete
   // regisseurs zijn ingesteld — anders kost dit gebruikers zonder die voorkeuren extra
   // TMDB-calls voor niets. Let op: dit kan alleen kandidaten die al via een ander
@@ -2397,7 +2425,8 @@ export async function computeTasteProfile(
         item.neighborScore * neighborLikeWeight +
         item.featureScore * learn +
         item.actorScore +
-        item.directorScore -
+        item.directorScore +
+        item.bookScore -
         item.dislikeScore
       return {
         ...item,

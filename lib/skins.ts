@@ -2,7 +2,7 @@
 // De kleuren zelf staan in app/globals.css onder :root[data-skin="..."]; hier staat wat de app er verder over moet weten.
 // De keuze wordt op het apparaat bewaard (localStorage), niet bij het account: zie lib/useSkin.ts.
 
-export type SkinId = 'standaard' | 'halloween' | 'doomsday' | 'dune' | 'matrix'
+export type SkinId = 'standaard' | 'halloween' | 'doomsday' | 'dune' | 'matrix' | 'boekenclub'
 
 export type Skin = {
   id: SkinId
@@ -58,7 +58,19 @@ export const SKINS: Skin[] = [
     swatch: ['#050805', '#3BE06B', '#E0524A'],
     effect: 'coderegen',
   },
+  {
+    // Voor boekenliefhebbers: een rij boekverfilmingen op je eigen diensten bovenaan Voor jou (zie
+    // app/components/BookClubRow.tsx), en boekverfilmingen krijgen extra punten in je advies (zie BOOK_ADAPTATION_BONUS
+    // in lib/recommendationEngine.ts).
+    id: 'boekenclub',
+    label: 'Boekenclub',
+    description: 'Een bibliotheek bij avond, met boekverfilmingen bovenaan Voor jou en vaker in je advies',
+    swatch: ['#13100D', '#D8B06A', '#86B38F'],
+  },
 ]
+
+// De skin die boekverfilmingen voorrang geeft (rij op Voor jou en bonus in de score).
+export const BOOK_CLUB_SKIN: SkinId = 'boekenclub'
 
 export const DEFAULT_SKIN: SkinId = 'standaard'
 export const SKIN_STORAGE_KEY = 'kijkassistent:skin'

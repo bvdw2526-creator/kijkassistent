@@ -123,14 +123,15 @@ export function useHalloweenLists(userId: string | null, scope: HalloweenScope |
 
 // Een rij posters waar je opzij doorheen veegt. Met een muis kan dat niet: dan staan er pijltjes op de rij, alleen aan de
 // kant waar nog titels buiten beeld zijn. Bedoeld binnen een blok met p-4 (de rij loopt door tot de rand van dat blok).
-function PosterScroller({
+// Ook gebruikt door de Boekenclub-rij (app/components/BookClubRow.tsx).
+export function PosterScroller<T extends Omit<HalloweenMovie, 'halloween'>>({
   items,
   loading = false,
   onSelect,
 }: {
-  items: HalloweenMovie[]
+  items: T[]
   loading?: boolean
-  onSelect: (movie: HalloweenMovie) => void
+  onSelect: (movie: T) => void
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   const [more, setMore] = useState({ left: false, right: false })

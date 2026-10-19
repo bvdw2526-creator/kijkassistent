@@ -308,6 +308,11 @@
     "rowTextMine": "Te zien op jouw diensten; wat het best bij je past staat vooraan.",
     "rowTextOurs": "Te zien op jullie diensten; wat bij jullie allebei past staat vooraan."
   },
+  "bookClub": {
+    "row": "Boekverfilmingen op jouw diensten",
+    "rowText": "Films en series naar een boek; wat het best bij je past staat vooraan.",
+    "allBooks": "Alle boekverfilmingen"
+  },
   "skinBanner": {
     "months": "mnd",
     "day": "dag",
@@ -456,7 +461,9 @@
     "duneLabel": "Dune",
     "duneDescription": "Zand, zon en zandwormen, en de film bovenaan Voor jou",
     "matrixLabel": "Matrix",
-    "matrixDescription": "Zwart met fosforgroen en vallende code op de achtergrond"
+    "matrixDescription": "Zwart met fosforgroen en vallende code op de achtergrond",
+    "boekenclubLabel": "Boekenclub",
+    "boekenclubDescription": "Een bibliotheek bij avond, met boekverfilmingen bovenaan Voor jou en vaker in je advies"
   },
   "settings": {
     "heading": "Mijn voorkeuren",

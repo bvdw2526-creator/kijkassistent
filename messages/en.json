@@ -308,6 +308,11 @@
     "rowTextMine": "On your services; the best match for you comes first.",
     "rowTextOurs": "On your services; what suits you both comes first."
   },
+  "bookClub": {
+    "row": "Book adaptations on your services",
+    "rowText": "Films and series based on a book; the best match for you comes first.",
+    "allBooks": "All book adaptations"
+  },
   "skinBanner": {
     "months": "mths",
     "day": "day",
@@ -456,7 +461,9 @@
     "duneLabel": "Dune",
     "duneDescription": "Sand, sun and sandworms, with the film at the top of For you",
     "matrixLabel": "Matrix",
-    "matrixDescription": "Black and phosphor green with falling code in the background"
+    "matrixDescription": "Black and phosphor green with falling code in the background",
+    "boekenclubLabel": "Book Club",
+    "boekenclubDescription": "A library by night, with book adaptations at the top of For you and more often in your recommendations"
   },
   "settings": {
     "heading": "My preferences",

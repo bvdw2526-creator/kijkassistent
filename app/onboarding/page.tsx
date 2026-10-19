@@ -10,6 +10,8 @@ import PeopleFavorites from '../components/PeopleFavorites'
 import TitleInfoSheet, { type TitleInfoItem } from '../components/TitleInfoSheet'
 import { btnPrimary, btnSecondary, input, chip, card } from '../components/ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from '../components/Icons'
+import { BOOK_CLUB_SKIN } from '@/lib/skins'
+import { useSkin } from '@/lib/useSkin'
 
 type Movie = {
   id: number
@@ -43,6 +45,7 @@ const MIN_VISIBLE_BOOKS = 10
 export default function Onboarding() {
   const t = useTranslations('search')
   const tt = useTranslations('title')
+  const skin = useSkin()
   const [segment, setSegment] = useState<(typeof SEGMENTS)[number]['id']>('titels')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Movie[]>([])
@@ -152,6 +155,25 @@ export default function Onboarding() {
     bookShowKnownRef.current = bookShowKnown
     bookResultsRef.current = bookResults
   })
+
+  // Met de Boekenclub-skin aan staan de boekverfilmingen vooraan, en opent Zoeken daar meteen. Ook via de link "Alle
+  // boekverfilmingen" in de Boekenclub-rij op Voor jou (?segment=boeken). Eén keer per bezoek, daarna kies je zelf.
+  const bookFirst = skin === BOOK_CLUB_SKIN
+  const segments = bookFirst ? [...SEGMENTS].sort((a, b) => Number(b.id === 'boeken') - Number(a.id === 'boeken')) : SEGMENTS
+  const booksOpenedRef = useRef(false)
+  useEffect(() => {
+    if (booksOpenedRef.current) return
+    const asked = new URLSearchParams(window.location.search).get('segment') === 'boeken'
+    if (!asked && !bookFirst) return
+    // Net na het tekenen, niet tijdens het effect zelf: zo wisselt de pagina één keer van onderdeel. Pas dan "geopend"
+    // onthouden: React kan een effect bij het ontwikkelen meteen weer afbreken en opnieuw draaien.
+    const timer = setTimeout(() => {
+      booksOpenedRef.current = true
+      openBookSegment()
+    }, 0)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- eenmalig zodra bekend is welke skin aan staat
+  }, [bookFirst])
   // Bij een zoekopdracht tonen we alles (zoek je een titel die je al beoordeeld hebt, dan wil je die gewoon zien).
   const hideKnownBooks = !bookShowKnown && !bookActiveQuery
   const visibleBooks = hideKnownBooks ? bookResults.filter((m) => !knownKeys.has(ratingKey(m))) : bookResults
@@ -385,7 +407,7 @@ export default function Onboarding() {
         </Link>
 
         <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6 laptop:max-w-xl">
-          {SEGMENTS.map((s) => (
+          {segments.map((s) => (
             <button
               key={s.id}
               onClick={() => (s.id === 'boeken' ? openBookSegment() : setSegment(s.id))}

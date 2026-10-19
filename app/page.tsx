@@ -19,6 +19,9 @@ import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
 import HalloweenRow, { DAY_FLAVOURS, HalloweenClassics, HalloweenDayFlavours, HalloweenDayHeader, useHalloweenLists } from './components/HalloweenRow'
+import BookClubRow, { useBookClubList } from './components/BookClubRow'
+import { BOOK_CLUB_SKIN } from '@/lib/skins'
+import { readSkin } from '@/lib/useSkin'
 import TooOldPrompt from './components/TooOldPrompt'
 import MoreLikeThis from './components/MoreLikeThis'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
@@ -53,6 +56,8 @@ type Movie = {
   // Titel uit de Halloween-rij (zie app/components/HalloweenRow.tsx): geen gewone aanbeveling, dus zonder matchpercentage.
   // 'classic' = uit de rij klassiekers op Halloween zelf.
   halloween?: 'scary' | 'cozy' | 'classic'
+  // Titel uit de Boekenclub-rij (zie app/components/BookClubRow.tsx): ook geen gewone aanbeveling.
+  bookClub?: true
   // Onderdelen van de score, zoals de server ze meestuurt; alleen gebruikt om bij een beoordeling vast te leggen waarom de titel
   // werd aanbevolen (zie sourceInfoFor).
   coreScore?: number
@@ -134,8 +139,8 @@ function saveCachedRecommendations(userId: string, data: Record<RecommendationMo
 function sourceInfoFor(movie: Movie, mode: RecommendationMode) {
   const round = (n: number | undefined) => (typeof n === 'number' ? Math.round(n * 100) / 100 : 0)
   return {
-    // Een titel uit de Halloween-rij krijgt een eigen naam: hij telt zo niet mee bij de tabbladen in de meting.
-    mode: movie.halloween ? (mode === 'samen' ? 'halloween-samen' : 'halloween') : mode,
+    // Een titel uit de Halloween- of Boekenclub-rij krijgt een eigen naam: hij telt zo niet mee bij de tabbladen in de meting.
+    mode: movie.halloween ? (mode === 'samen' ? 'halloween-samen' : 'halloween') : movie.bookClub ? 'boekenclub' : mode,
     match: movie.matchPercent,
     basedOn: movie.basedOn ?? [],
     scores: {
@@ -324,7 +329,9 @@ export default function Home() {
   const reason = useReasonLabel()
   const genreLabel = useGenreLabel()
   // De lijst op het apparaat per taal bewaren: na een taalwissel geen titels in de oude taal (Nederlands houdt de oude sleutel).
-  const cacheIdFor = (userId: string) => (locale === 'nl' ? userId : `${userId}:${locale}`)
+  // Met de Boekenclub-skin aan is het een andere lijst (boekverfilmingen krijgen een bonus), dus ook apart bewaard.
+  const cacheIdFor = (userId: string) =>
+    (locale === 'nl' ? userId : `${userId}:${locale}`) + (readSkin() === BOOK_CLUB_SKIN ? ':boek' : '')
   const [user, setUser] = useState<User | null>(null)
   const [byMode, setByMode] = useState<Record<RecommendationMode, Movie[]>>(EMPTY_RESULTS)
   const [loading, setLoading] = useState(true)
@@ -355,6 +362,8 @@ export default function Home() {
   const [togetherMatch, setTogetherMatch] = useState<TasteMatch | null>(null)
   // De Halloween-rij (alleen met de Halloween-skin aan): bij Samen de versie voor jullie twee, anders je eigen.
   const halloween = useHalloweenLists(user?.id ?? null, mode === 'samen' ? (togetherConnected ? 'samen' : null) : 'personal')
+  // De Boekenclub-rij (alleen met de Boekenclub-skin aan, en niet bij Samen).
+  const bookClub = useBookClubList(user?.id ?? null)
   // Op Halloween zelf (halloween.day): welke van de twee smaken er getoond wordt.
   const [dayChoice, setDayChoice] = useState<'cozy' | 'scary'>('cozy')
   const requestIdRef = useRef(0)
@@ -482,7 +491,9 @@ export default function Home() {
         return
       }
       userId = session.user.id
-      res = await fetch(forceFresh ? '/api/recommendations?vers=1' : '/api/recommendations', {
+      // Boekenclub-skin aan: boekverfilmingen krijgen een bonus (zie ?boeken=1 in app/api/recommendations).
+      const params = [forceFresh ? 'vers=1' : '', readSkin() === BOOK_CLUB_SKIN ? 'boeken=1' : ''].filter(Boolean).join('&')
+      res = await fetch(`/api/recommendations${params ? `?${params}` : ''}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       data = await res.json()
@@ -643,6 +654,7 @@ export default function Home() {
     })
     if (togetherSnapshot) togetherSnapshot = { ...togetherSnapshot, items: togetherSnapshot.items.filter((m) => !movieKey(m)) }
     halloween.remove((m) => movieKey(m as Movie), ['personal', 'samen'])
+    bookClub.remove((m) => movieKey(m as Movie))
   }
 
   // Alleen uit de eigen lijsten (Voor jou), niet uit Samen: verbergen geldt niet voor Samen.
@@ -658,6 +670,7 @@ export default function Home() {
       return next
     })
     halloween.remove((m) => movieKey(m as Movie), ['personal'])
+    bookClub.remove((m) => movieKey(m as Movie))
   }
 
   function removeFromSamen(movieKey: (m: Movie) => boolean) {
@@ -707,7 +720,7 @@ export default function Home() {
       media_type: movie.media_type,
       watch_on: movie.watchOn ?? null,
       watch_url: movie.watchUrl ?? null,
-      source_mode: movie.halloween ? 'halloween' : mode,
+      source_mode: movie.halloween ? 'halloween' : movie.bookClub ? 'boekenclub' : mode,
       source_info: sourceInfoFor(movie, mode),
     })
     if (error) {
@@ -1029,6 +1042,10 @@ export default function Home() {
           />
         )}
 
+        {bookClub.active && mode !== 'samen' && !halloween.day && (
+          <BookClubRow items={bookClub.items} loading={bookClub.loading} onSelect={openHalloweenTitle} />
+        )}
+
         <div className="flex items-center justify-between mb-5">
           <div className="flex gap-1 p-1 rounded-full bg-surface border border-line">
             <button
@@ -1053,6 +1070,7 @@ export default function Home() {
               loadRecommendations(true)
               loadTogetherRecommendations()
               halloween.reload()
+              bookClub.reload()
             }}
             disabled={loading}
             className="text-xs font-medium text-muted hover:text-foreground transition-colors disabled:opacity-50"
