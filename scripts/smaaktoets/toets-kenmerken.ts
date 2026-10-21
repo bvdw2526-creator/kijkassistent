@@ -7,6 +7,20 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import * as nodeModule from 'node:module'
+
+// De app importeert zonder ".ts" (zoals Next.js dat oplost); Node zelf niet. Probeer dan ook met ".ts" erachter.
+// registerHooks bestaat sinds Node 23.5; de @types/node van het project kent het nog niet.
+;(nodeModule as unknown as { registerHooks: (hooks: object) => void }).registerHooks({
+  resolve(specifier: string, context: object, nextResolve: (s: string, c: object) => { url: string }) {
+    try {
+      return nextResolve(specifier, context)
+    } catch (err) {
+      if (specifier.startsWith('.') && !specifier.endsWith('.ts')) return nextResolve(specifier + '.ts', context)
+      throw err
+    }
+  },
+})
 
 type Label = 'F' | 'L' | 'O' | 'D'
 type Features = Record<string, unknown> & { keywords: { id: number; name: string }[] }

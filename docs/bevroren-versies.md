@@ -124,6 +124,91 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
   (`CREDITS_LIVE_LIMIT`); de rest volgt na het antwoord, dus een titel kan één berekening lang zonder acteur- of
   regisseursbonus staan. Aanleiding: een golf van 400+ verlopen "lijkt hierop"-lijsten liet de berekening vastlopen.
   Samen ongewijzigd. Terugzetten: in de routes `staleRefresher` en de `onStale`-opties weglaten.
+- 15 okt 2026: Apple TV, SkyShowtime en Viaplay als diensten (`SOURCE_IDS`). Alleen meer diensten om uit te kiezen, de
+  scores zijn ongewijzigd.
+- 17 okt 2026: "Meer zoals deze" gebruikt twee hulpfuncties van de motor (`RECOMMENDATION_PAGES`,
+  `getRecommendationPagesBulk` zijn nu `export`). Geen wijziging aan de berekening.
+- 18 okt 2026: Engels. De Nederlandse namen van trefwoorden staan in `lib/keywordLabels.ts` in plaats van in
+  `lib/titleFeatures.ts`, en de routes zetten titels en samenvattingen na de berekening in de taal van de app
+  (`localizeModes`, `localizeTitles`). Rekenen gebeurt nog steeds met de Engelse vingerafdrukken; scores ongewijzigd.
+- 19 okt 2026: Boekenclub-skin. Met de skin aan (`?boeken=1`) krijgt een boekverfilming 6 extra punten
+  (`BOOK_ADAPTATION_BONUS`, TMDB-trefwoord 818), met een eigen opgeslagen lijst (`u20|...|boek`). Zonder de skin is
+  de berekening ongewijzigd.
+
+## smaak-2026-10-21
+
+Vastgelegd op 21 oktober 2026, omdat de aanbevelingen na de wijzigingen van 9 tot 19 oktober (zie hierboven bij
+smaak-2026-10-09) beter werken dan bij de eerste bevriezing.
+
+- **Git-label:** `smaak-2026-10-21`.
+- **Code van de berekening:** `lib/recommendationEngine.ts`, `lib/titleFeatures.ts`, `lib/keywordLabels.ts`,
+  `lib/upcomingTitles.ts`, `app/api/recommendations/route.ts`, `app/api/recommendations-together/route.ts` (de uitleg bij
+  een titel staat in `app/page.tsx`, Samen-knoppen in `app/components/PartnerRated.tsx`).
+- **Voorvoegsels van de opgeslagen lijsten:** `u20` (persoonlijk, met de Boekenclub-skin `u20|...|boek`) en
+  `v25-themas` (Samen).
+
+### Wat erin zit (bovenop smaak-2026-10-09)
+
+- Samen: "Niet voor ons" en "Samen gezien?"; wat jullie samen leuk of oké vonden telt via het verhaal mee.
+- Regisseur telt pas als pluspunt vanaf twee titels die je "zeker leuk" vond (`DIRECTOR_MIN_POSITIVE`).
+- Knop "Te oud" en instelling "Niet ouder dan" (filter achteraf, scores ongewijzigd).
+- Extra bronnen van kandidaten: je zes sterkste thema's (`discoverByTheme`) en "nieuw op je diensten"
+  (`discoverNewReleases`).
+- Snellere verhaal-functies `_v2` in de database, kijkinformatie en verlopen caches na het antwoord verversen, Voor jou
+  24 uur geldig (allemaal zonder andere scores).
+- Drie extra diensten, Engelse teksten, Boekenclub-bonus van 6 punten als de skin aan staat.
+
+### Database-onderdelen waarop deze versie leunt
+
+Alles wat bij smaak-2026-10-09 staat, plus:
+
+- Functies: `embedding_similarities_en_v2`, `embedding_taste_neighbors_en_v2`.
+- Kolommen: `couple_ratings.reason`, `hidden_titles.reason`, `hidden_titles.release_year`, `profiles.min_year`,
+  `profiles.language`.
+- Migraties tot en met `20261019_app_opens.sql`. Sinds `20261015_lock_shared_caches.sql` schrijft alleen de server
+  (service role) in de gedeelde caches.
+
+### Nulmeting
+
+Op 21 oktober 2026, weer op de twee profielen met meer dan 200 beoordelingen (zelfde nummering als bij smaak-2026-10-09;
+in de export van vandaag staan ze in omgekeerde volgorde, profiel 2 heeft nu de meeste beoordelingen). Steeds de titel
+zelf weggelaten.
+
+| Onderdeel | Maat | Profiel 1 | Profiel 2 |
+|---|---|---|---|
+| Verhaal (Engels) | dichtstbijzijnde leuke titel: leuk > niet voor mij | 80,6% | 78,6% |
+| | idem: leuk > oké | 66,2% | 62,5% |
+| | tegenstelling: leuk > niet voor mij | 73,3% | 75,0% |
+| Kenmerken | leuk > niet voor mij | 75,3% | 69,6% |
+| | leuk > oké | 69,1% | 59,5% |
+| | oké > niet voor mij | 60,2% | 62,2% |
+| Aantal titels in de kenmerken-toets | | 358 | 492 |
+
+Hoe je dit leest: de kenmerken-cijfers zijn lager dan op 11 oktober (78,0 / 69,9 en 73,7 / 58,1), maar dat komt door de
+nieuwe beoordelingen, niet door de code. De huidige code op de gegevens van 9 oktober geeft precies 78,0 / 69,9 / 62,9 en
+73,7 / 58,1 / 69,4, hetzelfde als op 11 oktober. Vergelijk een volgende wijziging dus met deze tabel en op dezelfde
+gegevens: `scripts/smaaktoets/data/rated-2026-10-21.json` (blijft lokaal, staat niet in git). De gegevens van 9 oktober
+staan in `rated-2026-10-09.json`.
+
+Samen (`toets-samen.sql`, twee stellen met 20 en 8 samen beoordeelde titels, dus alleen een aanwijzing):
+
+| Stel | huidig in het script | oud (zwakste van beiden) | alleen persoon a | alleen persoon b |
+|---|---|---|---|---|
+| 5be8 (20 titels) | 60% | 79% | 48% | 94% |
+| e655 (8 titels) | 75% | 42% | 50% | 33% |
+
+Let op: "huidig" in dit script is de Samen-berekening van 9 oktober, zonder "Niet voor ons" en het leren van samen
+leuk/oké. Die toevoegingen zitten er nog niet in, dus dit getal zegt weinig over de huidige Samen-lijst. Het zegt wel
+dat bij het eerste stel nog steeds de smaak van één partner de uitkomst bepaalt.
+
+### Momentopname
+
+In `recommendation_snapshots`, label `smaak-2026-10-21`: 21 persoonlijke lijsten (`u20`, waarvan één met de
+Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelijken: de query onderaan met dit label.
+
+### Gewijzigd na deze versie
+
+(nog niets)
 
 ## Afspraken bij verder sleutelen
 
@@ -134,9 +219,16 @@ gebruikers en 2 stellen die op dat moment al met deze versie waren berekend.
 3. **Na een geslaagde wijziging:** een nieuwe bevroren versie maken (nieuw label, nieuwe nulmeting, nieuwe momentopname)
    en hier een sectie toevoegen. Oude secties blijven staan.
 
-## Terugzetten naar smaak-2026-10-09
+## Terugzetten naar een bevroren versie
 
-1. De code van de berekening terugzetten:
+1. De code van de berekening terugzetten. Naar de nieuwste, smaak-2026-10-21:
+
+   ```bash
+   git checkout smaak-2026-10-21 -- lib/recommendationEngine.ts lib/titleFeatures.ts lib/keywordLabels.ts lib/upcomingTitles.ts app/api/recommendations/route.ts app/api/recommendations-together/route.ts app/components/PartnerRated.tsx
+   ```
+
+   Naar de eerste, smaak-2026-10-09 (de Engelse vertaling en "Meer zoals deze" leunen inmiddels op die bestanden, dus
+   reken daar op meer typecheck-fouten):
 
    ```bash
    git checkout smaak-2026-10-09 -- lib/recommendationEngine.ts lib/titleFeatures.ts lib/upcomingTitles.ts app/api/recommendations/route.ts app/api/recommendations-together/route.ts
@@ -154,13 +246,13 @@ Rollback". Op het gratis Hobby-plan kan dat alleen naar de direct vorige versie,
 
 ## Momentopname vergelijken
 
-Welke titels nu in Puur mijn smaak staan die er in de momentopname niet stonden (en andersom), voor één gebruiker:
+Welke titels nu in Puur mijn smaak staan die er in de momentopname niet stonden (en andersom), voor één gebruiker (vervang het label door dat van de versie waarmee je wilt vergelijken):
 
 ```sql
 with toen as (
   select x->>'media_type' || '-' || (x->>'id') sleutel, x->>'title' titel
   from recommendation_snapshots s, jsonb_array_elements(s.lists->'focused') x
-  where s.label = 'smaak-2026-10-09' and s.kind = 'persoonlijk' and s.owner_id = '<user-id>'
+  where s.label = 'smaak-2026-10-21' and s.kind = 'persoonlijk' and s.owner_id = '<user-id>'
 ),
 nu as (
   select x->>'media_type' || '-' || (x->>'id') sleutel, x->>'title' titel
