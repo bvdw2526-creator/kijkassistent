@@ -3,6 +3,7 @@
 // smaakbronnen van de gebruiker gebruikt in lib/recommendationEngine.ts. Alleen op de server gebruikt.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { KEYWORD_NL } from './keywordLabels'
+import { inLockOrder } from './lockOrder'
 
 type MediaType = 'movie' | 'tv'
 
@@ -188,7 +189,7 @@ export async function getFeaturesBulk(
         overview_en: d.features!.overviewEn,
         fetched_at: new Date().toISOString(),
       }))
-    if (upserts.length > 0) await (options.writer ?? supabase).from('tmdb_features_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+    if (upserts.length > 0) await (options.writer ?? supabase).from('tmdb_features_cache').upsert(inLockOrder(upserts, ['media_type', 'tmdb_id']), { onConflict: 'media_type,tmdb_id' })
     for (const d of done) if (d.features) result.set(d.key, d.features)
   }
 

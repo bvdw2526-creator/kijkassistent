@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cacheWriter } from './supabaseAdmin'
+import { inLockOrder } from './lockOrder'
 import { getFeaturesBulk, buildFeatureTaste, scoreTitleFeatures, strongestThemes } from './titleFeatures'
 
 export type MediaType = 'movie' | 'tv'
@@ -474,7 +475,7 @@ async function fetchAndStoreWatchProviders(supabase: SupabaseClient, items: Watc
       const upserts = done
         .filter((f) => f.sources !== null)
         .map((f) => ({ media_type: f.mediaType, tmdb_id: f.tmdbId, sources: f.sources, fetched_at: new Date().toISOString() }))
-      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_watch_providers_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_watch_providers_cache').upsert(inLockOrder(upserts, ['media_type', 'tmdb_id']), { onConflict: 'media_type,tmdb_id' })
     },
     budgetMs
   )
@@ -656,7 +657,7 @@ async function fetchAndStoreCredits(supabase: SupabaseClient, items: CacheItem[]
           directors: f.credits!.directors,
           fetched_at: new Date().toISOString(),
         }))
-      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_credits_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_credits_cache').upsert(inLockOrder(upserts, ['media_type', 'tmdb_id']), { onConflict: 'media_type,tmdb_id' })
     },
     budgetMs
   )
@@ -847,7 +848,7 @@ async function fetchAndStoreDetails(supabase: SupabaseClient, items: CacheItem[]
           collection_name: f.details!.collectionName,
           fetched_at: new Date().toISOString(),
         }))
-      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_details_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id' })
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_details_cache').upsert(inLockOrder(upserts, ['media_type', 'tmdb_id']), { onConflict: 'media_type,tmdb_id' })
     },
     budgetMs
   )
@@ -961,7 +962,7 @@ async function fetchAndStoreRecommendationPages(supabase: SupabaseClient, items:
       const upserts = done
         .filter((f) => f.results !== null)
         .map((f) => ({ media_type: f.item.mediaType, tmdb_id: f.item.tmdbId, page: f.item.page, results: f.results, fetched_at: new Date().toISOString() }))
-      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_recommendations_cache').upsert(upserts, { onConflict: 'media_type,tmdb_id,page' })
+      if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_recommendations_cache').upsert(inLockOrder(upserts, ['media_type', 'tmdb_id', 'page']), { onConflict: 'media_type,tmdb_id,page' })
     },
     budgetMs
   )
@@ -1149,7 +1150,7 @@ async function getCollectionPartsBulk(supabase: SupabaseClient, collectionIds: n
     const upserts = fetched
       .filter((f) => f.parts !== null)
       .map((f) => ({ collection_id: f.id, parts: f.parts, fetched_at: new Date().toISOString() }))
-    if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_collection_cache').upsert(upserts, { onConflict: 'collection_id' })
+    if (upserts.length > 0) await cacheWriter(supabase).from('tmdb_collection_cache').upsert(inLockOrder(upserts, ['collection_id']), { onConflict: 'collection_id' })
     for (const f of fetched) result.set(f.id, f.parts ?? stale.get(f.id) ?? [])
   }
   return result
@@ -1235,7 +1236,7 @@ async function embedAndStore(
   if (rows.length > 0) {
     // Bestaande titels overslaan (ON CONFLICT DO NOTHING): de tabel staat alleen toevoegen toe, en een titel die al bestaat
     // (bv. door twee berekeningen tegelijk) liet anders het hele groepje met een 403 mislukken.
-    await cacheWriter(supabase).from(EMBEDDING_TABLE[version]).upsert(rows, { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
+    await cacheWriter(supabase).from(EMBEDDING_TABLE[version]).upsert(inLockOrder(rows, ['media_type', 'tmdb_id']), { onConflict: 'media_type,tmdb_id', ignoreDuplicates: true })
   }
   return rows
 }
