@@ -11,6 +11,7 @@ import { useBackToClose } from './useBackToClose'
 import TrailerLink from './TrailerLink'
 import MoreLikeThis from './MoreLikeThis'
 import BookSource from './BookSource'
+import TitleDetails from './TitleDetails'
 import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
@@ -156,6 +157,8 @@ export default function TitleInfoSheet({
           {failed && <p className="text-sm text-muted mb-4">{t('detailsFailed')}</p>}
 
           {info?.overview && <p className="text-sm text-foreground/90 leading-relaxed mb-4">{info.overview}</p>}
+
+          <TitleDetails key={`${item.media_type}-${item.id}`} mediaType={item.media_type} id={item.id} />
 
           {info && info.genres.length > 0 && (
             <p className="text-sm text-muted mb-2">{info.genres.join(' · ')}</p>

@@ -150,7 +150,17 @@
     "rentBuy": "Ook te huur of koop: <s></s>",
     "moreLikeThisRating": "Zeker meer zoals dit",
     "remove": "Verwijderen",
-    "loadingShort": "Laden..."
+    "loadingShort": "Laden...",
+    "runtimeHours": "{hours} u {minutes} min",
+    "runtimeMinutes": "{minutes} min",
+    "seasons": "{count, plural, one {# seizoen} other {# seizoenen}}",
+    "episodes": "{count, plural, one {# aflevering} other {# afleveringen}}",
+    "episodeRuntime": "± {minutes} min per aflevering",
+    "seriesEnded": "afgelopen",
+    "seriesRunning": "loopt nog",
+    "directedBy": "Regie:",
+    "createdBy": "Bedacht door:",
+    "starring": "Met:"
   },
   "home": {
     "heading": "Voor jou",

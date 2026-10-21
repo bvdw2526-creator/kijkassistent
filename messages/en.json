@@ -150,7 +150,17 @@
     "rentBuy": "Also to rent or buy: <s></s>",
     "moreLikeThisRating": "Definitely more like this",
     "remove": "Remove",
-    "loadingShort": "Loading..."
+    "loadingShort": "Loading...",
+    "runtimeHours": "{hours} h {minutes} min",
+    "runtimeMinutes": "{minutes} min",
+    "seasons": "{count, plural, one {# season} other {# seasons}}",
+    "episodes": "{count, plural, one {# episode} other {# episodes}}",
+    "episodeRuntime": "about {minutes} min per episode",
+    "seriesEnded": "ended",
+    "seriesRunning": "still running",
+    "directedBy": "Directed by",
+    "createdBy": "Created by",
+    "starring": "Starring"
   },
   "home": {
     "heading": "For you",

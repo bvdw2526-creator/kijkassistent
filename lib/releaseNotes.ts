@@ -12,6 +12,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-21',
+    date: '21 oktober 2026',
+    items: [
+      'Als je een film of serie opent, zie je nu ook hoe lang hij duurt. Bij series staan het aantal seizoenen en afleveringen erbij, hoe lang een aflevering ongeveer is en of de serie al afgelopen is.',
+      'Je ziet ook wie de film regisseerde of de serie bedacht, en wie de hoofdrollen spelen. Tik op een naam voor alle films en series van die persoon.',
+    ],
+    itemsEn: [
+      "When you open a film or series, you now also see how long it is. For series you'll see the number of seasons and episodes, roughly how long an episode is, and whether the series has ended.",
+      'You also see who directed the film or created the series, and who plays the lead roles. Tap a name for all films and series by that person.',
+    ],
+  },
+  {
     id: '2026-10-19',
     date: '19 oktober 2026',
     items: [

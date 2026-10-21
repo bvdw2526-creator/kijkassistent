@@ -13,6 +13,7 @@ import Landing from './components/Landing'
 import PartnerPicks from './components/PartnerPicks'
 import PartnerRated from './components/PartnerRated'
 import DateNight from './components/DateNight'
+import TitleDetails from './components/TitleDetails'
 import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
@@ -1401,6 +1402,8 @@ export default function Home() {
               {selected.overview && (
                 <p className="text-sm text-foreground/90 leading-relaxed mb-4">{selected.overview}</p>
               )}
+
+              <TitleDetails key={`${selected.media_type}-${selected.id}`} mediaType={selected.media_type} id={selected.id} />
 
               {selected.upcoming && (
                 <p className="text-sm text-teal mb-6">
