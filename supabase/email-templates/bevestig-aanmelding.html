@@ -1,6 +1,43 @@
-<!-- Supabase: Authentication → Email Templates → "Confirm signup"
-     Onderwerp: Bevestig je aanmelding bij Kijkassistent -->
-<!doctype html>
+<!-- Supabase: Authentication → Emails → Templates → "Confirm sign up"
+     Tweetalig: de app geeft bij het aanmelden de taal mee (app/register/page.tsx, user_metadata.language).
+     "print" maakt van een ontbrekende taal de tekst "<nil>", zodat de vergelijking nooit faalt; dan Nederlands.
+     Onderwerp (in het veld Subject):
+     {{ if eq (print .Data.language) "en" }}Confirm your Kijkassistent account{{ else }}Bevestig je aanmelding bij Kijkassistent{{ end }}
+-->
+{{ if eq (print .Data.language) "en" }}<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f4f1ea;font-family:Arial,Helvetica,sans-serif;color:#171f2b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border-radius:16px;padding:32px;">
+            <tr>
+              <td>
+                <p style="margin:0 0 4px;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#c98a24;">Kijkassistent</p>
+                <h1 style="margin:0 0 16px;font-size:24px;line-height:1.3;">Welcome! Confirm your email address</h1>
+                <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:#3a4656;">
+                  Great to have you here. Tap the button below to confirm your account. After that you can log in and
+                  get your personal film and series tips.
+                </p>
+                <p style="margin:0 0 24px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#e8a33d;color:#171f2b;text-decoration:none;font-weight:bold;font-size:16px;padding:14px 28px;border-radius:999px;">Confirm my account</a>
+                </p>
+                <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#6b7686;">
+                  Button not working? Copy this link into your browser:<br>
+                  <span style="word-break:break-all;">{{ .ConfirmationURL }}</span>
+                </p>
+                <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#6b7686;">
+                  Didn't sign up? Then you can simply ignore this email; nothing will happen.
+                </p>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:16px 0 0;font-size:12px;color:#8a93a0;">Kijkassistent &middot; kijkassistent.nl</p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>{{ else }}<!doctype html>
 <html lang="nl">
   <body style="margin:0;padding:0;background:#f4f1ea;font-family:Arial,Helvetica,sans-serif;color:#171f2b;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea;padding:32px 16px;">
@@ -33,4 +70,4 @@
       </tr>
     </table>
   </body>
-</html>
+</html>{{ end }}

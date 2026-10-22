@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { takePendingInvitePath } from '@/lib/invite'
 import { btnPrimary, input } from '../components/ui'
@@ -24,6 +24,7 @@ export default function Register() {
   const router = useRouter()
   const t = useTranslations('register')
   const common = useTranslations('common')
+  const locale = useLocale()
 
   async function handleSignUp() {
     setError('')
@@ -41,7 +42,9 @@ export default function Register() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/login` },
+      // language komt in de gebruikersgegevens van Supabase (user_metadata); het sjabloon van de bevestigingsmail
+      // kiest daarmee Nederlands of Engels (supabase/email-templates/bevestig-aanmelding.html).
+      options: { emailRedirectTo: `${window.location.origin}/login`, data: { language: locale } },
     })
     setLoading(false)
     if (error) {
