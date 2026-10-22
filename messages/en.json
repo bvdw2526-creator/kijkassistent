@@ -866,6 +866,12 @@
     "followUs": "Follow us for more watch tips:",
     "footer": "You get this email once a week because you have a Kijkassistent account. You can <unsubscribe>unsubscribe</unsubscribe> with one click, or turn it off in <settings>Settings</settings>.",
     "moreTipsText": "More tips: {url}",
-    "unsubscribeText": "Unsubscribe (one click): {url}"
+    "unsubscribeText": "Unsubscribe (one click): {url}",
+    "seasonsHeading": "New on your series",
+    "seasonStarted": "Season {season} has just started",
+    "seasonStartsToday": "Season {season} starts today",
+    "seasonStartsOn": "Season {season} starts on {date}",
+    "subjectSeason": "New season of {series}, plus your watch tips for the weekend",
+    "subjectSeasonOnly": "New season of {series}"
   }
 }

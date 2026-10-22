@@ -866,6 +866,12 @@
     "followUs": "Volg ons voor meer kijktips:",
     "footer": "Je krijgt deze mail één keer per week omdat je een account hebt bij Kijkassistent. <unsubscribe>Afmelden</unsubscribe> kan met één klik, of zet het uit bij <settings>Instellingen</settings>.",
     "moreTipsText": "Meer tips: {url}",
-    "unsubscribeText": "Afmelden (één klik): {url}"
+    "unsubscribeText": "Afmelden (één klik): {url}",
+    "seasonsHeading": "Nieuw bij jouw series",
+    "seasonStarted": "Seizoen {season} is net begonnen",
+    "seasonStartsToday": "Seizoen {season} begint vandaag",
+    "seasonStartsOn": "Seizoen {season} begint op {date}",
+    "subjectSeason": "Nieuw seizoen van {series}, en je kijktips voor dit weekend",
+    "subjectSeasonOnly": "Nieuw seizoen van {series}"
   }
 }

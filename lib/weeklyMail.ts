@@ -2,19 +2,42 @@
 // "Puur mijn smaak" eerst), alleen wat op de eigen diensten staat en nog niet gezien, op de kijklijst of verborgen is.
 // Per tip twee knoppen ("Op mijn kijklijst", "Al gezien?") naar de pagina /mail, via ondertekende links (lib/mailLinks.ts).
 // Zijn er te weinig goede tips, dan gaat er die week geen mail: een matige mail kost meer vertrouwen dan hij oplevert.
+// Bovenaan staan nieuwe seizoenen van series die je leuk vindt (zelfde bron als "Nieuw bij jouw series" in de app), maar
+// alleen wat deze week begint of de afgelopen week begon, zodat hetzelfde seizoen niet weken achter elkaar terugkomt. Is
+// er zo'n seizoen, dan gaat de mail ook bij te weinig tips: dat nieuws is op zichzelf de moeite waard.
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { makeMailToken, TITLE_LINK_DAYS, UNSUBSCRIBE_LINK_DAYS } from './mailLinks'
 import { NEW_RELEASE_LABEL, type MediaType } from './recommendationEngine'
 import { SOCIAL_LINKS } from './socialLinks'
-import { serverTranslator, type ServerT } from './serverI18n'
+import { serverTranslator, tmdbLanguage, type ServerT } from './serverI18n'
 import { localizeTitles } from './localizeTitles'
+import { amsterdamToday, findSeriesUpdates } from './seriesUpdatesServer'
+import type { SeriesUpdate } from './seriesUpdates'
 import type { Locale } from './locale'
 
 // Waar de links in de mail heen gaan: altijd de live app, ook als de mail lokaal wordt opgebouwd.
 export const MAIL_SITE_URL = 'https://www.kijkassistent.nl'
 export const MAX_TIPS = 4
 export const MIN_TIPS = 3
+// Nieuwe seizoenen in de mail: begonnen in de afgelopen 6 dagen of beginnend in de komende 7 (de mail is wekelijks).
+const MAIL_SEASON_STARTED_DAYS = 6
+const MAIL_SEASON_UPCOMING_DAYS = 7
+const MAX_SEASONS = 3
+
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
+
+// Alleen wat deze week nieuws is, uit de lijst van findSeriesUpdates.
+function seasonsForMail(updates: SeriesUpdate[], today: string): SeriesUpdate[] {
+  return updates
+    .filter((u) =>
+      u.kind === 'started'
+        ? daysBetween(u.date, today) <= MAIL_SEASON_STARTED_DAYS
+        : daysBetween(today, u.date) <= MAIL_SEASON_UPCOMING_DAYS
+    )
+    .slice(0, MAX_SEASONS)
+}
 
 type CachedItem = {
   id: number
@@ -85,10 +108,16 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
     tips.push(item)
     if (tips.length === MAX_TIPS) break
   }
-  if (tips.length < MIN_TIPS) return { skipped: `te weinig tips (${tips.length})` }
-
   // Zonder gekozen taal: Nederlands. Engels: ook de titels in het Engels (zie lib/localizeTitles.ts).
   const locale: Locale = profile.language === 'en' ? 'en' : 'nl'
+  const amsterdam = amsterdamToday()
+  // Een mislukte controle mag de tips niet tegenhouden: dan gewoon zonder seizoenen.
+  const seasons = seasonsForMail(await findSeriesUpdates(db, userId, tmdbLanguage(locale), amsterdam).catch(() => []), amsterdam)
+
+  if (tips.length < MIN_TIPS && seasons.length === 0) return { skipped: `te weinig tips (${tips.length})` }
+  // Te weinig tips voor een eigen blok, maar wel een nieuw seizoen: dan alleen het seizoen.
+  if (tips.length < MIN_TIPS) tips.length = 0
+
   const t = serverTranslator(locale, 'mail')
   const localized = await localizeTitles(db, tips, locale)
 
@@ -113,7 +142,26 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
     }
   })
 
-  const subject = t('subject', { title: localized[0].title })
+  const firstSeason = seasons[0]
+  const subject = !firstSeason
+    ? t('subject', { title: localized[0].title })
+    : localized.length > 0
+      ? t('subjectSeason', { series: firstSeason.title })
+      : t('subjectSeasonOnly', { series: firstSeason.title })
+  const seasonLine = (s: SeriesUpdate) =>
+    s.kind === 'started'
+      ? t('seasonStarted', { season: s.season })
+      : s.date === amsterdam
+        ? t('seasonStartsToday', { season: s.season })
+        : t('seasonStartsOn', {
+            season: s.season,
+            date: new Date(`${s.date}T12:00:00Z`).toLocaleDateString(locale === 'en' ? 'en-GB' : 'nl-NL', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              timeZone: 'Europe/Amsterdam',
+            }),
+          })
   const unsubscribeUrl = link(unsubscribeToken)
   const settingsUrl = `${origin}/settings`
 
@@ -146,18 +194,51 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
     })
     .join('')
 
+  const sectionHead = (heading: string, intro?: string) => `
+        <tr><td style="padding:0 4px 14px 4px;">
+          <div style="font-size:24px;font-weight:700;color:${C.white};">${escapeHtml(heading)}</div>
+          ${intro ? `<div style="font-size:14px;color:${C.soft};margin-top:6px;line-height:1.5;">${escapeHtml(intro)}</div>` : ''}
+        </td></tr>`
+
+  const seasonsHtml =
+    seasons.length === 0
+      ? ''
+      : sectionHead(t('seasonsHeading')) +
+        seasons
+          .map((s) => {
+            const poster = s.poster_path
+              ? `<img src="https://image.tmdb.org/t/p/w185${escapeHtml(s.poster_path)}" width="56" alt="" style="display:block;border-radius:8px;width:56px;height:auto;">`
+              : `<div style="width:56px;height:84px;border-radius:8px;background:${C.line};"></div>`
+            const line = [seasonLine(s), s.watchOn].filter(Boolean).join(' · ')
+            return `
+        <tr><td style="padding:0 0 10px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.card};border-radius:16px;">
+            <tr>
+              <td width="56" valign="middle" style="padding:12px 0 12px 12px;">${poster}</td>
+              <td valign="middle" style="padding:12px 14px;">
+                <div style="font-size:17px;font-weight:700;color:${C.white};line-height:1.25;">${escapeHtml(s.title)}</div>
+                <div style="font-size:13px;color:${C.orange};margin-top:4px;">${escapeHtml(line)}</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>`
+          })
+          .join('') +
+        `<tr><td style="height:14px;"></td></tr>`
+
+  const tipsHtml = localized.length === 0 ? '' : sectionHead(t('heading'), t('intro')) + tipHtml
+
   const html = `<!doctype html>
 <html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>${escapeHtml(subject)}</title></head>
 <body style="margin:0;padding:0;background:${C.bg};font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg};">
     <tr><td align="center" style="padding:24px 12px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-        <tr><td style="padding:0 4px 18px 4px;">
+        <tr><td style="padding:0 4px 6px 4px;">
           <div style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:${C.orange};font-weight:700;">Kijkassistent</div>
-          <div style="font-size:24px;font-weight:700;color:${C.white};margin-top:6px;">${escapeHtml(t('heading'))}</div>
-          <div style="font-size:14px;color:${C.soft};margin-top:6px;line-height:1.5;">${escapeHtml(t('intro'))}</div>
         </td></tr>
-        ${tipHtml}
+        ${seasonsHtml}
+        ${tipsHtml}
         <tr><td align="center" style="padding:6px 0 22px 0;">${button(`${origin}/`, t('moreTips'), true)}</td></tr>
         <tr><td align="center" style="padding:0 4px 18px 4px;font-size:13px;color:${C.soft};">
           ${escapeHtml(t('followUs'))}<br>
@@ -176,9 +257,10 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
 </body></html>`
 
   const text = [
-    t('heading'),
-    t('intro'),
-    '',
+    ...(seasons.length > 0
+      ? [t('seasonsHeading'), ...seasons.map((s) => `${s.title}: ${[seasonLine(s), s.watchOn].filter(Boolean).join(', ')}`), '']
+      : []),
+    ...(rendered.length > 0 ? [t('heading'), t('intro'), ''] : []),
     ...rendered.flatMap(({ item, year, reason, watchlistUrl, rateUrl }) => [
       `${item.title} (${[item.media_type === 'tv' ? t('seriesLower') : t('filmLower'), year, item.watchOn].filter(Boolean).join(', ')})`,
       reason,
