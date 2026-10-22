@@ -14,7 +14,7 @@ import {
   type RankedCandidate,
   type RecommendationItem,
 } from '@/lib/recommendationEngine'
-import { upcomingForModes } from '@/lib/upcomingTitles'
+import { upcomingForModes, type UpcomingTaste } from '@/lib/upcomingTitles'
 import { withLatinTitles } from '@/lib/titleFallback'
 import { localeFromRequest } from '@/lib/serverI18n'
 import { localizeModes } from '@/lib/localizeTitles'
@@ -122,22 +122,30 @@ export async function GET(request: NextRequest) {
     })
   }
 
+  // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts). Dit start al zodra de
+  // motor de smaak kent (onTasteReady), en loopt dan tegelijk met het lezen van rolverdelingen en kijkinformatie.
+  // Gemeten 22 okt 2026: na elkaar kostte Binnenkort ~1,2 s extra wachttijd. upcomingForModes faalt nooit hard.
+  const upcomingFilter = {
+    excludedGenreIds: inputs.excludedGenreIds,
+    seenKeys: new Set(
+      [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist, ...(inputs.hidden ?? [])].map((x) => `${x.media_type}-${x.tmdb_id}`)
+    ),
+  }
+  let upcomingPromise: ReturnType<typeof upcomingForModes> | undefined
+  const startUpcoming = (t: UpcomingTaste) =>
+    (upcomingPromise ??= upcomingForModes(supabase, process.env.TMDB_API_KEY, t, upcomingFilter))
+
   // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
-  const taste = await computeTasteProfile(supabase, inputs, { availableOnSourceIds: userSourceIds, staleRefresher: stale, bookBonus })
+  const taste = await computeTasteProfile(supabase, inputs, {
+    availableOnSourceIds: userSourceIds,
+    staleRefresher: stale,
+    bookBonus,
+    onTasteReady: startUpcoming,
+  })
   const { sortedByMode } = taste
 
-  // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts).
-  const upcoming = await upcomingForModes(
-    supabase,
-    process.env.TMDB_API_KEY,
-    taste,
-    {
-      excludedGenreIds: inputs.excludedGenreIds,
-      seenKeys: new Set(
-        [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist, ...(inputs.hidden ?? [])].map((x) => `${x.media_type}-${x.tmdb_id}`)
-      ),
-    }
-  )
+  // Al gestart via onTasteReady; zo niet (de motor stopte eerder, bijvoorbeeld bij een leeg profiel), dan nu.
+  const upcoming = await startUpcoming(taste)
 
   if (userSourceIds.size === 0) {
     const plain = {

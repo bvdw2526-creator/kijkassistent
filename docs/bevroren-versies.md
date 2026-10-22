@@ -208,7 +208,10 @@ Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelij
 
 ### Gewijzigd na deze versie
 
-(nog niets)
+- 22 okt 2026 (alleen snelheid): Binnenkort start in "Voor jou" al zodra de smaak bekend is (`onTasteReady` in
+  `computeTasteProfile`) en loopt tegelijk met het lezen van rolverdelingen en kijkinformatie. De uitkomst is gelijk
+  (binnenkort-titels in 6 lokale rondes identiek); lokaal ~0,5 s sneller. Terugzetten:
+  `app/api/recommendations/route.ts` en `lib/recommendationEngine.ts` uit het label halen.
 
 ## Afspraken bij verder sleutelen
 

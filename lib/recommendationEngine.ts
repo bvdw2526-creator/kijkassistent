@@ -1799,11 +1799,14 @@ export async function computeTasteProfile(
   // staleRefresher: verlopen cacherijen (kijkinformatie, "lijkt hierop", rolverdeling, details) gelden dan als bruikbaar in
   // plaats van live opgehaald te worden; ze worden verzameld om na het antwoord te verversen (zie StaleCacheRefresher).
   // bookBonus: de Boekenclub-skin staat aan; boekverfilmingen krijgen extra punten (zie BOOK_ADAPTATION_BONUS).
+  // onTasteReady: wordt aangeroepen zodra smaakvector, afkeurvector en genrevoorkeuren vaststaan (die veranderen daarna
+  // niet meer), zodat de route Binnenkort al kan berekenen terwijl hier de kijkinformatie nog gelezen wordt.
   options: {
     availableOnSourceIds?: Set<number>
     explainKey?: string
     staleRefresher?: StaleCacheRefresher
     bookBonus?: boolean
+    onTasteReady?: (taste: Pick<TasteProfile, 'userVector' | 'dislikeVector' | 'movieGenres' | 'tvGenres'>) => void
   } = {}
 ): Promise<TasteProfile> {
   const explainKey = options.explainKey
@@ -2208,6 +2211,7 @@ export async function computeTasteProfile(
   const userVector = averageVector(sourceEmbeddingItems).vector
   const disliked = averageVector(dislikeEmbeddingItems.map((d) => ({ ...d, weight: 1 })))
   const dislikeVector = disliked.count >= STORY_DISLIKE_MIN ? disliked.vector : []
+  options.onTasteReady?.({ userVector, dislikeVector, movieGenres, tvGenres })
 
   if (userVector.length > 0) {
     const candidateEmbeddingItems = candidates
