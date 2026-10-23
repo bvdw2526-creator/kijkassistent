@@ -4,6 +4,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { KEYWORD_NL } from './keywordLabels'
 import { inLockOrder } from './lockOrder'
+import { pastLiveDeadline } from './liveDeadline'
 
 type MediaType = 'movie' | 'tv'
 
@@ -172,7 +173,7 @@ export async function getFeaturesBulk(
 
   const started = Date.now()
   for (const part of chunked(toFetch, LIVE_CHUNK)) {
-    if (Date.now() - started > LIVE_BUDGET_MS) break
+    if (Date.now() - started > LIVE_BUDGET_MS || pastLiveDeadline()) break
     const done = await Promise.all(
       part.map(async ([key, item]) => ({ key, item, features: await fetchFeaturesLive(item.media_type, item.tmdb_id) }))
     )

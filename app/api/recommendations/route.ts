@@ -18,6 +18,7 @@ import { upcomingForModes, type UpcomingTaste } from '@/lib/upcomingTitles'
 import { withLatinTitles } from '@/lib/titleFallback'
 import { localeFromRequest } from '@/lib/serverI18n'
 import { localizeModes } from '@/lib/localizeTitles'
+import { withLiveDeadline, LIVE_DEADLINE_MS } from '@/lib/liveDeadline'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort voor
 // deze route bij een koude cache: veel losse TMDB-calls (aanbevelingen/cast/details per
@@ -136,12 +137,15 @@ export async function GET(request: NextRequest) {
     (upcomingPromise ??= upcomingForModes(supabase, process.env.TMDB_API_KEY, t, upcomingFilter))
 
   // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
-  const taste = await computeTasteProfile(supabase, inputs, {
-    availableOnSourceIds: userSourceIds,
-    staleRefresher: stale,
-    bookBonus,
-    onTasteReady: startUpcoming,
-  })
+  // Met een gezamenlijke deadline voor al het live ophalen (zie lib/liveDeadline.ts).
+  const taste = await withLiveDeadline(computeStartedAt + LIVE_DEADLINE_MS, () =>
+    computeTasteProfile(supabase, inputs, {
+      availableOnSourceIds: userSourceIds,
+      staleRefresher: stale,
+      bookBonus,
+      onTasteReady: startUpcoming,
+    })
+  )
   const { sortedByMode } = taste
 
   // Al gestart via onTasteReady; zo niet (de motor stopte eerder, bijvoorbeeld bij een leeg profiel), dan nu.

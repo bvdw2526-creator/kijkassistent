@@ -27,6 +27,7 @@ import { isOlderThan } from '@/lib/recommendationEngine'
 import { withLatinTitles } from '@/lib/titleFallback'
 import { localeFromRequest } from '@/lib/serverI18n'
 import { localizeTitles } from '@/lib/localizeTitles'
+import { withLiveDeadline, LIVE_DEADLINE_MS } from '@/lib/liveDeadline'
 
 // Standaard-timeout van Vercel's serverless functions (10s op Hobby) is te kort: deze
 // route berekent het volledige smaakprofiel van twee mensen na elkaar/parallel (zie
@@ -803,7 +804,8 @@ export async function GET(request: NextRequest) {
     if (claimed) {
       after(async () => {
         try {
-          await compute()
+          // Gezamenlijke deadline voor al het live ophalen, ook binnen beide smaakprofielen (zie lib/liveDeadline.ts).
+          await withLiveDeadline(Date.now() + LIVE_DEADLINE_MS, compute)
         } catch (err) {
           console.error('Samen op de achtergrond berekenen mislukt:', err)
           await releaseClaim(supabase, connection.id)

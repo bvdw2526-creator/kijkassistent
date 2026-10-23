@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cacheWriter } from './supabaseAdmin'
 import { inLockOrder } from './lockOrder'
+import { pastLiveDeadline } from './liveDeadline'
 import { getFeaturesBulk, buildFeatureTaste, scoreTitleFeatures, strongestThemes } from './titleFeatures'
 
 export type MediaType = 'movie' | 'tv'
@@ -820,7 +821,7 @@ async function fetchLiveInChunks<T, R>(
   const started = Date.now()
   const all: R[] = []
   for (const part of chunked(items, LIVE_FETCH_CHUNK)) {
-    if (Date.now() - started > budgetMs) break
+    if (Date.now() - started > budgetMs || pastLiveDeadline()) break
     const done = await Promise.all(part.map(fetchOne))
     await saveChunk(done)
     all.push(...done)
