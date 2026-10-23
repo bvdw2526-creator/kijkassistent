@@ -264,6 +264,20 @@ const DIRECTOR_MATCH_WEIGHT = 5
 // oplopen tot een score die alles overstemt.
 const CORE_SOURCE_DECAY = 0.75
 
+// Toon-controle op TMDB's lijst "kijkers van X keken ook": die lijst kijkt naar kijkgedrag, niet naar sfeer, en zet zo
+// bv. de luchtige Time Freak (komedie/romantiek) bij het grimmige Knowing. Heeft een kandidaat komedie of romantiek en de
+// bron geen van beide, dan telt die bron maar voor LIGHT_TONE_MISMATCH_FACTOR mee en wordt de bron niet als reden genoemd.
+// Alleen bij wie zelf weinig luchtige titels leuk vindt (minder dan LIGHT_TONE_MAX_SHARE van de favorieten en "zeker
+// leuk", met minstens LIGHT_TONE_MIN_SOURCES daarvan); wie ze graag ziet, krijgt de koppeling gewoon.
+// Gemeten 23 okt 2026 (scripts/smaaktoets/toets-koppeling.sql): bij het profiel met 8% luchtig in "leuk" en 27% in "niet
+// voor mij" gaat de trefkans van de koppeling bij factor 0,3 van 58,0 naar 60,1 (leuk>niet), 57,4 -> 57,8 (leuk>oké) en
+// 50,7 -> 52,9 (oké>niet). Bij het profiel met 22% luchtig in "leuk" zou hij juist iets dalen (45,3 -> 44,6); dat valt
+// boven de grens en houdt de oude berekening.
+const LIGHT_TONE_GENRE_IDS = new Set([35, 10749]) // komedie, romantiek (TMDB; komedie is bij series ook 35)
+const LIGHT_TONE_MISMATCH_FACTOR = 0.3
+const LIGHT_TONE_MAX_SHARE = 0.15
+const LIGHT_TONE_MIN_SOURCES = 20
+
 // Gewicht per soort smaakbron. Een favoriet is je absolute topfilm en weegt daarom het zwaarst, "zeker leuk" daarna en
 // "was oké" (alleen bij Mijn smaak breder en Verras me) het lichtst. Het gewicht telt door in de titel-aanbevelingen,
 // de genre-voorkeur, de gemiddelde smaakvector, de verhaal-buren en de kenmerken. Gemeten op echte profielen (8 okt 2026):
@@ -2069,9 +2083,21 @@ export async function computeTasteProfile(
   // wat er ook maar losjes op lijkt — ook een middelmatige titel die toevallig in
   // hetzelfde cluster valt. Meerdere TMDB-aanbevelingspagina's van dezelfde bron tellen
   // hierbij als één bron, niet twee (vandaar de binnenste Map, per sourceKey).
-  const hitsByCandidate = new Map<string, Map<string, { item: TmdbItem; weight: number; tier: Tier; sourceTitle: string }>>()
+  // Toon-controle (zie LIGHT_TONE_*): welke favorieten/"zeker leuk" zelf luchtig zijn, en of die controle voor jou geldt.
+  // Van "was oké"-bronnen zijn de genres hier niet bekend; die blijven buiten de controle (ze wegen toch het lichtst).
+  const isLight = (genreIds: number[]) => genreIds.some((g) => LIGHT_TONE_GENRE_IDS.has(g))
+  const lightSourceKeys = new Set(
+    sourceDetails.filter((s) => isLight(s.genres.map((g) => g.id))).map((s) => `${s.media_type}-${s.tmdb_id}`)
+  )
+  const toneCheck =
+    sourceDetails.length >= LIGHT_TONE_MIN_SOURCES && lightSourceKeys.size / sourceDetails.length < LIGHT_TONE_MAX_SHARE
+  const hitsByCandidate = new Map<
+    string,
+    Map<string, { item: TmdbItem; weight: number; tier: Tier; sourceTitle: string; toneMismatch: boolean }>
+  >()
   for (const source of profileSources) {
     const sourceKey = `${source.media_type}-${source.tmdb_id}`
+    const sourceIsDark = toneCheck && source.tier === 'core' && !lightSourceKeys.has(sourceKey)
     for (const page of RECOMMENDATION_PAGES) {
       const results = recommendationPagesByKey.get(`${source.media_type}-${source.tmdb_id}-${page}`) || []
       for (const item of results) {
@@ -2089,7 +2115,14 @@ export async function computeTasteProfile(
           hitsByCandidate.set(candidateKey, sourcesForCandidate)
         }
         if (!sourcesForCandidate.has(sourceKey)) {
-          sourcesForCandidate.set(sourceKey, { item, weight: source.weight, tier: source.tier, sourceTitle: source.title })
+          const toneMismatch = sourceIsDark && isLight(item.genre_ids)
+          sourcesForCandidate.set(sourceKey, {
+            item,
+            weight: toneMismatch ? source.weight * LIGHT_TONE_MISMATCH_FACTOR : source.weight,
+            tier: source.tier,
+            sourceTitle: source.title,
+            toneMismatch,
+          })
         }
       }
     }
@@ -2102,7 +2135,7 @@ export async function computeTasteProfile(
     hits.forEach((hit, index) => {
       const field: ScoreField = hit.tier === 'core' ? 'coreScore' : 'okScore'
       entry[field] += hit.weight * Math.pow(CORE_SOURCE_DECAY, index)
-      entry.basedOn.add(hit.sourceTitle)
+      if (!hit.toneMismatch) entry.basedOn.add(hit.sourceTitle)
     })
   }
 

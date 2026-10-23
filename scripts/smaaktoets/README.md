@@ -9,7 +9,8 @@ Er gaan nooit beoordelingen van gebruikers in het project: de map `data/` staat 
 
 ## Verhaal-vingerafdrukken en Samen (in de database)
 
-Draai `toets-verhaal.sql` en `toets-samen.sql` in de SQL-editor van Supabase, of laat Claude ze uitvoeren via de
+Draai `toets-verhaal.sql`, `toets-samen.sql` en `toets-koppeling.sql` (TMDB's lijst "kijkers van X keken ook", met de
+toon-controle) in de SQL-editor van Supabase, of laat Claude ze uitvoeren via de
 database-koppeling. Ze lezen alleen.
 
 ## Kenmerken (trefwoorden, regisseur, tijdperk, taal)

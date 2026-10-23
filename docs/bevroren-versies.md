@@ -212,6 +212,15 @@ Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelij
   `computeTasteProfile`) en loopt tegelijk met het lezen van rolverdelingen en kijkinformatie. De uitkomst is gelijk
   (binnenkort-titels in 6 lokale rondes identiek); lokaal ~0,5 s sneller. Terugzetten:
   `app/api/recommendations/route.ts` en `lib/recommendationEngine.ts` uit het label halen.
+- 23 okt 2026: toon-controle op TMDB's lijst "kijkers van X keken ook" (`LIGHT_TONE_*` in `lib/recommendationEngine.ts`).
+  Aanleiding: Time Freak (komedie/romantiek) "vanwege Knowing". Heeft een kandidaat komedie of romantiek en de favoriet
+  of "zeker leuk"-bron geen van beide, dan telt die bron voor 0,3 en wordt hij niet als reden genoemd. Alleen bij wie
+  minder dan 15% luchtige titels in favorieten + "zeker leuk" heeft (minstens 20 bronnen). Nieuwe toets
+  `scripts/smaaktoets/toets-koppeling.sql` (trefkans van alleen deze koppeling, leuk>niet / leuk>oké / oké>niet):
+  profiel met 8% luchtig 58,0 / 57,4 / 50,7 naar 60,1 / 57,8 / 52,9; profiel met 22% luchtig valt erbuiten en blijft
+  45,3 / 51,6 / 43,6 (met de controle zou het 44,6 / 51,9 / 42,6 worden). Verhaal- en kenmerken-toets niet geraakt.
+  Voorvoegsels nu `u21` en `v26-toon`. Terugzetten: `lib/recommendationEngine.ts` uit het label halen en de voorvoegsels
+  ophogen.
 
 ## Afspraken bij verder sleutelen
 
