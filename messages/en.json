@@ -614,7 +614,7 @@
     "titlesSeen": "titles seen",
     "counts": "{films, plural, one {# film} other {# films}} · {series, plural, one {# series} other {# series}}",
     "topSeen": "Top 100 seen",
-    "topSeenSub": "The highest-rated titles, also per streaming service",
+    "topSeenSub": "The highest-rated titles. Tap for the full list, also per streaming service.",
     "films": "Films",
     "series": "Series",
     "seenOf": "{seen} of {total}",

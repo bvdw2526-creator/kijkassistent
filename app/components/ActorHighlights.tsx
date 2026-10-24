@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { btnSecondary, card } from './ui'
+import { btnSecondary, card, tapChevron, tapRow } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
-import { UsersIcon, CloseIcon } from './Icons'
+import { UsersIcon, CloseIcon, ChevronRightIcon } from './Icons'
 
 export type ActorHighlight = {
   // id en titels ontbreken in een oudere bewaarde kopie van de Stats; die regel is dan niet aan te tikken.
@@ -38,20 +38,18 @@ export default function ActorHighlights({ actors }: { actors: ActorHighlight[] }
               key={actor.id ?? actor.name}
               onClick={() => setOpen(actor)}
               disabled={!actor.titles}
-              className="w-full flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 text-left transition-colors hover:bg-white/5 disabled:hover:bg-transparent touch-manipulation"
+              className={tapRow}
             >
               <span className="text-xs font-mono text-faint w-4 flex-shrink-0">{i + 1}</span>
               <span className="text-sm flex-1 min-w-0 truncate">{actor.name}</span>
-              <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
+              <div className="w-10 sm:w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
                 <div
                   className="h-full rounded-full bg-accent transition-all"
                   style={{ width: `${maxCount > 0 ? (actor.count / maxCount) * 100 : 0}%` }}
                 />
               </div>
               <span className="text-xs text-muted w-16 text-right flex-shrink-0">{t('timesSeen', { count: actor.count })}</span>
-              <span className="text-faint text-sm w-3 flex-shrink-0" aria-hidden>
-                {actor.titles ? '›' : ''}
-              </span>
+              {actor.titles ? <ChevronRightIcon className={tapChevron} /> : <span className="w-4 flex-shrink-0" />}
             </button>
           ))}
         </div>

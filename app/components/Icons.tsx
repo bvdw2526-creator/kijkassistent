@@ -94,6 +94,15 @@ export function TrashIcon({ className }: IconProps) {
   )
 }
 
+// Achter een regel waarop je kunt tikken (zie tapRow in ui.ts).
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="m9.5 6 6 6-6 6" />
+    </svg>
+  )
+}
+
 export function ChevronLeftIcon({ className }: IconProps) {
   return (
     <svg {...common} className={className}>

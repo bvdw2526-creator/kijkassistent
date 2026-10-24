@@ -614,7 +614,7 @@
     "titlesSeen": "titels gezien",
     "counts": "{films, plural, one {# film} other {# films}} · {series, plural, one {# serie} other {# series}}",
     "topSeen": "Top 100 gezien",
-    "topSeenSub": "De best beoordeelde titels, zie ook per streamingdienst",
+    "topSeenSub": "De best beoordeelde titels. Tik voor de hele lijst, ook per streamingdienst.",
     "films": "Films",
     "series": "Series",
     "seenOf": "{seen} van {total}",

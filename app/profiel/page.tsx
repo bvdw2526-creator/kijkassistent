@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { supabase, authFetch } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
-import { card } from '../components/ui'
+import { card, tapChevron, tapRow } from '../components/ui'
 import RatingBreakdown from '../components/RatingBreakdown'
 import ActorHighlights, { type ActorHighlight } from '../components/ActorHighlights'
-import { DislikeIcon } from '../components/Icons'
+import { ChevronRightIcon, DislikeIcon } from '../components/Icons'
 
 type ProfileStats = {
   totalWatched: number
@@ -161,22 +161,23 @@ export default function Profiel() {
             {topProgress && topProgress.films.total > 0 && (
               <div className={`${card} p-5`}>
                 <p className="text-sm font-medium mb-1">{t('topSeen')}</p>
-                <p className="text-xs text-faint mb-4">{t('topSeenSub')}</p>
-                <div className="flex flex-col gap-3">
+                <p className="text-xs text-faint mb-3">{t('topSeenSub')}</p>
+                <div className="flex flex-col gap-1">
                   {[
                     { label: t('films'), href: '/top-100/films', ...topProgress.films },
                     { label: t('series'), href: '/top-100/series', ...topProgress.series },
                   ].map(({ label, href, seen, total }) => (
-                    <Link key={label} href={href} className="block group">
-                      <div className="flex items-baseline justify-between mb-1.5">
-                        <span className="text-sm">{label}</span>
-                        <span className="text-sm text-muted group-hover:text-foreground transition-colors">
-                          {t('seenOf', { seen, total })}
-                        </span>
+                    <Link key={label} href={href} className={tapRow}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between mb-1.5">
+                          <span className="text-sm">{label}</span>
+                          <span className="text-sm text-muted">{t('seenOf', { seen, total })}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
+                          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total > 0 ? (seen / total) * 100 : 0}%` }} />
+                        </div>
                       </div>
-                      <div className="h-2 rounded-full bg-surface-2 overflow-hidden">
-                        <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total > 0 ? (seen / total) * 100 : 0}%` }} />
-                      </div>
+                      <ChevronRightIcon className={tapChevron} />
                     </Link>
                   ))}
                 </div>

@@ -12,6 +12,13 @@ export const input =
 
 export const card = 'rounded-2xl border border-line bg-surface'
 
+// Een regel waarop je kunt tikken voor meer (Top 100, beoordelingen, namen bij Stats). Licht op bij aanraken en heeft
+// rechts een pijltje: zie tapChevron en ChevronRightIcon.
+export const tapRow =
+  'w-full flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 text-left transition-colors hover:bg-white/5 active:bg-white/10 disabled:hover:bg-transparent disabled:active:bg-transparent touch-manipulation'
+
+export const tapChevron = 'w-4 h-4 text-muted flex-shrink-0'
+
 export function chip(active: boolean, tone: 'accent' | 'teal' | 'coral' = 'accent', size: 'md' | 'sm' = 'md') {
   const tones = {
     accent: 'border-accent text-accent bg-accent/12',

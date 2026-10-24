@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
-import { card, chip } from './ui'
+import { card, chip, tapChevron, tapRow } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
-import { HeartIcon, OkIcon, DislikeIcon, StarIcon, CloseIcon } from './Icons'
+import { HeartIcon, OkIcon, DislikeIcon, StarIcon, CloseIcon, ChevronRightIcon } from './Icons'
 
 type Category = 'fav' | 'love' | 'ok' | 'dislike'
 type Row = { tmdb_id: number; title: string; media_type: 'movie' | 'tv'; when: string | null; year: number | null }
@@ -83,7 +83,7 @@ export default function RatingBreakdown({ counts }: { counts: { fav?: number; lo
                 key={key}
                 onClick={() => openCategory(key)}
                 disabled={count === 0}
-                className="w-full flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 text-left transition-colors hover:bg-white/5 disabled:hover:bg-transparent touch-manipulation"
+                className={tapRow}
               >
                 <Icon className={`w-4 h-4 flex-shrink-0 ${colorClass}`} />
                 <span className="text-sm w-28 flex-shrink-0">{t(label)}</span>
@@ -91,7 +91,7 @@ export default function RatingBreakdown({ counts }: { counts: { fav?: number; lo
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: hex }} />
                 </div>
                 <span className="text-sm font-medium w-8 text-right flex-shrink-0">{count}</span>
-                <span className="text-faint text-sm w-3 flex-shrink-0" aria-hidden>›</span>
+                {count > 0 ? <ChevronRightIcon className={tapChevron} /> : <span className="w-4 flex-shrink-0" />}
               </button>
             )
           })}
