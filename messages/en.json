@@ -247,6 +247,11 @@
     "disappears": "<b></b> will disappear from your recommendations.",
     "explain": "This isn't a rating: it doesn't count towards your taste and doesn't change your recommendations otherwise. It only applies to your own lists, not to Together. You can bring it back later in Settings."
   },
+  "appUpdate": {
+    "message": "A new version of the app is available.",
+    "button": "Update",
+    "close": "Close message"
+  },
   "tooOld": {
     "title": "Leave out older titles?",
     "question": "You've chosen \"Too old\" a few times. Shall I leave films and series from before a certain year out of your recommendations from now on?",

@@ -5,6 +5,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import './globals.css'
 import RegisterServiceWorker from './components/RegisterServiceWorker'
 import AppOpenTracker from './components/AppOpenTracker'
+import AppUpdateBanner from './components/AppUpdateBanner'
 import LocaleSync from './components/LocaleSync'
 import SkinBackdrop from './components/SkinBackdrop'
 import SkinInitScript from './components/SkinInitScript'
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
         <NextIntlClientProvider>
+          <AppUpdateBanner />
           {children}
           <LocaleSync />
         </NextIntlClientProvider>

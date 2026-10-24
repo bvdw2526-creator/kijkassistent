@@ -247,6 +247,11 @@
     "disappears": "<b></b> verdwijnt uit je aanbevelingen.",
     "explain": "Dit is geen beoordeling: het telt niet mee voor je smaak en verandert je aanbevelingen verder niet. Het geldt alleen voor jouw eigen lijsten, niet voor Samen. Terugzetten kan later via Instellingen."
   },
+  "appUpdate": {
+    "message": "Er is een nieuwe versie van de app.",
+    "button": "Updaten",
+    "close": "Melding sluiten"
+  },
   "tooOld": {
     "title": "Oudere titels weglaten?",
     "question": "Je hebt een paar keer \"Te oud\" gekozen. Zal ik films en series van vóór een bepaald jaar voortaan uit je aanbevelingen laten?",
