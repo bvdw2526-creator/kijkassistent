@@ -110,12 +110,19 @@ export async function GET(request: NextRequest) {
   // mislukt of niet op tijd klaar is, krijgt de gebruiker die in plaats van een leeg scherm. Aanleiding: 24 okt 2026 bleef
   // Voor jou bij het grootste profiel leeg na een nieuwe versie van de berekening, terwijl de lijst van de avond ervoor
   // er nog stond.
+  // De vorige lijst kan titels bevatten die je intussen beoordeeld, opgeslagen of verborgen hebt (net als bij Samen).
+  const knownKeys = new Set(
+    [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist, ...(inputs.hidden ?? [])].map((t) => `${t.media_type}-${t.tmdb_id}`)
+  )
+  const withoutKnown = (list: unknown) =>
+    (Array.isArray(list) ? (list as RecommendationItem[]) : []).filter((i) => !knownKeys.has(`${i.media_type}-${i.id}`))
   const previous =
     cachedResult && [cachedResult.focused, cachedResult.balanced, cachedResult.explore].some((l) => Array.isArray(l) && l.length > 0)
-      ? ({ focused: cachedResult.focused ?? [], balanced: cachedResult.balanced ?? [], explore: cachedResult.explore ?? [] } as Record<
-          RecommendationMode,
-          RecommendationItem[]
-        >)
+      ? ({
+          focused: withoutKnown(cachedResult.focused),
+          balanced: withoutKnown(cachedResult.balanced),
+          explore: withoutKnown(cachedResult.explore),
+        } as Record<RecommendationMode, RecommendationItem[]>)
       : null
   const fresh = computeFresh()
   if (!previous) return NextResponse.json(await localizeModes(supabase, await fresh, locale))
