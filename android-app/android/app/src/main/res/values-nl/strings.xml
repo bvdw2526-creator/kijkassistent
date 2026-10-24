@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Update-melding (Engelse versie staat in values/strings.xml) -->
+    <string name="update_ready_title">Update staat klaar</string>
+    <string name="update_ready_message">Er is een nieuwe versie van Kijkassistent gedownload. Start de app opnieuw om hem te gebruiken.</string>
+    <string name="update_restart">Opnieuw starten</string>
+    <string name="update_later">Later</string>
+</resources>

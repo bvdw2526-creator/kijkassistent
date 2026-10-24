@@ -4,4 +4,10 @@
     <string name="title_activity_main">Kijkassistent</string>
     <string name="package_name">nl.kijkassistent.app</string>
     <string name="custom_url_scheme">nl.kijkassistent.app</string>
+
+    <!-- Update-melding (Nederlandse versie staat in values-nl/strings.xml) -->
+    <string name="update_ready_title">Update ready</string>
+    <string name="update_ready_message">A new version of Kijkassistent has been downloaded. Restart the app to use it.</string>
+    <string name="update_restart">Restart</string>
+    <string name="update_later">Later</string>
 </resources>
