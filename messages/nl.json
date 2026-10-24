@@ -62,7 +62,9 @@
     "closingTitle": "Wat kijk jij vanavond?",
     "closingText": "Maak een gratis account en krijg binnen een paar minuten je eerste tips.",
     "followUs": "Volg ons",
-    "socialLabel": "Kijkassistent op {network}"
+    "socialLabel": "Kijkassistent op {network}",
+    "tryFirst": "Eerst proberen?",
+    "tryText": "Noem drie titels en krijg meteen een tip, zonder account."
   },
   "login": {
     "kicker": "Welkom terug",
@@ -873,5 +875,57 @@
     "seasonStartsOn": "Seizoen {season} begint op {date}",
     "subjectSeason": "Nieuw seizoen van {series}, en je kijktips voor dit weekend",
     "subjectSeasonOnly": "Nieuw seizoen van {series}"
+  },
+  "publicTip": {
+    "metaTitle": "Wat zullen we kijken? Een tip op basis van drie titels | Kijkassistent",
+    "metaDescription": "Noem drie films of series die je leuk vond, alleen of samen, en Kijkassistent zoekt wat daar het best bij past. Zonder account.",
+    "heading": "Wat zullen we kijken?",
+    "noAccount": "Zonder account.",
+    "forWhom": "Voor wie",
+    "forMe": "Voor mij",
+    "forUs": "Voor ons samen",
+    "mij": {
+      "intro": "Noem drie films of series die je echt goed vond. Kijkassistent zoekt wat daar het best bij past.",
+      "ask": "Welke drie vond je goed?",
+      "services": "Welke diensten heb je?",
+      "button": "Geef me een tip",
+      "result": "Dit is iets voor jou",
+      "cta": "Tips die elke dag beter worden?",
+      "ctaText": "Met een gratis account leert Kijkassistent van alles wat je beoordeelt, en zie je alleen wat op jouw diensten staat.",
+      "fits": "Past bij {names}, en lijkt het meest op <strong>{closest}</strong>."
+    },
+    "samen": {
+      "intro": "Noem drie films of series die jullie allebei goed vonden. Kijkassistent zoekt wat bij jullie allebei past.",
+      "ask": "Welke drie vonden jullie allebei goed?",
+      "services": "Welke diensten hebben jullie?",
+      "button": "Geef ons een tip",
+      "result": "Dit is iets voor jullie samen",
+      "cta": "Elke avond een tip voor jullie twee?",
+      "ctaText": "Maak een gratis account en koppel je partner: Kijkassistent zoekt dan wat bij jullie állebei past, met een gezamenlijke kijklijst.",
+      "fits": "Past bij jullie {names}, en lijkt het meest op <strong>{closest}</strong>."
+    },
+    "remove": "{title} weghalen",
+    "searchFirst": "Zoek een film of serie",
+    "searchMore": "Nog een titel",
+    "searching": "Zoeken…",
+    "film": "Film",
+    "series": "Serie",
+    "servicesSkip": "Mag je overslaan: dan kijken we naar alle diensten in Nederland.",
+    "patheRent": "Pathé Thuis (huren)",
+    "loading": "Even zoeken…",
+    "minTitles": "Kies er minstens {min}, het liefst drie.",
+    "nothingFound": "We vonden er helaas niets bij. Probeer een paar andere titels.",
+    "atTmdb": "bij TMDB",
+    "watchOn": "Te zien op",
+    "notOnChosen": "Niet op de gekozen diensten",
+    "notOnSubscription": "Nu niet bij een abonnement in Nederland",
+    "orMaybe": "Of misschien",
+    "createAccount": "Gratis account maken",
+    "anotherTip": "Nog een tip",
+    "error": "Er ging iets mis",
+    "errInvalid": "Ongeldige aanvraag",
+    "errMinTitles": "Kies minstens {min} titels",
+    "errFailed": "Er ging iets mis. Probeer het zo nog eens.",
+    "errTooMany": "Je hebt even genoeg tips gevraagd. Probeer het later opnieuw, of maak een gratis account."
   }
 }

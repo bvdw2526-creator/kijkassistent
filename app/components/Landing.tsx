@@ -58,6 +58,16 @@ export default function Landing() {
         <div>
           <h1 className="font-display text-4xl laptop:text-5xl leading-tight mb-4">{t('heroTitle')}</h1>
           <p className="text-muted text-lg leading-relaxed mb-8">{t('heroText')}</p>
+          {/* Eerst proberen zonder account (/tip): voor bezoekers van Instagram en TikTok die nog niet willen aanmelden. */}
+          <div className="mb-6">
+            <Link
+              href="/tip"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-full border-2 border-accent text-accent font-semibold px-5 py-3 hover:bg-accent/10 active:scale-[0.97] transition-all touch-manipulation"
+            >
+              {t('tryFirst')}
+            </Link>
+            <p className="text-sm text-muted mt-2">{t('tryText')}</p>
+          </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Link href="/register" className={btnPrimary}>
               {common('createFreeAccount')}

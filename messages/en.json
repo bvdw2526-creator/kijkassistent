@@ -62,7 +62,9 @@
     "closingTitle": "What are you watching tonight?",
     "closingText": "Create a free account and get your first tips within a few minutes.",
     "followUs": "Follow us",
-    "socialLabel": "Kijkassistent on {network}"
+    "socialLabel": "Kijkassistent on {network}",
+    "tryFirst": "Try it first?",
+    "tryText": "Name three titles and get a tip right away, no account needed."
   },
   "login": {
     "kicker": "Welcome back",
@@ -873,5 +875,57 @@
     "seasonStartsOn": "Season {season} starts on {date}",
     "subjectSeason": "New season of {series}, plus your watch tips for the weekend",
     "subjectSeasonOnly": "New season of {series}"
+  },
+  "publicTip": {
+    "metaTitle": "What shall we watch? A tip based on three titles | Kijkassistent",
+    "metaDescription": "Name three films or series you enjoyed, on your own or together, and Kijkassistent finds what fits them best. No account needed.",
+    "heading": "What shall we watch?",
+    "noAccount": "No account needed.",
+    "forWhom": "For whom",
+    "forMe": "For me",
+    "forUs": "For the two of us",
+    "mij": {
+      "intro": "Name three films or series you really enjoyed. Kijkassistent finds what fits them best.",
+      "ask": "Which three did you enjoy?",
+      "services": "Which services do you have?",
+      "button": "Give me a tip",
+      "result": "This one is for you",
+      "cta": "Tips that get better every day?",
+      "ctaText": "With a free account, Kijkassistent learns from everything you rate, and you only see what is on your services.",
+      "fits": "Fits {names}, and is most like <strong>{closest}</strong>."
+    },
+    "samen": {
+      "intro": "Name three films or series you both enjoyed. Kijkassistent finds what fits you both.",
+      "ask": "Which three did you both enjoy?",
+      "services": "Which services do you have?",
+      "button": "Give us a tip",
+      "result": "This one is for the two of you",
+      "cta": "A tip for the two of you every night?",
+      "ctaText": "Create a free account and link your partner: Kijkassistent then finds what you will both enjoy, with a shared watchlist.",
+      "fits": "Fits your {names}, and is most like <strong>{closest}</strong>."
+    },
+    "remove": "Remove {title}",
+    "searchFirst": "Search for a film or series",
+    "searchMore": "Another title",
+    "searching": "Searching…",
+    "film": "Film",
+    "series": "Series",
+    "servicesSkip": "You can skip this: we will then look at all services in the Netherlands.",
+    "patheRent": "Pathé Thuis (rental)",
+    "loading": "Searching…",
+    "minTitles": "Choose at least {min}, ideally three.",
+    "nothingFound": "Sorry, we could not find anything. Try a few other titles.",
+    "atTmdb": "on TMDB",
+    "watchOn": "Watch on",
+    "notOnChosen": "Not on the services you chose",
+    "notOnSubscription": "Not on a subscription in the Netherlands right now",
+    "orMaybe": "Or maybe",
+    "createAccount": "Create a free account",
+    "anotherTip": "Another tip",
+    "error": "Something went wrong",
+    "errInvalid": "Invalid request",
+    "errMinTitles": "Choose at least {min} titles",
+    "errFailed": "Something went wrong. Please try again in a moment.",
+    "errTooMany": "You have asked for quite a few tips. Please try again later, or create a free account."
   }
 }
