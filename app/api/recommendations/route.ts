@@ -33,6 +33,11 @@ export const maxDuration = 60
 // nieuwe berekening. Wie iets nieuws wil, drukt op Vernieuwen: die vraagt met ?vers=1 altijd een verse berekening.
 const RECOMMENDATIONS_RESULT_CACHE_MAX_AGE_HOURS = 24
 
+// Na zoveel seconden zonder nieuwe lijst tonen we de vorige (zie het vangnet in GET). Ruim onder de 60 s van Vercel,
+// zodat er tijd overblijft om de vorige lijst te vertalen en te versturen; na de gezamenlijke deadline voor live ophalen
+// (40 s) is een gewone berekening dan bijna altijd al klaar.
+const FALLBACK_AFTER_MS = 50_000
+
 async function cacheRecommendationsResult(
   supabase: SupabaseClient,
   userId: string,
@@ -100,103 +105,137 @@ export async function GET(request: NextRequest) {
   }
 
   const computeStartedAt = Date.now()
-  const userSourceIds = new Set(inputs.streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
-  // Verlopen kijkinformatie, "lijkt hierop"-lijsten, rolverdelingen en details gebruiken we zoals ze zijn, in plaats van de
-  // gebruiker te laten wachten tot ze live bij TMDB zijn opgehaald; dat gebeurt na het antwoord (zie refreshAfterResponse).
-  // Wat er niet verandert: wat nog helemaal ontbreekt, wordt meteen opgehaald. Gemeten: het live verversen kostte 2 tot 6,5
-  // seconden (13 okt 2026), en een golf verlopen "lijkt hierop"-lijsten liet de berekening vastlopen (15 okt 2026).
-  const stale = new StaleCacheRefresher()
-  const refreshAfterResponse = () => {
-    console.log('Voor jou berekend', { seconden: Math.round((Date.now() - computeStartedAt) / 100) / 10, verlopen: stale.counts })
-    if (stale.size === 0) return
-    // Het opgeslagen resultaat van nu blijft zoals het is; een volgende berekening (van wie dan ook, de cache is gedeeld)
-    // heeft weer verse gegevens.
-    after(async () => {
-      const startedAt = Date.now()
-      try {
-        const ververst = await stale.refresh(supabase)
-        console.log('Verlopen gegevens op de achtergrond ververst', { ververst, seconden: Math.round((Date.now() - startedAt) / 100) / 10 })
-      } catch (err) {
-        console.error('Verlopen gegevens verversen op de achtergrond mislukt:', err)
-      }
-    })
-  }
+  // Vangnet: de vorige opgeslagen lijst (ook van een oudere berekening of ouder dan 24 uur). Als de nieuwe berekening
+  // mislukt of niet op tijd klaar is, krijgt de gebruiker die in plaats van een leeg scherm. Aanleiding: 24 okt 2026 bleef
+  // Voor jou bij het grootste profiel leeg na een nieuwe versie van de berekening, terwijl de lijst van de avond ervoor
+  // er nog stond.
+  const previous =
+    cachedResult && [cachedResult.focused, cachedResult.balanced, cachedResult.explore].some((l) => Array.isArray(l) && l.length > 0)
+      ? ({ focused: cachedResult.focused ?? [], balanced: cachedResult.balanced ?? [], explore: cachedResult.explore ?? [] } as Record<
+          RecommendationMode,
+          RecommendationItem[]
+        >)
+      : null
+  const fresh = computeFresh()
+  if (!previous) return NextResponse.json(await localizeModes(supabase, await fresh, locale))
 
-  // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts). Dit start al zodra de
-  // motor de smaak kent (onTasteReady), en loopt dan tegelijk met het lezen van rolverdelingen en kijkinformatie.
-  // Gemeten 22 okt 2026: na elkaar kostte Binnenkort ~1,2 s extra wachttijd. upcomingForModes faalt nooit hard.
-  const upcomingFilter = {
-    excludedGenreIds: inputs.excludedGenreIds,
-    seenKeys: new Set(
-      [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist, ...(inputs.hidden ?? [])].map((x) => `${x.media_type}-${x.tmdb_id}`)
+  const outcome = await Promise.race([
+    fresh.then((result) => ({ kind: 'klaar' as const, result })).catch((err: unknown) => ({ kind: 'fout' as const, err })),
+    new Promise<{ kind: 'te laat' }>((resolve) =>
+      setTimeout(() => resolve({ kind: 'te laat' }), Math.max(0, computeStartedAt + FALLBACK_AFTER_MS - Date.now()))
     ),
+  ])
+  if (outcome.kind === 'klaar') return NextResponse.json(await localizeModes(supabase, outcome.result, locale))
+  if (outcome.kind === 'fout') {
+    console.error('Voor jou: berekening mislukt, vorige lijst getoond', outcome.err)
+  } else {
+    console.error('Voor jou: berekening niet op tijd klaar, vorige lijst getoond', { seconden: FALLBACK_AFTER_MS / 1000 })
+    // Laat de berekening doorlopen; haalt hij het binnen de tijd van Vercel, dan slaat hij de nieuwe lijst zelf op.
+    after(() => fresh.catch((err) => console.error('Voor jou: berekening op de achtergrond mislukt', err)))
   }
-  let upcomingPromise: ReturnType<typeof upcomingForModes> | undefined
-  const startUpcoming = (t: UpcomingTaste) =>
-    (upcomingPromise ??= upcomingForModes(supabase, process.env.TMDB_API_KEY, t, upcomingFilter))
+  return NextResponse.json(await localizeModes(supabase, previous, locale))
 
-  // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
-  // Met een gezamenlijke deadline voor al het live ophalen (zie lib/liveDeadline.ts).
-  const taste = await withLiveDeadline(computeStartedAt + LIVE_DEADLINE_MS, () =>
-    computeTasteProfile(supabase, inputs, {
-      availableOnSourceIds: userSourceIds,
-      staleRefresher: stale,
-      bookBonus,
-      onTasteReady: startUpcoming,
-    })
-  )
-  const { sortedByMode } = taste
+  // De berekening zelf: rekent, slaat het resultaat op en geeft het terug.
+  async function computeFresh(): Promise<Record<RecommendationMode, RecommendationItem[]>> {
+    const userSourceIds = new Set(inputs.streamingServices.map((s) => SOURCE_IDS[s]).filter(Boolean))
 
-  // Al gestart via onTasteReady; zo niet (de motor stopte eerder, bijvoorbeeld bij een leeg profiel), dan nu.
-  const upcoming = await startUpcoming(taste)
-
-  if (userSourceIds.size === 0) {
-    const plain = {
-      focused: [...sortedByMode.focused, ...upcoming.focused],
-      balanced: [...sortedByMode.balanced, ...upcoming.balanced],
-      explore: [...sortedByMode.explore, ...upcoming.explore],
-    }
-    const plainFixed = {
-      focused: await withLatinTitles(plain.focused),
-      balanced: await withLatinTitles(plain.balanced),
-      explore: await withLatinTitles(plain.explore),
-    }
-    await cacheRecommendationsResult(supabase, user.id, profileSignature, plainFixed)
-    refreshAfterResponse()
-    return NextResponse.json(await localizeModes(supabase, plainFixed, locale))
-  }
-
-  // Eén candidate kan in meerdere modi voorkomen; beschikbaarheid per streamingdienst
-  // hoeft dan ook maar één keer per titel opgehaald te worden, niet drie keer.
-  const allCandidateItems = new Map<string, RankedCandidate>()
-  for (const mode of MODES) {
-    for (const item of sortedByMode[mode]) {
-      allCandidateItems.set(`${item.media_type}-${item.id}`, item)
-    }
-  }
-
-  const watchInfoMap = await resolveWatchInfo(supabase, Array.from(allCandidateItems.values()), userSourceIds, {
-    onStale: stale.onWatchProviders,
-  })
-
-  const result: Record<RecommendationMode, RecommendationItem[]> = { focused: [], balanced: [], explore: [] }
-  for (const mode of MODES) {
-    result[mode] = sortedByMode[mode]
-      .map((item): RecommendationItem | null => {
-        const info = watchInfoMap.get(`${item.media_type}-${item.id}`)
-        if (!info) return null
-        return { ...item, ...info }
+    // Verlopen kijkinformatie, "lijkt hierop"-lijsten, rolverdelingen en details gebruiken we zoals ze zijn, in plaats van de
+    // gebruiker te laten wachten tot ze live bij TMDB zijn opgehaald; dat gebeurt na het antwoord (zie refreshAfterResponse).
+    // Wat er niet verandert: wat nog helemaal ontbreekt, wordt meteen opgehaald. Gemeten: het live verversen kostte 2 tot 6,5
+    // seconden (13 okt 2026), en een golf verlopen "lijkt hierop"-lijsten liet de berekening vastlopen (15 okt 2026).
+    const stale = new StaleCacheRefresher()
+    const refreshAfterResponse = () => {
+      console.log('Voor jou berekend', { seconden: Math.round((Date.now() - computeStartedAt) / 100) / 10, verlopen: stale.counts })
+      if (stale.size === 0) return
+      // Het opgeslagen resultaat van nu blijft zoals het is; een volgende berekening (van wie dan ook, de cache is gedeeld)
+      // heeft weer verse gegevens.
+      after(async () => {
+        const startedAt = Date.now()
+        try {
+          const ververst = await stale.refresh(supabase)
+          console.log('Verlopen gegevens op de achtergrond ververst', { ververst, seconden: Math.round((Date.now() - startedAt) / 100) / 10 })
+        } catch (err) {
+          console.error('Verlopen gegevens verversen op de achtergrond mislukt:', err)
+        }
       })
-      .filter((m): m is RecommendationItem => m !== null)
-    // Titels die nog niet uit zijn hebben nog geen kijkinfo; ze komen er los bij.
-    result[mode] = [...result[mode], ...upcoming[mode]]
+    }
+
+    // Films en series die binnenkort uitkomen en bij dit tabblad passen (zie lib/upcomingTitles.ts). Dit start al zodra de
+    // motor de smaak kent (onTasteReady), en loopt dan tegelijk met het lezen van rolverdelingen en kijkinformatie.
+    // Gemeten 22 okt 2026: na elkaar kostte Binnenkort ~1,2 s extra wachttijd. upcomingForModes faalt nooit hard.
+    const upcomingFilter = {
+      excludedGenreIds: inputs.excludedGenreIds,
+      seenKeys: new Set(
+        [...inputs.favorites, ...inputs.ratings, ...inputs.watchlist, ...(inputs.hidden ?? [])].map((x) => `${x.media_type}-${x.tmdb_id}`)
+      ),
+    }
+    let upcomingPromise: ReturnType<typeof upcomingForModes> | undefined
+    const startUpcoming = (t: UpcomingTaste) =>
+      (upcomingPromise ??= upcomingForModes(supabase, process.env.TMDB_API_KEY, t, upcomingFilter))
+
+    // Met de diensten van de gebruiker: de motor controleert eerst wat te zien is en kiest daar pas uit.
+    // Met een gezamenlijke deadline voor al het live ophalen (zie lib/liveDeadline.ts).
+    const taste = await withLiveDeadline(computeStartedAt + LIVE_DEADLINE_MS, () =>
+      computeTasteProfile(supabase, inputs, {
+        availableOnSourceIds: userSourceIds,
+        staleRefresher: stale,
+        bookBonus,
+        onTasteReady: startUpcoming,
+      })
+    )
+    const { sortedByMode } = taste
+
+    // Al gestart via onTasteReady; zo niet (de motor stopte eerder, bijvoorbeeld bij een leeg profiel), dan nu.
+    const upcoming = await startUpcoming(taste)
+
+    if (userSourceIds.size === 0) {
+      const plain = {
+        focused: [...sortedByMode.focused, ...upcoming.focused],
+        balanced: [...sortedByMode.balanced, ...upcoming.balanced],
+        explore: [...sortedByMode.explore, ...upcoming.explore],
+      }
+      const plainFixed = {
+        focused: await withLatinTitles(plain.focused),
+        balanced: await withLatinTitles(plain.balanced),
+        explore: await withLatinTitles(plain.explore),
+      }
+      await cacheRecommendationsResult(supabase, user.id, profileSignature, plainFixed)
+      refreshAfterResponse()
+      return plainFixed
+    }
+
+    // Eén candidate kan in meerdere modi voorkomen; beschikbaarheid per streamingdienst
+    // hoeft dan ook maar één keer per titel opgehaald te worden, niet drie keer.
+    const allCandidateItems = new Map<string, RankedCandidate>()
+    for (const mode of MODES) {
+      for (const item of sortedByMode[mode]) {
+        allCandidateItems.set(`${item.media_type}-${item.id}`, item)
+      }
+    }
+
+    const watchInfoMap = await resolveWatchInfo(supabase, Array.from(allCandidateItems.values()), userSourceIds, {
+      onStale: stale.onWatchProviders,
+    })
+
+    const result: Record<RecommendationMode, RecommendationItem[]> = { focused: [], balanced: [], explore: [] }
+    for (const mode of MODES) {
+      result[mode] = sortedByMode[mode]
+        .map((item): RecommendationItem | null => {
+          const info = watchInfoMap.get(`${item.media_type}-${item.id}`)
+          if (!info) return null
+          return { ...item, ...info }
+        })
+        .filter((m): m is RecommendationItem => m !== null)
+      // Titels die nog niet uit zijn hebben nog geen kijkinfo; ze komen er los bij.
+      result[mode] = [...result[mode], ...upcoming[mode]]
+    }
+
+    // Titels in Koreaans, Japans enzovoort vervangen door de Engelse titel.
+    for (const mode of MODES) result[mode] = await withLatinTitles(result[mode])
+
+    await cacheRecommendationsResult(supabase, user.id, profileSignature, result)
+    refreshAfterResponse()
+    return result
   }
-
-  // Titels in Koreaans, Japans enzovoort vervangen door de Engelse titel.
-  for (const mode of MODES) result[mode] = await withLatinTitles(result[mode])
-
-  await cacheRecommendationsResult(supabase, user.id, profileSignature, result)
-  refreshAfterResponse()
-  return NextResponse.json(await localizeModes(supabase, result, locale))
 }

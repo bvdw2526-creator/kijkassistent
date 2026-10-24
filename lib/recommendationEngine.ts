@@ -200,6 +200,11 @@ function cacheRowAge(fetchedAt: string, maxAgeHours: number, key: string): 'fres
 }
 // Grootte van .in()-lijsten bij het lezen uit de cache; Supabase geeft standaard maximaal 1000 rijen terug.
 const CACHE_READ_CHUNK = 200
+// De "lijkt hierop"-lijsten zijn zware rijen (~10 KB per pagina). Een portie van 200 titels (~400 rijen, ~4,5 MB) liep op
+// 24 okt 2026 drie keer tegen de tijdslimiet van 8 s van de database, terwijl hij rustig 0,06 s duurt. Een mislukte
+// portie gold daarna als "ontbreekt", waarna alles live werd opgehaald en Voor jou leeg bleef. Daarom kleinere porties
+// en één nieuwe poging bij een fout.
+const RECOMMENDATIONS_READ_CHUNK = 50
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
@@ -1002,12 +1007,20 @@ export async function getRecommendationPagesBulk(
   // In porties lezen: bij veel bronnen komt een enkele query boven de 1000 rijen die Supabase
   // teruggeeft uit, waarna de rest ten onrechte als "ontbreekt" gold en steeds opnieuw live werd opgehaald.
   const readRows = async (mediaType: MediaType, ids: number[]): Promise<Row[]> => {
-    const parts = await Promise.all(
-      chunked(ids, CACHE_READ_CHUNK).map((part) =>
-        supabase.from('tmdb_recommendations_cache').select('tmdb_id, page, results, fetched_at').eq('media_type', mediaType).in('tmdb_id', part)
-      )
-    )
-    return parts.flatMap((part) => (part.data || []) as Row[])
+    const readPart = async (part: number[]) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { data, error } = await supabase
+          .from('tmdb_recommendations_cache')
+          .select('tmdb_id, page, results, fetched_at')
+          .eq('media_type', mediaType)
+          .in('tmdb_id', part)
+        if (!error) return (data || []) as Row[]
+        console.error('Lezen "lijkt hierop"-cache mislukt', { poging: attempt + 1, titels: part.length, fout: error.message })
+      }
+      return []
+    }
+    const parts = await Promise.all(chunked(ids, RECOMMENDATIONS_READ_CHUNK).map(readPart))
+    return parts.flat()
   }
   const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
 
