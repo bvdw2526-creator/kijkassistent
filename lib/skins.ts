@@ -2,7 +2,7 @@
 // De kleuren zelf staan in app/globals.css onder :root[data-skin="..."]; hier staat wat de app er verder over moet weten.
 // De keuze wordt op het apparaat bewaard (localStorage), niet bij het account: zie lib/useSkin.ts.
 
-export type SkinId = 'standaard' | 'halloween' | 'doomsday' | 'dune' | 'matrix' | 'boekenclub'
+export type SkinId = 'standaard' | 'halloween' | 'doomsday' | 'dune' | 'matrix' | 'boekenclub' | 'videotheek'
 
 export type Skin = {
   id: SkinId
@@ -67,7 +67,18 @@ export const SKINS: Skin[] = [
     description: 'Een bibliotheek bij avond, met boekverfilmingen bovenaan Voor jou en vaker in je advies',
     swatch: ['#13100D', '#D8B06A', '#86B38F'],
   },
+  {
+    // Een videotheek uit de jaren 90: op Voor jou staan je aanbevelingen per genre in een eigen gangpad, met een
+    // hangend bord en een plank (zie app/components/VideotheekAisles.tsx). De lijst zelf blijft hetzelfde.
+    id: 'videotheek',
+    label: 'Videotheek',
+    description: 'Struin door de gangpaden van een videotheek uit de jaren 90, met je advies per genre in het schap',
+    swatch: ['#141A33', '#FFC93C', '#FF5A6E'],
+  },
 ]
+
+// De skin die je aanbevelingen op Voor jou in genre-gangpaden zet.
+export const VIDEO_STORE_SKIN: SkinId = 'videotheek'
 
 // De skin die boekverfilmingen voorrang geeft (rij op Voor jou en bonus in de score).
 export const BOOK_CLUB_SKIN: SkinId = 'boekenclub'

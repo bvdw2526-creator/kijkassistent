@@ -23,6 +23,10 @@ export const LIMITS = {
   // Openbare tip-pagina (/tip), zonder account, per IP-adres: zoeken tijdens het typen, en het advies zelf.
   publicSearch: { max: 60, windowSeconds: 60 },
   publicTip: { max: 15, windowSeconds: 3600 },
+  // Openbare videotheek (/videotheek): een nieuwe lijst bij elke andere dienst of bij wisselen tussen films en series.
+  publicVideotheek: { max: 60, windowSeconds: 3600 },
+  // "Meer zoals deze" op de openbare videotheek: bij elk doosje dat je omdraait.
+  publicVideotheekSimilar: { max: 150, windowSeconds: 3600 },
 } as const
 
 type Limit = { max: number; windowSeconds: number }

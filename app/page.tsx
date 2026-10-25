@@ -21,8 +21,11 @@ import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
 import HalloweenRow, { DAY_FLAVOURS, HalloweenClassics, HalloweenDayFlavours, HalloweenDayHeader, useHalloweenLists } from './components/HalloweenRow'
 import BookClubRow, { useBookClubList } from './components/BookClubRow'
-import { BOOK_CLUB_SKIN } from '@/lib/skins'
-import { readSkin } from '@/lib/useSkin'
+import VideotheekAisles from './components/VideotheekAisles'
+import VideotheekWelcome from './components/VideotheekWelcome'
+import type { VhsLabel } from './components/VhsCase'
+import { BOOK_CLUB_SKIN, VIDEO_STORE_SKIN } from '@/lib/skins'
+import { readSkin, useSkin } from '@/lib/useSkin'
 import TooOldPrompt from './components/TooOldPrompt'
 import MoreLikeThis from './components/MoreLikeThis'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
@@ -365,6 +368,8 @@ export default function Home() {
   const halloween = useHalloweenLists(user?.id ?? null, mode === 'samen' ? (togetherConnected ? 'samen' : null) : 'personal')
   // De Boekenclub-rij (alleen met de Boekenclub-skin aan, en niet bij Samen).
   const bookClub = useBookClubList(user?.id ?? null)
+  // Met de Videotheek-skin aan staan je aanbevelingen in genre-gangpaden in plaats van in een raster.
+  const videoStore = useSkin() === VIDEO_STORE_SKIN
   // Op Halloween zelf (halloween.day): welke van de twee smaken er getoond wordt.
   const [dayChoice, setDayChoice] = useState<'cozy' | 'scary'>('cozy')
   const requestIdRef = useRef(0)
@@ -981,6 +986,31 @@ export default function Home() {
   const connectionSeed = (togetherConnectionId ?? '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)
   const tipItem = tipPool.length > 0 ? tipPool[(localDay + connectionSeed + tipSkips) % tipPool.length] : null
 
+  // Eén aanbeveling als kaart, met `i` = plek in de lijst (voor het tellen van getoond en geopend). Gebruikt door het
+  // gewone raster en door de gangpaden van de Videotheek-skin (die geeft `vhs` mee: de kaart wordt dan een videobandhoesje).
+  const renderCard = (movie: Movie, i: number, vhs?: VhsLabel) => (
+    <MovieCard
+      key={`${movie.media_type}-${movie.id}`}
+      vhs={vhs}
+      movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? tt('newSeries') : tt('inCinemas') } : movie}
+      upcomingLabel={movie.upcoming ? tt('upcomingOn', { date: formatReleaseDate(movie.release_date, locale) }) : undefined}
+      priority={i < 4}
+      isNew={!halloween.day && mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
+      alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
+      hideMatch={mode === 'explore' || halloween.day}
+      seenRef={trackSeen}
+      seenKey={JSON.stringify(recommendationEventFor(movie, mode, 'getoond', i + 1, togetherConnectionId))}
+      onClick={() => {
+        if (user) logRecommendationEvent(user.id, recommendationEventFor(movie, mode, 'geopend', i + 1, togetherConnectionId))
+        selectedAtRef.current = Date.now()
+        setActionError(null)
+        setSelected(movie)
+        checkBookAdaptation(movie)
+        checkHasSoundtrack(movie)
+      }}
+    />
+  )
+
   return (
     <>
       <main className="max-w-xl laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
@@ -1002,6 +1032,7 @@ export default function Home() {
         {user && (
           <SkinBanner userId={user.id} onAdded={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)} />
         )}
+        {user && <VideotheekWelcome />}
         {user && <WhatsNew userId={user.id} createdAt={user.created_at} />}
         {user && <SeriesUpdates userId={user.id} />}
 
@@ -1266,31 +1297,15 @@ export default function Home() {
           </p>
         )}
 
-        {!showSkeleton && visible.length > 0 && (
+        {!showSkeleton && visible.length > 0 && videoStore && !halloween.day && (
+          <VideotheekAisles key={`${mode}-videotheek`} items={visible} renderCard={renderCard} minPerAisle={2} />
+        )}
+
+        {!showSkeleton && visible.length > 0 && !(videoStore && !halloween.day) && (
           // key per tabblad: anders hergebruikt React bij het wisselen de kaart van een titel die in beide tabbladen staat,
           // en telt die in het nieuwe tabblad niet als getoond (zie useSeenTracker).
           <div key={`${mode}-${halloween.day ? 'halloween' : 'gewoon'}`} className="grid grid-cols-2 sm:grid-cols-3 laptop:grid-cols-5 gap-3">
-            {visible.map((movie, i) => (
-              <MovieCard
-                key={`${movie.media_type}-${movie.id}`}
-                movie={movie.upcoming ? { ...movie, watchOn: movie.media_type === 'tv' ? tt('newSeries') : tt('inCinemas') } : movie}
-                upcomingLabel={movie.upcoming ? tt('upcomingOn', { date: formatReleaseDate(movie.release_date, locale) }) : undefined}
-                priority={i < 4}
-                isNew={!halloween.day && mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
-                alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
-                hideMatch={mode === 'explore' || halloween.day}
-                seenRef={trackSeen}
-                seenKey={JSON.stringify(recommendationEventFor(movie, mode, 'getoond', i + 1, togetherConnectionId))}
-                onClick={() => {
-                  if (user) logRecommendationEvent(user.id, recommendationEventFor(movie, mode, 'geopend', i + 1, togetherConnectionId))
-                  selectedAtRef.current = Date.now()
-                  setActionError(null)
-                  setSelected(movie)
-                  checkBookAdaptation(movie)
-                  checkHasSoundtrack(movie)
-                }}
-              />
-            ))}
+            {visible.map((movie, i) => renderCard(movie, i))}
           </div>
         )}
       </main>

@@ -330,6 +330,28 @@
     "rowText": "Films and series based on a book; the best match for you comes first.",
     "allBooks": "All book adaptations"
   },
+  "videotheek": {
+    "video": "VIDEO",
+    "intro": "Your recommendations, aisle by aisle. The aisle with your best pick comes first.",
+    "count": "{count, plural, one {# tape} other {# tapes}}",
+    "aisle_horror": "Horror",
+    "aisle_familie": "Family",
+    "aisle_tekenfilm": "Animation",
+    "aisle_scifi": "Sci-fi",
+    "aisle_documentaire": "Documentary",
+    "aisle_comedy": "Comedy",
+    "aisle_actie": "Action",
+    "aisle_thriller": "Thriller",
+    "aisle_romantiek": "Romance",
+    "aisle_drama": "Drama",
+    "aisle_overig": "Mixed bag",
+    "ratingLabel": "Rated {rating} out of 10"
+  },
+  "videotheekWelcome": {
+    "title": "Welcome to the video store",
+    "text": "You came in through the video store, so the shelves are ready for you. Prefer the regular look? Change it in <link>Settings</link>.",
+    "close": "Close note"
+  },
   "skinBanner": {
     "months": "mths",
     "day": "day",
@@ -480,7 +502,9 @@
     "matrixLabel": "Matrix",
     "matrixDescription": "Black and phosphor green with falling code in the background",
     "boekenclubLabel": "Book Club",
-    "boekenclubDescription": "A library by night, with book adaptations at the top of For you and more often in your recommendations"
+    "boekenclubDescription": "A library by night, with book adaptations at the top of For you and more often in your recommendations",
+    "videotheekLabel": "Video store",
+    "videotheekDescription": "Browse the aisles of a 90s video store, with your recommendations on the shelf by genre"
   },
   "settings": {
     "heading": "My preferences",
@@ -932,5 +956,29 @@
     "errMinTitles": "Choose at least {min} titles",
     "errFailed": "Something went wrong. Please try again in a moment.",
     "errTooMany": "You have asked for quite a few tips. Please try again later, or create a free account."
+  },
+  "publicVideotheek": {
+    "metaTitle": "The Kijkassistent video store: browse the shelves",
+    "metaDescription": "Browse a 90s video store without an account: films and series by genre, on the streaming services you have.",
+    "sign": "Video store",
+    "tagline": "Remember browsing the shelves? Pick your services and walk the aisles. No account needed.",
+    "servicesTitle": "Which services do you have?",
+    "servicesHint": "Pick none to see everything available in the Netherlands.",
+    "films": "Films",
+    "series": "Series",
+    "intro": "Well-known, well-rated titles in every aisle. The sticker shows the TMDB rating.",
+    "empty": "These shelves are empty. Pick another service or try the series.",
+    "errLoad": "The shelves couldn't be loaded. Try again in a moment.",
+    "counterTitle": "The counter",
+    "counterText": "Not sure? Ask the staff for a pick, or let the app learn your taste.",
+    "counterAccount": "Create a free account",
+    "counterTip": "Ask for a pick",
+    "fitQuestion": "Is this one for you?",
+    "fitText": "With a free account, every tape shows how well it fits your taste, and your picks wait for you aisle by aisle.",
+    "similarHeading": "More like {title}",
+    "similarNone": "Nothing on these services is a close match. Pick more services at the top.",
+    "similarFailed": "Similar titles couldn't be loaded.",
+    "counterAccountShort": "Free account",
+    "counterBack": "Seen it all? <link>The counter</link> can help."
   }
 }

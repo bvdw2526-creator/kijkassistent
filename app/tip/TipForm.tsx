@@ -44,8 +44,9 @@ interface TipResult {
 const MAX_TITLES = 3
 const MIN_TITLES = 2
 
-// Pathé Thuis heeft een eigen tekst (huren), de rest heet overal hetzelfde.
-const SERVICES: { id: string; label: string | null }[] = [
+// Pathé Thuis heeft een eigen tekst (huren, publicTip.patheRent), de rest heet overal hetzelfde. Ook gebruikt door de
+// openbare videotheek (app/videotheek).
+export const SERVICES: { id: string; label: string | null }[] = [
   { id: 'netflix', label: 'Netflix' },
   { id: 'videoland', label: 'Videoland' },
   { id: 'disney_plus', label: 'Disney+' },

@@ -330,6 +330,28 @@
     "rowText": "Films en series naar een boek; wat het best bij je past staat vooraan.",
     "allBooks": "Alle boekverfilmingen"
   },
+  "videotheek": {
+    "video": "VIDEO",
+    "intro": "Je advies per gangpad. Het gangpad met je beste tip staat vooraan.",
+    "count": "{count, plural, one {# doosje} other {# doosjes}}",
+    "aisle_horror": "Horror",
+    "aisle_familie": "Familie",
+    "aisle_tekenfilm": "Tekenfilm",
+    "aisle_scifi": "Sci-fi",
+    "aisle_documentaire": "Documentaire",
+    "aisle_comedy": "Comedy",
+    "aisle_actie": "Actie",
+    "aisle_thriller": "Thriller",
+    "aisle_romantiek": "Romantiek",
+    "aisle_drama": "Drama",
+    "aisle_overig": "Van alles",
+    "ratingLabel": "Waardering {rating} van 10"
+  },
+  "videotheekWelcome": {
+    "title": "Welkom in de videotheek",
+    "text": "Je kwam binnen via de videotheek, dus de schappen staan voor je klaar. Liever de gewone look? Dat kan bij <link>Instellingen</link>.",
+    "close": "Briefje sluiten"
+  },
   "skinBanner": {
     "months": "mnd",
     "day": "dag",
@@ -480,7 +502,9 @@
     "matrixLabel": "Matrix",
     "matrixDescription": "Zwart met fosforgroen en vallende code op de achtergrond",
     "boekenclubLabel": "Boekenclub",
-    "boekenclubDescription": "Een bibliotheek bij avond, met boekverfilmingen bovenaan Voor jou en vaker in je advies"
+    "boekenclubDescription": "Een bibliotheek bij avond, met boekverfilmingen bovenaan Voor jou en vaker in je advies",
+    "videotheekLabel": "Videotheek",
+    "videotheekDescription": "Struin door de gangpaden van een videotheek uit de jaren 90, met je advies per genre in het schap"
   },
   "settings": {
     "heading": "Mijn voorkeuren",
@@ -932,5 +956,29 @@
     "errMinTitles": "Kies minstens {min} titels",
     "errFailed": "Er ging iets mis. Probeer het zo nog eens.",
     "errTooMany": "Je hebt even genoeg tips gevraagd. Probeer het later opnieuw, of maak een gratis account."
+  },
+  "publicVideotheek": {
+    "metaTitle": "De videotheek van Kijkassistent: struin door de schappen",
+    "metaDescription": "Loop zonder account door een videotheek uit de jaren 90: films en series per genre, op de streamingdiensten die jij hebt.",
+    "sign": "Videotheek",
+    "tagline": "Weet je nog, struinen langs de schappen? Kies je diensten en loop de gangpaden door. Geen account nodig.",
+    "servicesTitle": "Welke diensten heb je?",
+    "servicesHint": "Zonder keuze zie je alles wat er in Nederland te zien is.",
+    "films": "Films",
+    "series": "Series",
+    "intro": "Bekende, goed gewaardeerde titels per gangpad. De sticker is de waardering bij TMDB.",
+    "empty": "Deze schappen zijn leeg. Kies een andere dienst of kijk bij de series.",
+    "errLoad": "De schappen konden niet geladen worden. Probeer het zo nog eens.",
+    "counterTitle": "De balie",
+    "counterText": "Twijfel je? Vraag de medewerker om een tip, of laat de app jouw smaak leren.",
+    "counterAccount": "Maak een gratis account",
+    "counterTip": "Vraag om een tip",
+    "fitQuestion": "Past deze bij jou?",
+    "fitText": "Met een gratis account zie je bij elk doosje hoe goed hij bij jouw smaak past, en staan je tips per gangpad voor je klaar.",
+    "similarHeading": "Meer zoals {title}",
+    "similarNone": "Op deze diensten staat niets dat hier sterk op lijkt. Kies meer diensten bovenaan.",
+    "similarFailed": "Vergelijkbare titels konden niet geladen worden.",
+    "counterAccountShort": "Gratis account",
+    "counterBack": "Uitgekeken? <link>Bij de balie</link> helpen we je verder."
   }
 }

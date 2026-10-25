@@ -143,6 +143,32 @@
   --coral-soft: rgba(192, 87, 75, 0.14);
 }
 
+/* Videotheek: een videotheek uit de jaren 90. Nachtblauw tapijt, geel van de prijsstickers als accent, neonblauw als
+   tweede kleur en neonrood voor "niet voor mij". Koppen in een smalle, vette letter zoals op de borden in de winkel;
+   geen extra lettertype om te laden, dus per apparaat net iets anders (Impact, Arial Narrow of Roboto Condensed). */
+:root[data-skin="videotheek"],
+.skin-videotheek {
+  --background: #141A33;
+  --surface: #1D2446;
+  --surface-2: #252D55;
+  --border: #303A6A;
+  --border-strong: #4A5590;
+  --border-soft: #232A50;
+  --control: #444E86;
+  --foreground: #F4F1E8;
+  --muted: #A6ACCF;
+  --faint: #6C739B;
+  --accent: #FFC93C;
+  --accent-hover: #FFD966;
+  --on-accent: #1A1405;
+  --accent-soft: rgba(255, 201, 60, 0.14);
+  --teal: #4FD1E8;
+  --teal-soft: rgba(79, 209, 232, 0.14);
+  --coral: #FF5A6E;
+  --coral-soft: rgba(255, 90, 110, 0.14);
+  --font-display: Impact, "Haettenschweiler", "Arial Narrow Bold", "Roboto Condensed", sans-serif-condensed, sans-serif;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -227,6 +253,29 @@ body {
     radial-gradient(circle at 18% 0%, rgba(232, 196, 132, 0.16), transparent 380px) no-repeat top left / 100% 520px,
     radial-gradient(ellipse 95% 100% at 50% 0%, rgba(216, 176, 106, 0.12), transparent 70%) no-repeat top center / 100% 520px,
     var(--background);
+}
+
+/* Videotheek: het bonte tapijt van een videotheek (getekend, geen afbeelding): kleine driehoekjes, kringeltjes en
+   streepjes in neonkleuren, herhaald over de hele pagina maar heel zwak, zodat de tekst leesbaar blijft. Bovenaan een
+   roze en een blauwe gloed, als van de neonreclame bij de ingang. */
+:root[data-skin="videotheek"] .bg-glow,
+.skin-videotheek.bg-glow {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160' fill='none' stroke-linecap='round' stroke-linejoin='round' stroke-width='3'%3E%3Cpath d='M18 30 l14 -8 l2 16 Z' stroke='%23FF5A6E' stroke-opacity='.10'/%3E%3Cpath d='M92 18 c6 -8 14 8 20 0 s14 8 20 0' stroke='%234FD1E8' stroke-opacity='.09'/%3E%3Cpath d='M60 84 l18 6' stroke='%23FFC93C' stroke-opacity='.10'/%3E%3Ccircle cx='128' cy='92' r='6' stroke='%23B18AE8' stroke-opacity='.10'/%3E%3Cpath d='M22 120 c6 -8 14 8 20 0 s14 8 20 0' stroke='%23FFC93C' stroke-opacity='.08'/%3E%3Cpath d='M106 128 l12 -10 l6 14 Z' stroke='%234FD1E8' stroke-opacity='.09'/%3E%3Cpath d='M40 62 l-8 10' stroke='%234FD1E8' stroke-opacity='.08'/%3E%3Cpath d='M140 46 l8 10' stroke='%23FF5A6E' stroke-opacity='.08'/%3E%3C/svg%3E") repeat top left / 160px 160px,
+    radial-gradient(circle at 12% 0%, rgba(255, 90, 110, 0.18), transparent 340px) no-repeat top left / 100% 520px,
+    radial-gradient(circle at 88% 0%, rgba(79, 209, 232, 0.16), transparent 340px) no-repeat top right / 100% 520px,
+    var(--background);
+}
+
+/* De prijssticker op een videobandhoesje (app/components/VhsCase.tsx) met een omgekruld hoekje rechtsboven. */
+.vt-price::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 7px 7px 0;
+  border-color: transparent var(--background) color-mix(in srgb, var(--accent) 75%, black) transparent;
 }
 
 :root[data-skin="matrix"] .bg-glow {

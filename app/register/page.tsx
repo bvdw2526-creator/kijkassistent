@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { supabase } from '@/lib/supabase'
 import { takePendingInvitePath } from '@/lib/invite'
+import { setSkin } from '@/lib/useSkin'
+import { SIGNUP_SOURCE_VIDEOTHEEK, VIDEOTHEEK_WELCOME_KEY } from '@/lib/videotheek'
 import { btnPrimary, input } from '../components/ui'
 import { CheckIcon } from '../components/Icons'
 import LegalLinks from '../components/LegalLinks'
@@ -39,12 +41,18 @@ export default function Register() {
     }
 
     setLoading(true)
+    // Via de openbare videotheek gekomen (/register?van=videotheek, zie lib/videotheek.ts)?
+    const fromVideotheek = new URLSearchParams(window.location.search).get('van') === SIGNUP_SOURCE_VIDEOTHEEK
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       // language komt in de gebruikersgegevens van Supabase (user_metadata); het sjabloon van de bevestigingsmail
-      // kiest daarmee Nederlands of Engels (supabase/email-templates/bevestig-aanmelding.html).
-      options: { emailRedirectTo: `${window.location.origin}/login`, data: { language: locale } },
+      // kiest daarmee Nederlands of Engels (supabase/email-templates/bevestig-aanmelding.html). signup_source = waar
+      // iemand zich aanmeldde, voor de telling in het beheer-dashboard (alleen gezet als het bekend is).
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+        data: { language: locale, ...(fromVideotheek ? { signup_source: SIGNUP_SOURCE_VIDEOTHEEK } : {}) },
+      },
     })
     setLoading(false)
     if (error) {
@@ -63,6 +71,17 @@ export default function Register() {
     if (data.user && data.user.identities && data.user.identities.length === 0) {
       setError(t('alreadyRegistered'))
       return
+    }
+
+    // Wie uit de videotheek komt, blijft in de videotheek: de skin gaat aan op dit apparaat, en Voor jou toont één keer
+    // een briefje dat je dat bij Instellingen kunt veranderen (app/components/VideotheekWelcome.tsx).
+    if (fromVideotheek) {
+      setSkin('videotheek')
+      try {
+        localStorage.setItem(VIDEOTHEEK_WELCOME_KEY, '1')
+      } catch {
+        // Geen briefje is niet erg.
+      }
     }
 
     if (data.session) {

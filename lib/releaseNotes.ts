@@ -12,6 +12,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-25',
+    date: '25 oktober 2026',
+    items: [
+      "Nieuwe skin: de Videotheek, zoals vroeger. Zet hem aan bij Instellingen onder 'Uiterlijk' en je advies op Voor jou staat per genre in de gangpaden, met borden en planken. Elke film en serie is een videobandhoesje, met stickers voor hoe goed hij bij je past en waar je hem kunt kijken.",
+      'Ken je iemand zonder account? Op kijkassistent.nl/videotheek kan iedereen door de videotheek struinen, met bij elk doosje meer zoals deze.',
+    ],
+    itemsEn: [
+      "A new skin: the Video store, like the old days. Turn it on in Settings under 'Appearance' and your For you recommendations are arranged by genre in the aisles, with signs and shelves. Every film and series is a video tape case, with stickers showing how well it fits you and where to watch it.",
+      'Know someone without an account? At kijkassistent.nl/videotheek anyone can browse the video store, with more like this on every tape.',
+    ],
+  },
+  {
     id: '2026-10-21',
     date: '21 oktober 2026',
     items: [

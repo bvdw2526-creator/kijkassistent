@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { UsersIcon } from './Icons'
+import VhsCase, { type VhsLabel } from './VhsCase'
 
 type MovieCardMovie = {
   id: number
@@ -22,6 +23,7 @@ export default function MovieCard({
   hideMatch,
   seenRef,
   seenKey,
+  vhs,
 }: {
   movie: MovieCardMovie
   onClick: () => void
@@ -39,8 +41,26 @@ export default function MovieCard({
   // Om te tellen dat de kaart in beeld kwam (zie useSeenTracker in lib/recommendationEvents.ts).
   seenRef?: (el: HTMLElement | null) => void | (() => void)
   seenKey?: string
+  // In een gangpad van de Videotheek-skin: de kaart als videobandhoesje (zie app/components/VhsCase.tsx).
+  vhs?: VhsLabel
 }) {
   const t = useTranslations('title')
+  if (vhs) {
+    return (
+      <VhsCase
+        movie={movie}
+        vhs={vhs}
+        onClick={onClick}
+        priority={priority}
+        upcomingLabel={upcomingLabel}
+        isNew={isNew}
+        alsoSamen={alsoSamen}
+        hideMatch={hideMatch}
+        seenRef={seenRef}
+        seenKey={seenKey}
+      />
+    )
+  }
   return (
     <button
       ref={seenRef}
