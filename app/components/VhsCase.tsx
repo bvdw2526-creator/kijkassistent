@@ -20,6 +20,7 @@ export default function VhsCase({
   seenRef,
   seenKey,
   rating,
+  rank,
 }: {
   movie: { title: string; poster_path: string | null; matchPercent?: number; watchOn?: string | null; release_date?: string }
   vhs: VhsLabel
@@ -33,6 +34,8 @@ export default function VhsCase({
   seenKey?: string
   // Waardering van TMDB (0–10), op de plek van het matchpercentage: op de openbare videotheek, waar we je smaak niet kennen.
   rating?: number
+  // Plek in de Top 10 van een gangpad (openbare videotheek): een groot cijfer linksonder op de hoes.
+  rank?: number
 }) {
   const t = useTranslations('title')
   const tv = useTranslations('videotheek')
@@ -92,6 +95,14 @@ export default function VhsCase({
       </div>
 
       {/* Stickers. */}
+      {typeof rank === 'number' && (
+        <span
+          className="absolute left-[11px] top-[22px] flex h-9 min-w-9 -rotate-[8deg] items-center justify-center rounded-[3px] border-2 border-[#111214] bg-[#F4F1E8] px-1 font-display text-2xl leading-none text-[#111214]"
+          aria-label={tv('rankLabel', { rank })}
+        >
+          {rank}
+        </span>
+      )}
       {showMatch && (
         <span className="absolute -right-1.5 top-8 flex h-9 w-9 rotate-[10deg] items-center justify-center rounded-full border-2 border-[#F4F1E8] bg-coral text-[11px] font-bold text-[#3A0610]">
           {movie.matchPercent}%

@@ -7,11 +7,11 @@ import { useLocale, useTranslations } from 'next-intl'
 import { btnPrimary, chip } from '../components/ui'
 import { CloseIcon } from '../components/Icons'
 import LegalLinks from '../components/LegalLinks'
-import VideotheekAisles from '../components/VideotheekAisles'
+import { AisleCount, AisleSection, ShelfSlot } from '../components/VideotheekAisles'
 import VhsCase, { type VhsLabel } from '../components/VhsCase'
 import { useBackToClose } from '../components/useBackToClose'
 import { SERVICES } from '../tip/TipForm'
-import { REGISTER_FROM_VIDEOTHEEK, aisleFor } from '@/lib/videotheek'
+import { REGISTER_FROM_VIDEOTHEEK, aisleFor, type Aisle } from '@/lib/videotheek'
 
 // De winkel van de openbare videotheek (zie app/videotheek/page.tsx): diensten aantikken, films of series, en dan door de
 // gangpaden lopen. Een doosje omdraaien toont de achterkant met een uitnodiging voor een account.
@@ -190,21 +190,21 @@ export default function VideotheekStore() {
       )}
 
       {!loading && items.length > 0 && (
-        <VideotheekAisles
-          key={result?.key}
-          items={items}
-          intro={t('intro')}
-          renderCard={(item, i, vhs) => (
-            <VhsCase
-              key={`${item.media_type}-${item.id}`}
-              movie={item}
-              vhs={vhs}
-              rating={item.vote_average}
-              priority={i < 4}
-              onClick={() => setSelected({ item, vhs })}
+        <div key={result?.key} className="animate-fade-in">
+          <p className="text-sm text-muted mb-4">{t('intro')}</p>
+          {groupByAisle(items).map(({ aisle, items: shelf }, i) => (
+            <StoreAisle
+              key={aisle.id}
+              aisle={aisle}
+              label={tv(`aisle_${aisle.id}`)}
+              popular={shelf}
+              mediaType={mediaType}
+              services={services ?? []}
+              priority={i === 0}
+              onOpen={(item, vhs) => setSelected({ item, vhs })}
             />
-          )}
-        />
+          ))}
+        </div>
       )}
 
       {/* Onderaan alleen een verwijzing terug naar de balie bij de ingang. */}
@@ -329,6 +329,116 @@ function BackOfBox({
         </div>
       </div>
     </div>
+  )
+}
+
+// De schappen komen per gangpad op volgorde binnen (zie app/api/public-videotheek); hier per gangpad bij elkaar.
+function groupByAisle(items: StoreItem[]): { aisle: Aisle; items: StoreItem[] }[] {
+  const groups: { aisle: Aisle; items: StoreItem[] }[] = []
+  for (const item of items) {
+    const aisle = aisleFor(item.genre_ids)
+    const group = groups.find((g) => g.aisle.id === aisle.id)
+    if (group) group.items.push(item)
+    else groups.push({ aisle, items: [item] })
+  }
+  return groups
+}
+
+type ShelfSort = 'popular' | 'new' | 'top'
+const SHELF_SORTS: { id: ShelfSort; label: string }[] = [
+  { id: 'popular', label: 'sortPopular' },
+  { id: 'new', label: 'sortNew' },
+  { id: 'top', label: 'sortTop' },
+]
+
+// Blijft staan zolang de pagina openstaat: terugwisselen naar Nieuw binnen of Top 10 hoeft niet opnieuw te vragen.
+const shelfCache = new Map<string, StoreItem[]>()
+
+// Eén gangpad van de openbare videotheek, met onder het bord de keuze Populair / Nieuw binnen / Top 10. Populair komt
+// mee met de hele winkel; de andere twee worden pas opgehaald als je erop tikt.
+function StoreAisle({
+  aisle,
+  label,
+  popular,
+  mediaType,
+  services,
+  priority,
+  onOpen,
+}: {
+  aisle: Aisle
+  label: string
+  popular: StoreItem[]
+  mediaType: MediaType
+  services: string[]
+  priority: boolean
+  onOpen: (item: StoreItem, vhs: VhsLabel) => void
+}) {
+  const t = useTranslations('publicVideotheek')
+  const [sort, setSort] = useState<ShelfSort>('popular')
+  const query = `type=${mediaType}&aisle=${aisle.id}&sort=${sort}&services=${encodeURIComponent([...services].sort().join(','))}`
+  const [loaded, setLoaded] = useState<{ query: string; items: StoreItem[] | null } | null>(null)
+
+  useEffect(() => {
+    if (sort === 'popular' || shelfCache.has(query)) return
+    let cancelled = false
+    fetch(`/api/public-videotheek?${query}`)
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok || data.error) throw new Error(data.error)
+        shelfCache.set(query, data.items || [])
+        if (!cancelled) setLoaded({ query, items: data.items || [] })
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded({ query, items: null })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [query, sort])
+
+  const shelf = sort === 'popular' ? popular : (shelfCache.get(query) ?? (loaded?.query === query ? loaded.items : undefined))
+  const state = shelf === undefined ? 'loading' : shelf === null ? 'failed' : 'done'
+  const vhs: VhsLabel = { text: label, sign: aisle.sign, ink: aisle.ink }
+
+  const below = (
+    <>
+      <div role="tablist" aria-label={t('sortLabel', { aisle: label })} className="flex justify-center gap-1.5 mt-3">
+        {SHELF_SORTS.map((s) => (
+          <button key={s.id} role="tab" aria-selected={sort === s.id} onClick={() => setSort(s.id)} className={chip(sort === s.id, 'accent', 'sm')}>
+            {t(s.label)}
+          </button>
+        ))}
+      </div>
+      {state === 'done' && shelf && shelf.length > 0 && <AisleCount count={shelf.length} />}
+    </>
+  )
+
+  return (
+    <AisleSection aisle={aisle} label={label} below={below}>
+      {state === 'loading' &&
+        Array.from({ length: 4 }).map((_, i) => (
+          <ShelfSlot key={i}>
+            <div className="aspect-[2/3] rounded-[3px] bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+          </ShelfSlot>
+        ))}
+      {state === 'failed' && <p className="text-sm text-muted py-6">{t('errLoad')}</p>}
+      {state === 'done' && shelf && shelf.length === 0 && (
+        <p className="text-sm text-muted py-6 leading-relaxed">{t(sort === 'new' ? 'emptyNew' : 'emptyTop')}</p>
+      )}
+      {state === 'done' &&
+        shelf?.map((item, i) => (
+          <ShelfSlot key={`${item.media_type}-${item.id}`}>
+            <VhsCase
+              movie={item}
+              vhs={vhs}
+              rating={item.vote_average}
+              rank={sort === 'top' ? i + 1 : undefined}
+              priority={priority && i < 4}
+              onClick={() => onOpen(item, vhs)}
+            />
+          </ShelfSlot>
+        ))}
+    </AisleSection>
   )
 }
 

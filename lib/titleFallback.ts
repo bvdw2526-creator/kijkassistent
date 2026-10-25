@@ -2,7 +2,9 @@
 // TMDB geeft bij language=nl-NL de originele titel terug als er geen Nederlandse vertaling is, en dat is voor de
 // meeste Nederlandse gebruikers onleesbaar. Alleen op de server gebruikt, voor de titels die we uiteindelijk tonen.
 
-const NON_LATIN = /[Ͱ-ϿЀ-ӿ֐-ۿ฀-๿぀-ヿ㐀-鿿가-힯]/
+// Grieks, Cyrillisch, Hebreeuws en Arabisch, Indiase schriften (Hindi, Bengaals, Tamil, Telugu enzovoort), Thai, Japans,
+// Chinees en Koreaans.
+const NON_LATIN = /[Ͱ-ϿЀ-ӿ֐-ۿऀ-෿฀-๿぀-ヿ㐀-鿿가-힯]/
 // Zoveel titels per keer (de rest houdt zijn titel); zo blijft het aantal TMDB-aanvragen begrensd.
 const MAX_LOOKUPS = 40
 const CACHE_SECONDS = 60 * 60 * 24 * 7

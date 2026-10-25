@@ -45,38 +45,58 @@ export default function VideotheekAisles<T extends Shelved>({
         const label = t(`aisle_${aisle.id}`)
         const vhs: VhsLabel = { text: label, sign: aisle.sign, ink: aisle.ink }
         return (
-          <section key={aisle.id} className="mb-8" aria-label={label}>
-            {/* Twee draadjes waar het bord aan hangt. */}
-            <div className="flex justify-center gap-28 h-3" aria-hidden="true">
-              <span className="w-0.5 bg-line-strong" />
-              <span className="w-0.5 bg-line-strong" />
-            </div>
-            <h2
-              className="mx-auto w-fit min-w-[55%] -rotate-1 rounded-md border-[3px] border-[#F4F1E8] px-5 py-1.5 text-center font-display text-xl uppercase tracking-[0.16em] leading-tight"
-              style={{ backgroundColor: aisle.sign, color: aisle.ink }}
-            >
-              {label}
-            </h2>
-            <p className="text-center text-[11px] text-faint mt-1.5">{t('count', { count: entries.length })}</p>
-            <div className="-mx-5 mt-2">
-              {/* Telefoon: één plank die je opzij schuift. Laptop: de doosjes lopen over meerdere rijen door, en elk doosje
-                  staat op een eigen stukje plank zonder tussenruimte, zodat elke rij een doorlopende plank heeft. */}
-              <div className="vt-shelf flex items-end gap-3 overflow-x-auto no-scrollbar px-5 pt-2 laptop:flex-wrap laptop:gap-x-0 laptop:gap-y-6 laptop:overflow-visible">
-                {entries.map(({ item, index }) => (
-                  <div
-                    key={`${item.media_type}-${item.id}`}
-                    className="grid w-32 flex-shrink-0 laptop:w-40 laptop:px-2 laptop:pb-0 laptop:border-b-[10px] laptop:border-[#8A5A2B]"
-                  >
-                    {renderCard(item, index, vhs)}
-                  </div>
-                ))}
-              </div>
-              {/* De plank (op laptop zit hij onder elk doosje, zie hierboven). */}
-              <div className="mx-3 h-2.5 rounded-sm bg-[#8A5A2B] border-b-4 border-[#5C3A1A] laptop:hidden" aria-hidden="true" />
-            </div>
-          </section>
+          <AisleSection key={aisle.id} aisle={aisle} label={label} below={<AisleCount count={entries.length} />}>
+            {entries.map(({ item, index }) => (
+              <ShelfSlot key={`${item.media_type}-${item.id}`}>{renderCard(item, index, vhs)}</ShelfSlot>
+            ))}
+          </AisleSection>
         )
       })}
+    </div>
+  )
+}
+
+// "12 doosjes" onder het bord.
+export function AisleCount({ count }: { count: number }) {
+  const t = useTranslations('videotheek')
+  return <p className="text-center text-[11px] text-faint mt-1.5">{t('count', { count })}</p>
+}
+
+// Eén gangpad: het hangende bord, wat eronder hoort (`below`: het aantal, of op de openbare videotheek ook de schakelaar
+// Populair / Nieuw binnen / Top 10) en de plank met doosjes (`children`, elk in een ShelfSlot).
+export function AisleSection({ aisle, label, below, children }: { aisle: Aisle; label: string; below?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="mb-8" aria-label={label}>
+      {/* Twee draadjes waar het bord aan hangt. */}
+      <div className="flex justify-center gap-28 h-3" aria-hidden="true">
+        <span className="w-0.5 bg-line-strong" />
+        <span className="w-0.5 bg-line-strong" />
+      </div>
+      <h2
+        className="mx-auto w-fit min-w-[55%] -rotate-1 rounded-md border-[3px] border-[#F4F1E8] px-5 py-1.5 text-center font-display text-xl uppercase tracking-[0.16em] leading-tight"
+        style={{ backgroundColor: aisle.sign, color: aisle.ink }}
+      >
+        {label}
+      </h2>
+      {below}
+      <div className="-mx-5 mt-2">
+        {/* Telefoon: één plank die je opzij schuift. Laptop: de doosjes lopen over meerdere rijen door, en elk doosje
+            staat op een eigen stukje plank zonder tussenruimte, zodat elke rij een doorlopende plank heeft. */}
+        <div className="vt-shelf flex items-end gap-3 overflow-x-auto no-scrollbar px-5 pt-2 laptop:flex-wrap laptop:gap-x-0 laptop:gap-y-6 laptop:overflow-visible">
+          {children}
+        </div>
+        {/* De plank (op laptop zit hij onder elk doosje, zie hierboven). */}
+        <div className="mx-3 h-2.5 rounded-sm bg-[#8A5A2B] border-b-4 border-[#5C3A1A] laptop:hidden" aria-hidden="true" />
+      </div>
+    </section>
+  )
+}
+
+// De plek van één doosje op de plank.
+export function ShelfSlot({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid w-32 flex-shrink-0 laptop:w-40 laptop:px-2 laptop:pb-0 laptop:border-b-[10px] laptop:border-[#8A5A2B]">
+      {children}
     </div>
   )
 }

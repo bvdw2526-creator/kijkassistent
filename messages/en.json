@@ -345,7 +345,8 @@
     "aisle_romantiek": "Romance",
     "aisle_drama": "Drama",
     "aisle_overig": "Mixed bag",
-    "ratingLabel": "Rated {rating} out of 10"
+    "ratingLabel": "Rated {rating} out of 10",
+    "rankLabel": "Number {rank}"
   },
   "videotheekWelcome": {
     "title": "Welcome to the video store",
@@ -979,6 +980,12 @@
     "similarNone": "Nothing on these services is a close match. Pick more services at the top.",
     "similarFailed": "Similar titles couldn't be loaded.",
     "counterAccountShort": "Free account",
-    "counterBack": "Seen it all? <link>The counter</link> can help."
+    "counterBack": "Seen it all? <link>The counter</link> can help.",
+    "sortPopular": "Popular",
+    "sortNew": "New arrivals",
+    "sortTop": "Top 10",
+    "sortLabel": "Sort aisle {aisle}",
+    "emptyNew": "No new titles in this aisle on these services. Pick more services at the top.",
+    "emptyTop": "No top titles in this aisle on these services. Pick more services at the top."
   }
 }

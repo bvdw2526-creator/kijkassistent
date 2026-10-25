@@ -27,6 +27,8 @@ export const LIMITS = {
   publicVideotheek: { max: 60, windowSeconds: 3600 },
   // "Meer zoals deze" op de openbare videotheek: bij elk doosje dat je omdraait.
   publicVideotheekSimilar: { max: 150, windowSeconds: 3600 },
+  // Openbare videotheek: één gangpad op Nieuw binnen of Top 10 zetten (tien gangpaden, films en series).
+  publicVideotheekAisle: { max: 200, windowSeconds: 3600 },
 } as const
 
 type Limit = { max: number; windowSeconds: number }

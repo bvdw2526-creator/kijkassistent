@@ -345,7 +345,8 @@
     "aisle_romantiek": "Romantiek",
     "aisle_drama": "Drama",
     "aisle_overig": "Van alles",
-    "ratingLabel": "Waardering {rating} van 10"
+    "ratingLabel": "Waardering {rating} van 10",
+    "rankLabel": "Nummer {rank}"
   },
   "videotheekWelcome": {
     "title": "Welkom in de videotheek",
@@ -979,6 +980,12 @@
     "similarNone": "Op deze diensten staat niets dat hier sterk op lijkt. Kies meer diensten bovenaan.",
     "similarFailed": "Vergelijkbare titels konden niet geladen worden.",
     "counterAccountShort": "Gratis account",
-    "counterBack": "Uitgekeken? <link>Bij de balie</link> helpen we je verder."
+    "counterBack": "Uitgekeken? <link>Bij de balie</link> helpen we je verder.",
+    "sortPopular": "Populair",
+    "sortNew": "Nieuw binnen",
+    "sortTop": "Top 10",
+    "sortLabel": "Sorteer gangpad {aisle}",
+    "emptyNew": "Geen nieuwe titels in dit gangpad op deze diensten. Kies meer diensten bovenaan.",
+    "emptyTop": "Geen toptitels in dit gangpad op deze diensten. Kies meer diensten bovenaan."
   }
 }
