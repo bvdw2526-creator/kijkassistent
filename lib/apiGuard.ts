@@ -29,6 +29,8 @@ export const LIMITS = {
   publicVideotheekSimilar: { max: 150, windowSeconds: 3600 },
   // Openbare videotheek: één gangpad op Nieuw binnen of Top 10 zetten (tien gangpaden, films en series).
   publicVideotheekAisle: { max: 200, windowSeconds: 3600 },
+  // Openbare videotheek: tellen voor de trechter (hooguit drie stappen per browser per dag; dit is het vangnet).
+  publicVideotheekCount: { max: 20, windowSeconds: 3600 },
 } as const
 
 type Limit = { max: number; windowSeconds: number }

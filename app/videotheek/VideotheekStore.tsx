@@ -11,7 +11,7 @@ import { AisleCount, AisleSection, ShelfSlot } from '../components/VideotheekAis
 import VhsCase, { type VhsLabel } from '../components/VhsCase'
 import { useBackToClose } from '../components/useBackToClose'
 import { SERVICES } from '../tip/TipForm'
-import { REGISTER_FROM_VIDEOTHEEK, aisleFor, type Aisle } from '@/lib/videotheek'
+import { REGISTER_FROM_VIDEOTHEEK, VIDEOTHEEK_COUNTED_KEY, aisleFor, type Aisle, type VideotheekStep } from '@/lib/videotheek'
 
 // De winkel van de openbare videotheek (zie app/videotheek/page.tsx): diensten aantikken, films of series, en dan door de
 // gangpaden lopen. Een doosje omdraaien toont de achterkant met een uitnodiging voor een account.
@@ -73,6 +73,35 @@ function saveServices(next: string[]) {
   window.dispatchEvent(new Event(SERVICES_CHANGED_EVENT))
 }
 
+// Telt een stap van de trechter (zie app/api/public-videotheek/count), hooguit één keer per browser per Amsterdamse
+// dag. De browser onthoudt alleen welke stappen vandaag al geteld zijn; lukt onthouden niet (bv. privévenster met
+// geblokkeerde opslag), dan telt hij hooguit één keer zolang de pagina openstaat.
+const countedThisPage = new Set<VideotheekStep>()
+function countStep(step: VideotheekStep) {
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' })
+  let counted: VideotheekStep[] = []
+  try {
+    const stored = JSON.parse(localStorage.getItem(VIDEOTHEEK_COUNTED_KEY) ?? 'null')
+    if (stored?.day === today && Array.isArray(stored.steps)) counted = stored.steps
+  } catch {
+    // Niets onthouden: zie countedThisPage.
+  }
+  if (counted.includes(step) || countedThisPage.has(step)) return
+  countedThisPage.add(step)
+  try {
+    localStorage.setItem(VIDEOTHEEK_COUNTED_KEY, JSON.stringify({ day: today, steps: [...counted, step] }))
+  } catch {
+    // Zie hierboven.
+  }
+  // keepalive: ook na een klik op "account maken" gaat de telling nog weg, terwijl de pagina al wisselt.
+  fetch('/api/public-videotheek/count', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ step }),
+    keepalive: true,
+  }).catch(() => {})
+}
+
 export default function VideotheekStore() {
   const t = useTranslations('publicVideotheek')
   const tp = useTranslations('publicTip')
@@ -86,6 +115,11 @@ export default function VideotheekStore() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<{ item: StoreItem; vhs: VhsLabel } | null>(null)
   useBackToClose(selected !== null, () => setSelected(null))
+
+  // Stap 1 van de trechter: een bezoek.
+  useEffect(() => {
+    countStep('bezoek')
+  }, [])
 
   function toggleService(id: string) {
     const current = services ?? []
@@ -201,7 +235,10 @@ export default function VideotheekStore() {
               mediaType={mediaType}
               services={services ?? []}
               priority={i === 0}
-              onOpen={(item, vhs) => setSelected({ item, vhs })}
+              onOpen={(item, vhs) => {
+                countStep('omgedraaid')
+                setSelected({ item, vhs })
+              }}
             />
           ))}
         </div>
@@ -251,7 +288,7 @@ function Counter() {
           <Link href="/tip" className={`${button} bg-accent text-on-accent hover:bg-accent-hover`}>
             {t('counterTip')}
           </Link>
-          <Link href={REGISTER_FROM_VIDEOTHEEK} className={`${button} border border-line bg-surface-2 text-foreground hover:border-line-strong`}>
+          <Link href={REGISTER_FROM_VIDEOTHEEK} onClick={() => countStep('accountklik')} className={`${button} border border-line bg-surface-2 text-foreground hover:border-line-strong`}>
             {t('counterAccountShort')}
           </Link>
         </div>
@@ -323,7 +360,7 @@ function BackOfBox({
         <div className="rounded-2xl border border-accent/40 bg-accent/5 p-4 mt-5">
           <p className="text-sm font-semibold text-accent">{t('fitQuestion')}</p>
           <p className="text-sm text-muted mt-1 leading-relaxed">{t('fitText')}</p>
-          <Link href={REGISTER_FROM_VIDEOTHEEK} className={`${btnPrimary} w-full mt-3`}>
+          <Link href={REGISTER_FROM_VIDEOTHEEK} onClick={() => countStep('accountklik')} className={`${btnPrimary} w-full mt-3`}>
             {t('counterAccount')}
           </Link>
         </div>

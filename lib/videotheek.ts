@@ -43,6 +43,12 @@ export const SIGNUP_SOURCE_VIDEOTHEEK = 'videotheek'
 export const REGISTER_FROM_VIDEOTHEEK = `/register?van=${SIGNUP_SOURCE_VIDEOTHEEK}`
 export const VIDEOTHEEK_WELCOME_KEY = 'kijkassistent:videotheek-welkom'
 
+// De trechter van de openbare videotheek, per dag geteld (app/api/public-videotheek/count): bezoek, minstens één doosje
+// omgedraaid, op "account maken" getikt. Elke stap telt hooguit één keer per browser per dag.
+export const VIDEOTHEEK_STEPS = ['bezoek', 'omgedraaid', 'accountklik'] as const
+export type VideotheekStep = (typeof VIDEOTHEEK_STEPS)[number]
+export const VIDEOTHEEK_COUNTED_KEY = 'kijkassistent:videotheek-geteld'
+
 // De volgorde van de gangpaden op de openbare pagina, zoals je door een winkel loopt: de grote genres vooraan.
 // (In de app staat het gangpad met je beste tip vooraan; op de openbare pagina weten we je smaak nog niet.)
 export const STORE_ORDER: AisleId[] = ['actie', 'thriller', 'comedy', 'horror', 'scifi', 'drama', 'romantiek', 'familie', 'tekenfilm', 'documentaire']

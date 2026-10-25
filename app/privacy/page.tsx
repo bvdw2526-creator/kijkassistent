@@ -14,7 +14,7 @@ export default async function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 19 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 25 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -103,6 +103,12 @@ export default async function Privacy() {
           (de skin) dat je hebt gekozen, in de opslag van je browser, en een cookie met de taal die je hebt gekozen
           (Nederlands of Engels). Daarom is er geen cookiebanner.
         </p>
+        <p className="mt-3">
+          In de videotheek (kijkassistent.nl/videotheek, ook zonder account) onthoudt je browser welke diensten je
+          aantikte. We tellen per dag hoeveel bezoekers er komen, hoeveel er een doosje omdraaien en hoeveel er op
+          &quot;account maken&quot; tikken. Daarvoor onthoudt je browser alleen welke van die stappen vandaag al zijn geteld.
+          We bewaren alleen de aantallen per dag: geen IP-adres, geen account en niets wat naar jou te herleiden is.
+        </p>
       </Section>
 
       <Section title="Hoe lang we gegevens bewaren">
@@ -145,7 +151,7 @@ function PrivacyEn() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacy statement</h1>
-      <p className="text-muted mb-2">Last updated: 19 October 2026</p>
+      <p className="text-muted mb-2">Last updated: 25 October 2026</p>
       <p className="text-muted text-sm mb-8">
         This is a translation of the Dutch privacy statement. If the two differ, the Dutch version applies.
       </p>
@@ -234,6 +240,12 @@ function PrivacyEn() {
           We only use what is necessary: your login session, a copy of your latest recommendations and the look (skin)
           you chose, in your browser&apos;s storage, and a cookie with the language you chose (Dutch or English). That&apos;s
           why there is no cookie banner.
+        </p>
+        <p className="mt-3">
+          In the video store (kijkassistent.nl/videotheek, also without an account) your browser remembers which
+          services you picked. We count per day how many visitors come, how many flip a tape over and how many tap
+          &quot;create an account&quot;. For that, your browser only remembers which of those steps have already been counted
+          today. We only keep the totals per day: no IP address, no account and nothing that can be traced back to you.
         </p>
       </Section>
 
