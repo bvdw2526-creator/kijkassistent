@@ -2,15 +2,17 @@
   "name": "kijkassistent-android",
   "version": "4.0.0",
   "private": true,
-  "description": "Android-app (Capacitor) die www.kijkassistent.nl in een eigen WebView toont",
+  "description": "App (Capacitor) die www.kijkassistent.nl in een eigen WebView toont, voor Android en iOS",
   "scripts": {
     "sync": "cap sync android",
-    "open": "cap open android"
+    "open": "cap open android",
+    "sync:ios": "cap sync ios"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
     "@capacitor/splash-screen": "^8.0.2"
   },
   "devDependencies": {

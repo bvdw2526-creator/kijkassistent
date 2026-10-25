@@ -49,3 +49,43 @@ De Gradle-wrapper staat op 9.1.0, omdat de Java van Android Studio (versie 25) n
 Zet ontwikkelaarsopties en USB-foutopsporing aan op je telefoon. Sluit de telefoon aan en druk in Android Studio op
 ▶ (Run). Verwijder eerst de oude Kijkassistent-app van de telefoon, want een testversie heeft een andere ondertekening
 dan de versie uit de Play Store.
+
+## iOS (iPhone)
+
+Dezelfde app bestaat ook voor de iPhone, in de map `ios`. Hij gebruikt dezelfde `capacitor.config.json` en laadt
+dus ook www.kijkassistent.nl. In de user agent staat `KijkassistentApp/iOS`, zodat de site de iPhone-app kan
+herkennen (de update-melding voor Android verschijnt daar niet).
+
+- Bundle ID: `nl.kijkassistent.app`
+- Versie: `MARKETING_VERSION` (bijv. 4.1.0) en `CURRENT_PROJECT_VERSION` (buildnummer, bij elke upload ophogen) in
+  `ios/App/App.xcodeproj/project.pbxproj`
+- Alleen iPhone en alleen staand. Hoofdtaal Nederlands, ook Engels.
+- Na een wijziging in `capacitor.config.json` of `www`: `npm run sync:ios`
+- Bouwen kan alleen met Xcode op een Mac, of in de cloud (bijv. Codemagic of GitHub Actions met een macOS-machine).
+- App-icoon en opstartscherm zijn gemaakt uit `app/icon.svg` (vierkant, zonder transparantie; iOS rondt de hoeken zelf af).
+
+### Bouwen in de cloud (zonder Mac)
+
+De workflow `.github/workflows/ios-testflight.yml` bouwt de app op een Mac van GitHub, laat Apple hem ondertekenen
+en zet hem in TestFlight. Starten: GitHub → **Actions** → **iOS naar TestFlight** → **Run workflow**. Het duurt
+ongeveer 10–15 minuten; daarna verwerkt Apple de build nog 5–30 minuten voor hij in TestFlight staat.
+
+Eenmalig nodig:
+
+1. **App aanmaken** in App Store Connect: Apps → + → Nieuwe app, iOS, naam Kijkassistent, hoofdtaal Nederlands,
+   bundel-ID `nl.kijkassistent.app` (staat hij er niet bij: eerst aanmaken bij developer.apple.com → Identifiers).
+2. **API-sleutel maken**: App Store Connect → Gebruikers en toegang → Integraties → App Store Connect API →
+   Teamsleutels → +. Naam bijv. "GitHub", toegang **Admin** (nodig om in de cloud te ondertekenen). Download het
+   `.p8`-bestand (dat kan maar één keer) en bewaar het buiten de repo, bijv. in `D:/AI/Kijkassistent/Apple/`.
+3. **Geheimen in GitHub** (repo → Settings → Secrets and variables → Actions → New repository secret):
+   - `APPLE_TEAM_ID`: Team ID, te vinden op developer.apple.com → Account → Membership details
+   - `APPSTORE_API_KEY_ID`: de Key ID naast de sleutel
+   - `APPSTORE_API_ISSUER_ID`: de Issuer ID boven de lijst met sleutels
+   - `APPSTORE_API_PRIVATE_KEY`: open het `.p8`-bestand in Kladblok en plak de hele inhoud, inclusief de regels
+     `-----BEGIN PRIVATE KEY-----` en `-----END PRIVATE KEY-----`
+
+**Het `.p8`-bestand mag nooit in git**, want het project is openbaar. Geheimen in GitHub zijn veilig: ze zijn niet
+zichtbaar in de code of in de logboeken.
+
+Testen: zet in App Store Connect → TestFlight jezelf bij **Interne testers** en installeer de app **TestFlight** op je
+iPhone. Interne testers hebben geen beoordeling door Apple nodig.

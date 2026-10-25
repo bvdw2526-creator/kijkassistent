@@ -21,5 +21,11 @@
     "SystemBars": {
       "style": "DARK"
     }
+  },
+  "ios": {
+    "appendUserAgent": "KijkassistentApp/iOS",
+    "backgroundColor": "#10151C",
+    "contentInset": "never",
+    "scrollEnabled": true
   }
 }
