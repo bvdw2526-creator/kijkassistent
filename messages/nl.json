@@ -63,8 +63,9 @@
     "closingText": "Maak een gratis account en krijg binnen een paar minuten je eerste tips.",
     "followUs": "Volg ons",
     "socialLabel": "Kijkassistent op {network}",
-    "tryFirst": "Eerst proberen?",
-    "tryText": "Noem drie titels en krijg meteen een tip, zonder account."
+    "tryTip": "Vraag een tip",
+    "tryStore": "Naar de videotheek",
+    "tryBoth": "Allebei gratis en zonder account."
   },
   "login": {
     "kicker": "Welkom terug",

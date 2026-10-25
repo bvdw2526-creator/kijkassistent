@@ -63,8 +63,9 @@
     "closingText": "Create a free account and get your first tips within a few minutes.",
     "followUs": "Follow us",
     "socialLabel": "Kijkassistent on {network}",
-    "tryFirst": "Try it first?",
-    "tryText": "Name three titles and get a tip right away, no account needed."
+    "tryTip": "Ask for a pick",
+    "tryStore": "Visit the video store",
+    "tryBoth": "Both free, no account needed."
   },
   "login": {
     "kicker": "Welcome back",

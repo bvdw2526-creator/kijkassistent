@@ -18,6 +18,10 @@ const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', '
 const SOCIAL_ICONS = { Instagram: InstagramIcon, Facebook: FacebookIcon, TikTok: TikTokIcon }
 const SOCIALS = SOCIAL_LINKS.map((s) => ({ ...s, Icon: SOCIAL_ICONS[s.label] }))
 
+// De twee knoppen om eerst zonder account te proberen (tip en videotheek), naast elkaar.
+const tryButton =
+  'inline-flex items-center justify-center gap-1.5 rounded-full border-2 border-accent text-accent font-semibold px-4 py-3 text-center leading-tight hover:bg-accent/10 active:scale-[0.97] transition-all touch-manipulation'
+
 const STEPS = [1, 2, 3] as const
 const SAMEN = ['together1', 'together2', 'together3'] as const
 const FAQ = [1, 2, 3] as const
@@ -58,15 +62,21 @@ export default function Landing() {
         <div>
           <h1 className="font-display text-4xl laptop:text-5xl leading-tight mb-4">{t('heroTitle')}</h1>
           <p className="text-muted text-lg leading-relaxed mb-8">{t('heroText')}</p>
-          {/* Eerst proberen zonder account (/tip): voor bezoekers van Instagram en TikTok die nog niet willen aanmelden. */}
+          {/* Eerst proberen zonder account, voor bezoekers van Instagram en TikTok die nog niet willen aanmelden: een tip
+              op basis van een paar titels (/tip) of door de videotheek struinen (/videotheek). Eén regel eronder geldt
+              voor allebei. */}
           <div className="mb-6">
-            <Link
-              href="/tip"
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-full border-2 border-accent text-accent font-semibold px-5 py-3 hover:bg-accent/10 active:scale-[0.97] transition-all touch-manipulation"
-            >
-              {t('tryFirst')}
-            </Link>
-            <p className="text-sm text-muted mt-2">{t('tryText')}</p>
+            <div className="grid grid-cols-2 gap-3 sm:flex">
+              <Link href="/tip" className={tryButton}>
+                <span aria-hidden="true">🎬</span>
+                {t('tryTip')}
+              </Link>
+              <Link href="/videotheek" className={tryButton}>
+                <span aria-hidden="true">📼</span>
+                {t('tryStore')}
+              </Link>
+            </div>
+            <p className="text-sm text-muted mt-2">{t('tryBoth')}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <Link href="/register" className={btnPrimary}>
