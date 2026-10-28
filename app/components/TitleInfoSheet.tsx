@@ -12,6 +12,7 @@ import TrailerLink from './TrailerLink'
 import MoreLikeThis from './MoreLikeThis'
 import BookSource from './BookSource'
 import TitleDetails from './TitleDetails'
+import ShareTitleButton from './ShareTitleButton'
 import { CloseIcon, MusicNoteIcon, GlobeIcon } from './Icons'
 
 export type TitleInfoItem = {
@@ -148,6 +149,7 @@ export default function TitleInfoSheet({
                   {t('soundtrack')}
                 </a>
               )}
+              <ShareTitleButton title={item.title} year={info?.year} service={info?.streaming[0]} />
             </div>
           </div>
 

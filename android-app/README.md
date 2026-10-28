@@ -8,6 +8,9 @@ Vercel pusht, staat dus meteen ook in de app.
 - Versie: `versionCode` en `versionName` in `android/app/build.gradle`. Verhoog de `versionCode` bij elke upload.
 - Instellingen: `capacitor.config.json` (adres van de site, kleuren, opstartscherm)
 - Geen internet: `www/offline.html` (Nederlands en Engels)
+- Telefoonfuncties (vanaf 4.2.0): plugins `@capacitor/share` (deelmenu) en `@capacitor/haptics` (korte tik bij
+  beoordelen). De site roept ze aan via `lib/native.ts`; zonder de plugin (website, oude app-versie) valt dat terug.
+  Op de iPhone kun je vanaf de linkerrand terugvegen (`AppViewController` in `ios/App/App/SceneDelegate.swift`).
 - Links naar kijkassistent.nl openen in de app (via `public/.well-known/assetlinks.json`). Links naar andere sites,
   zoals TMDB, trailers en streamingdiensten, openen in de gewone browser.
 

@@ -166,6 +166,16 @@ export function MusicNoteIcon({ className }: IconProps) {
   )
 }
 
+export function ShareIcon({ className }: IconProps) {
+  return (
+    <svg {...common} className={className}>
+      <path d="M12 3v12" />
+      <path d="m7.5 7.5 4.5-4.5 4.5 4.5" />
+      <path d="M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" />
+    </svg>
+  )
+}
+
 export function BookIcon({ className }: IconProps) {
   return (
     <svg {...common} className={className}>

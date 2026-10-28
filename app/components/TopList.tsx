@@ -10,6 +10,7 @@ import TitleInfoSheet from './TitleInfoSheet'
 import BottomNav from './BottomNav'
 import { btnPrimary, btnSecondary, card, chip } from './ui'
 import { HeartIcon, OkIcon, DislikeIcon, StarIcon, PlusIcon, CheckIcon } from './Icons'
+import { tap } from '@/lib/native'
 
 type Rating = 'love' | 'ok' | 'dislike'
 type Mark = Rating | 'fav'
@@ -81,6 +82,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
   const seen = items.filter((i) => markOf(i)).length
 
   async function rate(item: TopItem, rating: Rating) {
+    tap()
     const user = await getCurrentUser()
     if (!user) return
     setActionError(null)

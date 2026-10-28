@@ -9,6 +9,7 @@ import BottomNav from '../components/BottomNav'
 import TitleInfoSheet from '../components/TitleInfoSheet'
 import { card, chip } from '../components/ui'
 import { TrashIcon, HeartIcon, OkIcon, DislikeIcon, StarIcon } from '../components/Icons'
+import { tap } from '@/lib/native'
 
 // 'halloween': vanaf de Halloween-rij op Voor jou (zie app/components/HalloweenRow.tsx).
 type RecommendationMode = 'focused' | 'balanced' | 'explore' | 'samen' | 'halloween'
@@ -144,6 +145,7 @@ export default function Watchlist() {
   }
 
   async function handleRate(item: WatchlistItem, rating: 'dislike' | 'ok' | 'love') {
+    tap()
     const user = await getCurrentUser()
     if (!user) return
     setError(null)

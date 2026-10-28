@@ -7,6 +7,7 @@ import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import { btnGhost, btnPrimary, chip } from './ui'
 import { CheckIcon, PlusIcon } from './Icons'
+import { tap } from '@/lib/native'
 
 // Een mogelijke tip uit /api/popular-tip: populair op je streamingdiensten, zonder uitgesloten
 // genres en zonder wat je al beoordeeld of op je lijst hebt.
@@ -248,6 +249,7 @@ export default function WeeklyTip({
   }
 
   async function rate(item: { id: number; title: string }, rating: Rating) {
+    tap()
     if (!userId) return
     const { error } = await supabase
       .from('ratings')

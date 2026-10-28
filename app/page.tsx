@@ -36,6 +36,8 @@ import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIc
 import HideTitleConfirm from './components/HideTitleConfirm'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
+import ShareTitleButton from './components/ShareTitleButton'
+import { tap } from '@/lib/native'
 import BookSource from './components/BookSource'
 import { useBackToClose } from './components/useBackToClose'
 import { wikipediaSearchUrl } from '@/lib/wikipedia'
@@ -686,6 +688,7 @@ export default function Home() {
   }
 
   async function handleAddToWatchlist(movie: Movie) {
+    tap()
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
     setActionError(null)
@@ -741,6 +744,7 @@ export default function Home() {
   // Zelfde als favoriet maken bij Zoeken: een favoriet is iets wat je al hebt gezien en
   // echt geweldig vond. Verdwijnt daarna uit de aanbevelingen, net als bij een beoordeling.
   async function handleFavorite(movie: Movie) {
+    tap()
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
     setActionError(null)
@@ -761,6 +765,7 @@ export default function Home() {
   }
 
   async function handleRate(movie: Movie, rating: 'dislike' | 'ok' | 'love') {
+    tap()
     if (!user) return
     if (Date.now() - selectedAtRef.current < GHOST_TAP_GUARD_MS) return
     setActionError(null)
@@ -807,6 +812,7 @@ export default function Home() {
   // oordeel gaat over hoe het samen was en telt mee voor Samen (titels die erop lijken stijgen of zakken), maar is geen
   // persoonlijke beoordeling: daarna krijgen jullie allebei het vraagje wat je er zelf van vond (zie PartnerRated).
   async function handleSeenTogether(movie: Movie, rating: 'love' | 'ok' | 'dislike') {
+    tap()
     await saveCoupleVerdict(movie, rating, 'samen_gezien')
   }
 
@@ -1408,6 +1414,13 @@ export default function Home() {
                       <MusicNoteIcon className="w-4 h-4 flex-shrink-0" />
                       {tt('soundtrack')}
                     </a>
+                  )}
+                  {!selected.upcoming && (
+                    <ShareTitleButton
+                      title={selected.title}
+                      year={selected.release_date?.slice(0, 4)}
+                      service={selected.watchOn ?? undefined}
+                    />
                   )}
                 </div>
               </div>

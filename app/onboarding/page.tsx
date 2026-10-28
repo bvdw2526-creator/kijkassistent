@@ -12,6 +12,7 @@ import { btnPrimary, btnSecondary, input, chip, card } from '../components/ui'
 import { SearchIcon, PlusIcon, CheckIcon, TrashIcon } from '../components/Icons'
 import { BOOK_CLUB_SKIN } from '@/lib/skins'
 import { useSkin } from '@/lib/useSkin'
+import { tap } from '@/lib/native'
 
 type Movie = {
   id: number
@@ -314,6 +315,7 @@ export default function Onboarding() {
   }
 
   async function rateMovie(movie: { id: number; title: string; media_type: 'movie' | 'tv' }, rating: Rating) {
+    tap()
     const user = await getCurrentUser()
     if (!user) return
     setRatingError(null)
