@@ -200,5 +200,5 @@ export async function getTitleFacts(
     liked,
     weekStart: week.start,
     weekEnd: week.end,
-  })
+  }, locale)
 }
