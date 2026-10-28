@@ -406,12 +406,14 @@ export default function Onboarding() {
           <span aria-hidden className="text-muted text-lg">›</span>
         </Link>
 
-        <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6 laptop:max-w-xl">
+        {/* Vier knoppen op een smal scherm: kleine marges en iets kleinere letters, zodat "Regisseurs" nog past. Bij een
+            grote tekstinstelling op de telefoon kun je de rij opzij schuiven in plaats van dat hij wordt afgeknipt. */}
+        <div className="flex gap-1 p-1 rounded-full bg-surface border border-line mb-6 laptop:max-w-xl overflow-x-auto no-scrollbar">
           {segments.map((s) => (
             <button
               key={s.id}
               onClick={() => (s.id === 'boeken' ? openBookSegment() : setSegment(s.id))}
-              className={`flex-1 px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+              className={`flex-1 px-2 laptop:px-4 py-1.5 text-[0.8125rem] laptop:text-sm whitespace-nowrap font-medium rounded-full transition-all touch-manipulation ${
                 segment === s.id ? 'bg-accent text-on-accent' : 'text-muted'
               }`}
             >
