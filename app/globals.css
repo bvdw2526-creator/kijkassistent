@@ -197,6 +197,16 @@ html {
   color-scheme: dark;
 }
 
+/* iPhone-app: de Android-app volgt vanzelf de lettergrootte van de telefoon, de iPhone-app niet. Met de systeemmaat
+   van iOS (standaard 17 px, groter als iemand bij Instellingen > Beeldscherm een grotere tekst kiest) groeit alles
+   mee wat in rem staat: tekst, knoppen en ruimtes. */
+@supports (font: -apple-system-body) {
+  :root[data-app="ios"] {
+    font: -apple-system-body;
+    line-height: 1.5;
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

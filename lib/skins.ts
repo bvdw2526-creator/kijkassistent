@@ -113,4 +113,5 @@ export function isSkinId(value: unknown): value is SkinId {
 
 // Draait in de pagina vóórdat er iets getekend wordt (zie app/layout.tsx), zodat de app niet eerst kort in de
 // standaardkleuren verschijnt. Een onbekende waarde heeft geen stijlen en geeft dus gewoon de standaardkleuren.
-export const SKIN_INIT_SCRIPT = `try{var s=localStorage.getItem('${SKIN_STORAGE_KEY}');if(s&&s!=='${DEFAULT_SKIN}')document.documentElement.dataset.skin=s}catch(e){}`
+// Ook zetten we data-app="ios" in de iPhone-app, zodat de tekst daar de tekstgrootte van de iPhone volgt (globals.css).
+export const SKIN_INIT_SCRIPT = `try{var s=localStorage.getItem('${SKIN_STORAGE_KEY}');if(s&&s!=='${DEFAULT_SKIN}')document.documentElement.dataset.skin=s}catch(e){}try{if(navigator.userAgent.indexOf('KijkassistentApp/iOS')>-1)document.documentElement.dataset.app='ios'}catch(e){}`
