@@ -4,25 +4,56 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { CloseIcon } from './Icons'
 
-// Balkje bovenaan in de Android-app als die ouder is dan MIN_BUILD. Nodig omdat versies vóór 4.1.0 zelf nog geen
-// update-melding hebben (die zit in android-app/.../MainActivity.java). Verhoog MIN_BUILD alleen als iedereen echt
-// naar een nieuwere versie moet; voor gewone updates meldt de app het vanaf 4.1.0 zelf.
-const MIN_BUILD = 102
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=nl.kijkassistent.app'
+// Balkje bovenaan in de Android- en iPhone-app als de geïnstalleerde versie ouder is dan de nieuwste. Met een knop naar
+// de Play Store of naar TestFlight/App Store. Weggeklikt komt het pas terug als de app opnieuw wordt geopend.
+//
+// LET OP: verhoog LATEST pas als de nieuwe versie echt in de winkel staat (Play: gesloten test of productie, iPhone:
+// verwerkt in TestFlight of goedgekeurd), anders krijgen mensen een melding terwijl er nog niets te halen is.
+const LATEST = { android: '4.2.0', ios: '4.2.0' }
+
+const STORE_URL = {
+  android: 'https://play.google.com/store/apps/details?id=nl.kijkassistent.app',
+  // Zolang de app alleen via TestFlight gaat, opent dit de TestFlight-app. Staat hij in de App Store, vervang dit dan
+  // door https://apps.apple.com/app/id<Apple-ID> (Apple-ID: App Store Connect > App-informatie).
+  ios: 'itms-beta://',
+}
+
 const DISMISSED_KEY = 'kijkassistent:appUpdateDismissed'
+
+type Platform = keyof typeof LATEST
 
 type CapacitorWindow = Window & {
   Capacitor?: { Plugins?: { App?: { getInfo?: () => Promise<{ build: string; version: string }> } } }
 }
 
+/** Is versie a (bijv. "4.1.1") ouder dan b ("4.2.0")? Onleesbare versies tellen als niet ouder. */
+function isOlder(a: string, b: string): boolean {
+  const pa = a.split('.').map((n) => parseInt(n, 10))
+  const pb = b.split('.').map((n) => parseInt(n, 10))
+  if (pa.some((n) => !Number.isFinite(n)) || pb.some((n) => !Number.isFinite(n))) return false
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? 0
+    const y = pb[i] ?? 0
+    if (x !== y) return x < y
+  }
+  return false
+}
+
+function detectPlatform(): Platform | null {
+  const ua = navigator.userAgent
+  if (ua.includes('KijkassistentApp/Android')) return 'android'
+  if (ua.includes('KijkassistentApp/iOS')) return 'ios'
+  return null
+}
+
 export default function AppUpdateBanner() {
-  const [show, setShow] = useState(false)
+  const [platform, setPlatform] = useState<Platform | null>(null)
   const t = useTranslations('appUpdate')
 
   useEffect(() => {
-    if (!navigator.userAgent.includes('KijkassistentApp/Android')) return
+    const p = detectPlatform()
+    if (!p) return
     try {
-      // Weggeklikt: niet meer tonen tot de app opnieuw wordt geopend.
       if (sessionStorage.getItem(DISMISSED_KEY)) return
     } catch {
       // Geen opslag: gewoon tonen.
@@ -33,8 +64,7 @@ export default function AppUpdateBanner() {
       app
         .getInfo()
         .then((info) => {
-          const build = parseInt(info.build, 10)
-          if (Number.isFinite(build) && build < MIN_BUILD) setShow(true)
+          if (isOlder(info.version, LATEST[p])) setPlatform(p)
         })
         .catch(() => {})
     } catch {
@@ -42,7 +72,7 @@ export default function AppUpdateBanner() {
     }
   }, [])
 
-  if (!show) return null
+  if (!platform) return null
 
   function dismiss() {
     try {
@@ -50,7 +80,7 @@ export default function AppUpdateBanner() {
     } catch {
       // Lukt niet: dan alleen weg tot de pagina opnieuw laadt.
     }
-    setShow(false)
+    setPlatform(null)
   }
 
   return (
@@ -58,8 +88,8 @@ export default function AppUpdateBanner() {
       <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-surface px-4 py-3">
         <p className="flex-1 text-sm leading-snug">{t('message')}</p>
         <a
-          href={PLAY_URL}
-          className="shrink-0 rounded-full bg-accent text-on-accent text-sm font-semibold px-4 py-2 hover:bg-accent-hover active:scale-[0.97] transition-all touch-manipulation"
+          href={STORE_URL[platform]}
+          className="shrink-0 whitespace-nowrap rounded-full bg-accent text-on-accent text-sm font-semibold px-4 py-2 hover:bg-accent-hover active:scale-[0.97] transition-all touch-manipulation"
         >
           {t('button')}
         </a>

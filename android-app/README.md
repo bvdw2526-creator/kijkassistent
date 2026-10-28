@@ -46,6 +46,8 @@ De Gradle-wrapper staat op 9.1.0, omdat de Java van Android Studio (versie 25) n
    Je kunt ook in de map `android` het commando `gradlew.bat bundleRelease` uitvoeren.
 5. Het bestand staat daarna in `android/app/build/outputs/bundle/release/app-release.aab`. Upload het in de Play
    Console bij de gesloten test.
+6. Staat de nieuwe versie in de Play Store (en voor de iPhone in TestFlight), verhoog dan `LATEST` in
+   `app/components/AppUpdateBanner.tsx` en push. Wie een oudere app heeft, krijgt dan een balkje met een knop Updaten.
 
 ## Testen op je telefoon
 
