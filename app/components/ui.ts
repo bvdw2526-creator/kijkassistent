@@ -1,8 +1,8 @@
 export const btnPrimary =
-  'inline-flex items-center justify-center gap-1.5 rounded-full bg-accent text-on-accent font-semibold px-5 py-3 shadow-[0_6px_18px_color-mix(in_srgb,var(--accent)_25%,transparent)] hover:bg-accent-hover active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100 touch-manipulation'
+  'inline-flex items-center whitespace-nowrap justify-center gap-1.5 rounded-full bg-accent text-on-accent font-semibold px-5 py-3 shadow-[0_6px_18px_color-mix(in_srgb,var(--accent)_25%,transparent)] hover:bg-accent-hover active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100 touch-manipulation'
 
 export const btnSecondary =
-  'inline-flex items-center justify-center gap-1.5 rounded-full border border-line bg-surface text-foreground font-medium px-5 py-3 hover:border-line-strong active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100 touch-manipulation'
+  'inline-flex items-center whitespace-nowrap justify-center gap-1.5 rounded-full border border-line bg-surface text-foreground font-medium px-5 py-3 hover:border-line-strong active:scale-[0.97] transition-all disabled:opacity-50 disabled:active:scale-100 touch-manipulation'
 
 export const btnGhost =
   'inline-flex items-center justify-center gap-1.5 rounded-full text-muted font-medium px-4 py-2.5 hover:text-foreground hover:bg-white/5 active:scale-[0.97] transition-all touch-manipulation'

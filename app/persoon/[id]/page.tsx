@@ -211,7 +211,7 @@ function PersonPage() {
             <div className="flex gap-1 p-1 rounded-full bg-surface border border-line">
               <button
                 onClick={() => setTab('movie')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                className={`px-4 py-1.5 text-sm font-medium whitespace-nowrap rounded-full transition-all touch-manipulation ${
                   tab === 'movie' ? 'bg-accent text-on-accent' : 'text-muted'
                 }`}
               >
@@ -219,7 +219,7 @@ function PersonPage() {
               </button>
               <button
                 onClick={() => setTab('tv')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all touch-manipulation ${
+                className={`px-4 py-1.5 text-sm font-medium whitespace-nowrap rounded-full transition-all touch-manipulation ${
                   tab === 'tv' ? 'bg-accent text-on-accent' : 'text-muted'
                 }`}
               >
