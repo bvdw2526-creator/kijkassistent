@@ -14,7 +14,7 @@ export default async function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 25 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 28 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -56,6 +56,12 @@ export default async function Privacy() {
             Als je je Letterboxd-export importeert: het bestand wordt alleen in je eigen browser gelezen en niet naar ons
             gestuurd. Alleen de films en beoordelingen die je zelf kiest te importeren worden opgeslagen, net als
             alles wat je zelf toevoegt.
+          </li>
+          <li>
+            Als je via Instellingen feedback stuurt: je bericht, het soort bericht, je e-mailadres, of we je erover mogen
+            mailen, en waarmee je het stuurde (app of browser, de versie en de taal). Je bericht komt ook als mail bij
+            ons binnen. We gebruiken het alleen om de app te verbeteren en, als je dat goed vindt, om je te antwoorden.
+            Verwijder je je account, dan wissen we je feedback ook.
           </li>
         </ul>
         <p className="mt-3">
@@ -151,7 +157,7 @@ function PrivacyEn() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacy statement</h1>
-      <p className="text-muted mb-2">Last updated: 25 October 2026</p>
+      <p className="text-muted mb-2">Last updated: 28 October 2026</p>
       <p className="text-muted text-sm mb-8">
         This is a translation of the Dutch privacy statement. If the two differ, the Dutch version applies.
       </p>
@@ -195,6 +201,12 @@ function PrivacyEn() {
           <li>
             If you import your Letterboxd export: the file is only read in your own browser and is not sent to us. Only
             the films and ratings you choose to import are stored, just like everything you add yourself.
+          </li>
+          <li>
+            If you send feedback via Settings: your message, the type of message, your email address, whether we may email
+            you about it, and what you sent it from (app or browser, the version and the language). Your message also
+            reaches us as an email. We only use it to improve the app and, if you agree, to reply to you. If you delete
+            your account, we delete your feedback too.
           </li>
         </ul>
         <p className="mt-3">

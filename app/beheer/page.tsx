@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import WhyTitle from '../components/WhyTitle'
 import WeeklyMailTest from '../components/WeeklyMailTest'
+import FeedbackAdmin from '../components/FeedbackAdmin'
 import { card } from '../components/ui'
 
 type Totals = {
@@ -211,6 +212,7 @@ export default function Beheer() {
         )}
 
         {/* Alleen als het overzicht laadde: dat lukt alleen voor de beheerder. De route controleert het zelf ook. */}
+        {data && <FeedbackAdmin />}
         {data && <WhyTitle />}
         {data && <WeeklyMailTest />}
       </main>

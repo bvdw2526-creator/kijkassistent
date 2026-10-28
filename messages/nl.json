@@ -988,5 +988,27 @@
     "sortLabel": "Sorteer gangpad {aisle}",
     "emptyNew": "Geen nieuwe titels in dit gangpad op deze diensten. Kies meer diensten bovenaan.",
     "emptyTop": "Geen toptitels in dit gangpad op deze diensten. Kies meer diensten bovenaan."
+  },
+  "feedback": {
+    "row": "Idee of probleem? Laat het weten",
+    "rowSub": "Ik lees alles zelf en gebruik het om de app beter te maken",
+    "title": "Laat het weten",
+    "intro": "Een idee, iets wat niet goed werkt of gewoon een compliment: alles is welkom.",
+    "kindLabel": "Soort bericht",
+    "kindIdea": "Idee",
+    "kindBug": "Iets werkt niet",
+    "kindCompliment": "Compliment",
+    "messageLabel": "Je bericht",
+    "placeholderIdea": "Wat zou je graag zien in Kijkassistent?",
+    "placeholderBug": "Wat ging er mis, en op welk scherm?",
+    "placeholderCompliment": "Wat vind je fijn aan Kijkassistent?",
+    "mayContact": "Je mag me mailen over dit bericht",
+    "send": "Versturen",
+    "sending": "Versturen...",
+    "cancel": "Annuleren",
+    "error": "Versturen lukte niet. Probeer het later nog eens.",
+    "thanksTitle": "Bedankt!",
+    "thanksText": "Je bericht is binnen. Ik lees alles zelf.",
+    "close": "Sluiten"
   }
 }

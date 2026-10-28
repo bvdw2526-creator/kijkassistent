@@ -988,5 +988,27 @@
     "sortLabel": "Sort aisle {aisle}",
     "emptyNew": "No new titles in this aisle on these services. Pick more services at the top.",
     "emptyTop": "No top titles in this aisle on these services. Pick more services at the top."
+  },
+  "feedback": {
+    "row": "Idea or problem? Let me know",
+    "rowSub": "I read everything myself and use it to improve the app",
+    "title": "Let me know",
+    "intro": "An idea, something that isn’t working or just a compliment: everything is welcome.",
+    "kindLabel": "Type of message",
+    "kindIdea": "Idea",
+    "kindBug": "Something’s broken",
+    "kindCompliment": "Compliment",
+    "messageLabel": "Your message",
+    "placeholderIdea": "What would you like to see in Kijkassistent?",
+    "placeholderBug": "What went wrong, and on which screen?",
+    "placeholderCompliment": "What do you like about Kijkassistent?",
+    "mayContact": "You may email me about this message",
+    "send": "Send",
+    "sending": "Sending...",
+    "cancel": "Cancel",
+    "error": "Sending failed. Please try again later.",
+    "thanksTitle": "Thank you!",
+    "thanksText": "Your message has arrived. I read everything myself.",
+    "close": "Close"
   }
 }

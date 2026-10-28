@@ -11,6 +11,7 @@ import { supabase, getCurrentUser } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import LanguageSetting from '../components/LanguageSetting'
 import { WhatsNewSheet } from '../components/WhatsNew'
+import FeedbackSheet from '../components/FeedbackSheet'
 import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, ChevronLeftIcon, TrashIcon, UsersIcon } from '../components/Icons'
 import { SKINS } from '@/lib/skins'
@@ -142,6 +143,7 @@ export default function Settings() {
   const tt = useTranslations('title')
   const tw = useTranslations('whatsNew')
   const tsv = useTranslations('services')
+  const tf = useTranslations('feedback')
   const [selected, setSelected] = useState<string[]>([])
   const [excludedGenres, setExcludedGenres] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
@@ -149,6 +151,7 @@ export default function Settings() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [onboardingComplete, setOnboardingComplete] = useState(true)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
   const skin = useSkin()
   // Eigen grens "Niet ouder dan" (profiles.min_year); null = geen grens. Wordt direct opgeslagen bij het kiezen.
   const [minYear, setMinYear] = useState<number | null>(null)
@@ -678,6 +681,14 @@ export default function Settings() {
               <span className="block text-xs text-muted mt-0.5">{t('whatsNewSub')}</span>
             </button>
 
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="w-full text-left rounded-xl border border-line px-4 py-3.5 mb-2 hover:border-line-strong transition-colors touch-manipulation"
+            >
+              <span className="block text-sm font-medium">{tf('row')}</span>
+              <span className="block text-xs text-muted mt-0.5">{tf('rowSub')}</span>
+            </button>
+
             {isAdmin && (
               <Link href="/beheer" className={linkRow}>
                 <span>
@@ -739,6 +750,7 @@ export default function Settings() {
       </div>
 
       {showWhatsNew && <WhatsNewSheet all onClose={() => setShowWhatsNew(false)} />}
+      {showFeedback && <FeedbackSheet onClose={() => setShowFeedback(false)} />}
 
       <BottomNav />
     </>

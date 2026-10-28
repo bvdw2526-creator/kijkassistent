@@ -31,6 +31,8 @@ export const LIMITS = {
   publicVideotheekAisle: { max: 200, windowSeconds: 3600 },
   // Openbare videotheek: tellen voor de trechter (hooguit drie stappen per browser per dag; dit is het vangnet).
   publicVideotheekCount: { max: 20, windowSeconds: 3600 },
+  // Feedback uit Instellingen: elk bericht is ook een mail aan de beheerder, dus krap.
+  feedback: { max: 5, windowSeconds: 3600 },
 } as const
 
 type Limit = { max: number; windowSeconds: number }
