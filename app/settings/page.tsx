@@ -390,16 +390,22 @@ export default function Settings() {
     setConnections(connections.filter((c) => c.id !== id))
   }
 
+  // Tijdens het laden blijven de titel en de menubalk staan, net als op de andere pagina's. Anders verdwijnt de balk
+  // even en lijkt het alsof de hele pagina opnieuw laadt.
   if (loading) {
     return (
-      <main className="max-w-sm laptop:max-w-5xl mx-auto px-5 pt-6 pb-28">
-        <div className="h-7 w-40 rounded-lg bg-surface animate-skeleton mb-8" />
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
-          ))}
-        </div>
-      </main>
+      <>
+        <main className="max-w-sm laptop:max-w-5xl mx-auto px-5 pt-6 pb-32">
+          <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
+          <p className="text-muted mb-6 laptop:mb-8">{t('intro')}</p>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-surface animate-skeleton" style={{ animationDelay: `${i * 80}ms` }} />
+            ))}
+          </div>
+        </main>
+        <BottomNav />
+      </>
     )
   }
 
