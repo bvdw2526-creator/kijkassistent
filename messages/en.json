@@ -491,7 +491,10 @@
     "g10765": "Sci-fi & fantasy",
     "g10766": "Soap",
     "g10767": "Talk show",
-    "g10768": "War & politics"
+    "g10768": "War & politics",
+    "groupBoth": "Films and series",
+    "groupMovieOnly": "Films only",
+    "groupTvOnly": "Series only"
   },
   "services": {
     "patheRent": "Pathé Thuis (rental)"

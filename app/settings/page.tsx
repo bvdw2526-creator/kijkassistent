@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import LegalLinks from '../components/LegalLinks'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
-import ExcludeChip from '../components/ExcludeChip'
+import GenreExcludeGroups from '../components/GenreExcludeGroups'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import PushSettings from '../components/PushSettings'
 import BottomNav from '../components/BottomNav'
@@ -30,50 +30,6 @@ const AVAILABLE_SERVICES = [
   { id: 'viaplay', label: 'Viaplay' },
   { id: 'npo_start', label: 'NPO Start' },
   { id: 'pathe_thuis', label: 'Pathé Thuis (huren)' },
-]
-
-// TMDB's vaste genre-lijsten (nl-NL). Film- en serie-ids overlappen nooit in
-// betekenis (bv. actie is 28 bij films, 10759 bij series), dus ze kunnen allebei in
-// dezelfde platte "excluded_genres"-kolom op het profiel worden opgeslagen.
-const MOVIE_GENRES = [
-  { id: 28, label: 'Actie' },
-  { id: 12, label: 'Avontuur' },
-  { id: 16, label: 'Animatie' },
-  { id: 35, label: 'Komedie' },
-  { id: 80, label: 'Misdaad' },
-  { id: 99, label: 'Documentaire' },
-  { id: 18, label: 'Drama' },
-  { id: 10751, label: 'Familie' },
-  { id: 14, label: 'Fantasy' },
-  { id: 36, label: 'Historie' },
-  { id: 27, label: 'Horror' },
-  { id: 10402, label: 'Muziek' },
-  { id: 9648, label: 'Mysterie' },
-  { id: 10749, label: 'Romantiek' },
-  { id: 878, label: 'Sciencefiction' },
-  { id: 10770, label: 'Tv-film' },
-  { id: 53, label: 'Thriller' },
-  { id: 10752, label: 'Oorlog' },
-  { id: 37, label: 'Western' },
-]
-
-const TV_GENRES = [
-  { id: 10759, label: 'Actie en avontuur' },
-  { id: 16, label: 'Animatie' },
-  { id: 35, label: 'Komedie' },
-  { id: 80, label: 'Misdaad' },
-  { id: 99, label: 'Documentaire' },
-  { id: 18, label: 'Drama' },
-  { id: 10751, label: 'Familie' },
-  { id: 10762, label: 'Kids' },
-  { id: 9648, label: 'Mysterie' },
-  { id: 10763, label: 'Nieuws' },
-  { id: 10764, label: 'Reality' },
-  { id: 10765, label: 'Sciencefiction en fantasy' },
-  { id: 10766, label: 'Soap' },
-  { id: 10767, label: 'Talkshow' },
-  { id: 10768, label: 'Oorlog en politiek' },
-  { id: 37, label: 'Western' },
 ]
 
 type PartnerConnection = {
@@ -140,7 +96,6 @@ function Collapsible({
 export default function Settings() {
   const t = useTranslations('settings')
   const tps = useTranslations('pushSettings')
-  const tg = useTranslations('genres')
   const tsk = useTranslations('skins')
   const tt = useTranslations('title')
   const tw = useTranslations('whatsNew')
@@ -481,18 +436,7 @@ export default function Settings() {
               <p className="text-muted text-sm mb-3 leading-relaxed">
                 {t('excludeHint')}
               </p>
-              <h4 className="text-sm text-muted mb-2">{t('films')}</h4>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {MOVIE_GENRES.map((genre) => (
-                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
-                ))}
-              </div>
-              <h4 className="text-sm text-muted mb-2">{t('series')}</h4>
-              <div className="flex flex-wrap gap-2">
-                {TV_GENRES.map((genre) => (
-                  <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
-                ))}
-              </div>
+              <GenreExcludeGroups excluded={excludedGenres} onToggle={toggleGenre} />
             </Collapsible>
 
             <div className="mt-4">

@@ -491,7 +491,10 @@
     "g10765": "Sciencefiction en fantasy",
     "g10766": "Soap",
     "g10767": "Talkshow",
-    "g10768": "Oorlog en politiek"
+    "g10768": "Oorlog en politiek",
+    "groupBoth": "Films en series",
+    "groupMovieOnly": "Alleen films",
+    "groupTvOnly": "Alleen series"
   },
   "services": {
     "patheRent": "Pathé Thuis (huren)"

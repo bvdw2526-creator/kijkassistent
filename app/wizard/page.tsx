@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { supabase, authFetch } from '@/lib/supabase'
 import PersonInfoSheet from '../components/PersonInfoSheet'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
-import ExcludeChip from '../components/ExcludeChip'
+import GenreExcludeGroups from '../components/GenreExcludeGroups'
 import { btnPrimary, btnGhost, input, card } from '../components/ui'
 import {
   CloseIcon,
@@ -37,48 +37,6 @@ const AVAILABLE_SERVICES = [
 
 const MIN_FAVORITES = 5
 
-// TMDB's vaste genre-lijsten (nl-NL) — zelfde lijst als op de Instellingen-pagina.
-const MOVIE_GENRES = [
-  { id: 28, label: 'Actie' },
-  { id: 12, label: 'Avontuur' },
-  { id: 16, label: 'Animatie' },
-  { id: 35, label: 'Komedie' },
-  { id: 80, label: 'Misdaad' },
-  { id: 99, label: 'Documentaire' },
-  { id: 18, label: 'Drama' },
-  { id: 10751, label: 'Familie' },
-  { id: 14, label: 'Fantasy' },
-  { id: 36, label: 'Historie' },
-  { id: 27, label: 'Horror' },
-  { id: 10402, label: 'Muziek' },
-  { id: 9648, label: 'Mysterie' },
-  { id: 10749, label: 'Romantiek' },
-  { id: 878, label: 'Sciencefiction' },
-  { id: 10770, label: 'Tv-film' },
-  { id: 53, label: 'Thriller' },
-  { id: 10752, label: 'Oorlog' },
-  { id: 37, label: 'Western' },
-]
-
-const TV_GENRES = [
-  { id: 10759, label: 'Actie en avontuur' },
-  { id: 16, label: 'Animatie' },
-  { id: 35, label: 'Komedie' },
-  { id: 80, label: 'Misdaad' },
-  { id: 99, label: 'Documentaire' },
-  { id: 18, label: 'Drama' },
-  { id: 10751, label: 'Familie' },
-  { id: 10762, label: 'Kids' },
-  { id: 9648, label: 'Mysterie' },
-  { id: 10763, label: 'Nieuws' },
-  { id: 10764, label: 'Reality' },
-  { id: 10765, label: 'Sciencefiction en fantasy' },
-  { id: 10766, label: 'Soap' },
-  { id: 10767, label: 'Talkshow' },
-  { id: 10768, label: 'Oorlog en politiek' },
-  { id: 37, label: 'Western' },
-]
-
 type MovieResult = { id: number; title: string; poster_path: string | null; release_date?: string; media_type: 'movie' | 'tv' }
 type FavoriteMovie = { id: number; title: string; media_type: 'movie' | 'tv' }
 type PersonResult = { id: number; name: string; profile_path: string | null }
@@ -91,7 +49,6 @@ export default function Wizard() {
   const router = useRouter()
   const t = useTranslations('wizard')
   const tt = useTranslations('title')
-  const tg = useTranslations('genres')
   const tn = useTranslations('nav')
   const ts = useTranslations('search')
   const tp = useTranslations('people')
@@ -498,18 +455,7 @@ export default function Wizard() {
             </p>
           </div>
 
-          <h3 className="text-sm text-muted mb-2">{tt('films')}</h3>
-          <div className="flex flex-wrap gap-2 mb-5">
-            {MOVIE_GENRES.map((genre) => (
-              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
-            ))}
-          </div>
-          <h3 className="text-sm text-muted mb-2">{tt('seriesPlural')}</h3>
-          <div className="flex flex-wrap gap-2 mb-4">
-            {TV_GENRES.map((genre) => (
-              <ExcludeChip key={genre.id} active={excludedGenres.includes(genre.id)} label={tg(`g${genre.id}`)} onClick={() => toggleGenre(genre.id)} />
-            ))}
-          </div>
+          <GenreExcludeGroups excluded={excludedGenres} onToggle={toggleGenre} />
 
           <p className="text-sm text-muted mb-6">
             {excludedGenres.length === 0
