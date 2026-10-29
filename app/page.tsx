@@ -29,7 +29,7 @@ import { readSkin, useSkin } from '@/lib/useSkin'
 import TooOldPrompt from './components/TooOldPrompt'
 import MoreLikeThis from './components/MoreLikeThis'
 import { TOO_OLD_ASK_AFTER, TOO_OLD_ASKED_KEY, TOO_OLD_BEFORE, TOO_OLD_REASON, suggestMinYear, yearOf } from '@/lib/tooOld'
-import { findNewKeys, rememberSeen } from '@/lib/newTitles'
+import { findNewKeys, rememberSeen, isRecentRelease } from '@/lib/newTitles'
 import { logRecommendationEvent, useSeenTracker, type RecommendationEvent } from '@/lib/recommendationEvents'
 import { btnPrimary, btnSecondary, btnGhost } from './components/ui'
 import { CloseIcon, HeartIcon, OkIcon, DislikeIcon, PlusIcon, StarIcon, LogoutIcon, MusicNoteIcon, GlobeIcon, EyeOffIcon, UsersIcon, ClockIcon } from './components/Icons'
@@ -1005,6 +1005,7 @@ export default function Home() {
       upcomingLabel={movie.upcoming ? tt('upcomingOn', { date: formatReleaseDate(movie.release_date, locale) }) : undefined}
       priority={i < 4}
       isNew={!halloween.day && mode !== 'samen' && !movie.upcoming && newKeys.has(`${movie.media_type}-${movie.id}`)}
+      isRecent={!halloween.day && mode !== 'samen' && !movie.upcoming && isRecentRelease(movie.release_date)}
       alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
       hideMatch={mode === 'explore' || halloween.day}
       seenRef={trackSeen}

@@ -15,6 +15,7 @@ export default function VhsCase({
   priority,
   upcomingLabel,
   isNew,
+  isRecent,
   alsoSamen,
   hideMatch,
   seenRef,
@@ -28,6 +29,7 @@ export default function VhsCase({
   priority?: boolean
   upcomingLabel?: string
   isNew?: boolean
+  isRecent?: boolean
   alsoSamen?: boolean
   hideMatch?: boolean
   seenRef?: (el: HTMLElement | null) => void | (() => void)
@@ -127,9 +129,11 @@ export default function VhsCase({
           {movie.watchOn}
         </span>
       )}
-      {(isNew || alsoSamen) && (
+      {(isNew || isRecent || alsoSamen) && (
         <span className="absolute bottom-2 left-5 flex rotate-[3deg] gap-1">
-          {isNew && <span className="bg-teal px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#06262C]">{t('new')}</span>}
+          {(isRecent || isNew) && (
+            <span className="bg-teal px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#06262C]">{isRecent ? t('new') : t('added')}</span>
+          )}
           {alsoSamen && (
             <span className="flex items-center gap-1 bg-[#F4F1E8] px-1.5 py-0.5 text-[10px] font-bold text-[#1D2446]" title={t('alsoTogether')}>
               <UsersIcon className="h-3 w-3" />

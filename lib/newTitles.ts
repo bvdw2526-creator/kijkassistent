@@ -54,3 +54,16 @@ export function rememberSeen(userId: string, currentKeys: string[]): void {
     // Geen opslag beschikbaar (bv. privénavigatie): dan zijn er gewoon geen labels.
   }
 }
+
+// "Nieuw" op de kaart: de titel is de afgelopen RECENT_RELEASE_MONTHS maanden uitgekomen (series: eerste aflevering).
+// Zelfde termijn als "nieuw op je diensten" in de motor. Een oudere titel die net bij je tips kwam heet "Toegevoegd"
+// (zie findNewKeys hierboven).
+export const RECENT_RELEASE_MONTHS = 6
+export function isRecentRelease(releaseDate: string | undefined, now: Date = new Date()): boolean {
+  if (!releaseDate) return false
+  const released = new Date(releaseDate)
+  if (Number.isNaN(released.getTime()) || released > now) return false
+  const since = new Date(now)
+  since.setMonth(since.getMonth() - RECENT_RELEASE_MONTHS)
+  return released >= since
+}

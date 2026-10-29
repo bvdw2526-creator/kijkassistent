@@ -19,6 +19,7 @@ export default function MovieCard({
   priority,
   upcomingLabel,
   isNew,
+  isRecent,
   alsoSamen,
   hideMatch,
   seenRef,
@@ -31,8 +32,10 @@ export default function MovieCard({
   priority?: boolean
   // Titel die nog moet uitkomen: dit label (bv. "Binnenkort · 29 okt.") komt in plaats van het matchpercentage.
   upcomingLabel?: string
-  // Titel die er sinds je vorige bezoek bij is gekomen (zie lib/newTitles.ts).
+  // Titel die er sinds je vorige bezoek bij is gekomen (zie lib/newTitles.ts): label "Toegevoegd".
   isNew?: boolean
+  // Titel die de afgelopen maanden is uitgekomen (isRecentRelease in lib/newTitles.ts): label "Nieuw", gaat voor "Toegevoegd".
+  isRecent?: boolean
   // Dezelfde titel staat ook in jullie Samen-lijst: dan kun je kiezen of je hem alleen of samen kijkt.
   alsoSamen?: boolean
   // Geen matchpercentage tonen (bij Verras me: daar gaat het om ontdekken, en het percentage zou er laag en ontmoedigend
@@ -54,6 +57,7 @@ export default function MovieCard({
         priority={priority}
         upcomingLabel={upcomingLabel}
         isNew={isNew}
+        isRecent={isRecent}
         alsoSamen={alsoSamen}
         hideMatch={hideMatch}
         seenRef={seenRef}
@@ -98,10 +102,12 @@ export default function MovieCard({
           </span>
         )}
 
-        {(isNew || alsoSamen) && !badge && (
+        {(isNew || isRecent || alsoSamen) && !badge && (
           <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-            {isNew && (
-              <span className="rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-semibold text-background">{t('new')}</span>
+            {(isRecent || isNew) && (
+              <span className="rounded-full bg-teal/90 px-2 py-0.5 text-[10px] font-semibold text-background">
+                {isRecent ? t('new') : t('added')}
+              </span>
             )}
             {alsoSamen && (
               <span
