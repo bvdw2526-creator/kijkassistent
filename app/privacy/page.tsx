@@ -14,7 +14,7 @@ export default async function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 28 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 29 oktober 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -63,6 +63,11 @@ export default async function Privacy() {
             ons binnen. We gebruiken het alleen om de app te verbeteren en, als je dat goed vindt, om je te antwoorden.
             Verwijder je je account, dan wissen we je feedback ook.
           </li>
+          <li>
+            Als je in de app meldingen toestaat: het adres dat je telefoon daarvoor van Apple of Google krijgt, of het een
+            iPhone of Android is, welke soorten meldingen je wilt, en welke meldingen we je al stuurden (zodat je er geen
+            twee keer dezelfde krijgt). Log je uit of verwijder je de app, dan vervalt het adres.
+          </li>
         </ul>
         <p className="mt-3">
           We gebruiken geen advertenties, geen tracking via andere partijen en geen analysetools van derden. Wat we
@@ -83,6 +88,12 @@ export default async function Privacy() {
           je kijklijst via een knop in die mail, dan bewaren we dat zoals in de app, met als herkomst &quot;mail&quot;. We
           zien niet of je de mail opent.
         </p>
+        <p className="mt-3">
+          In de Android- en iPhone-app kun je meldingen krijgen: je weekendtip, een nieuw seizoen van een serie die je leuk
+          vindt, en berichten over een partnerkoppeling. Dat gebeurt alleen als je het zelf toestaat. Per soort zet je
+          het aan of uit bij <Link href="/settings" className="text-accent">Instellingen</Link> &gt; Meldingen, en
+          helemaal uit in de instellingen van je telefoon.
+        </p>
       </Section>
 
       <Section title="Met wie we gegevens delen">
@@ -98,6 +109,11 @@ export default async function Privacy() {
           <li>
             <strong>Voyage AI</strong> — om samenvattingen van films en series te vergelijken. Er worden geen
             persoonsgegevens meegestuurd.
+          </li>
+          <li>
+            <strong>Google (Firebase Cloud Messaging)</strong> en <strong>Apple (Apple Push Notification service)</strong>{' '}
+            — om meldingen op je telefoon te bezorgen. Zij krijgen alleen het adres van je telefoon en de tekst van de
+            melding, niet je naam of e-mailadres.
           </li>
         </ul>
         <p className="mt-3">Met partijen buiten de EU gelden de standaardcontractbepalingen die de AVG voorschrijft.</p>
@@ -157,7 +173,7 @@ function PrivacyEn() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacy statement</h1>
-      <p className="text-muted mb-2">Last updated: 28 October 2026</p>
+      <p className="text-muted mb-2">Last updated: 29 October 2026</p>
       <p className="text-muted text-sm mb-8">
         This is a translation of the Dutch privacy statement. If the two differ, the Dutch version applies.
       </p>
@@ -208,6 +224,11 @@ function PrivacyEn() {
             reaches us as an email. We only use it to improve the app and, if you agree, to reply to you. If you delete
             your account, we delete your feedback too.
           </li>
+          <li>
+            If you allow notifications in the app: the address your phone gets from Apple or Google for that, whether it
+            is an iPhone or Android, which kinds of notifications you want, and which notifications we already sent you (so
+            you don&apos;t get the same one twice). If you log out or delete the app, the address lapses.
+          </li>
         </ul>
         <p className="mt-3">
           We don&apos;t use ads, tracking by other parties or third-party analytics tools. What we measure, we measure
@@ -228,6 +249,12 @@ function PrivacyEn() {
           watchlist using a button in that email, we store it just like in the app, with &quot;mail&quot; as its origin. We
           can&apos;t see whether you open the email.
         </p>
+        <p className="mt-3">
+          In the Android and iPhone app you can get notifications: your weekend pick, a new season of a series you like,
+          and messages about a partner link. This only happens if you allow it yourself. You can turn each kind on or off
+          in <Link href="/settings" className="text-accent">Settings</Link> &gt; Notifications, and turn them off
+          completely in your phone&apos;s settings.
+        </p>
       </Section>
 
       <Section title="Who we share data with">
@@ -242,6 +269,11 @@ function PrivacyEn() {
           </li>
           <li>
             <strong>Voyage AI</strong> — to compare descriptions of films and series. No personal data is sent.
+          </li>
+          <li>
+            <strong>Google (Firebase Cloud Messaging)</strong> and <strong>Apple (Apple Push Notification service)</strong>{' '}
+            — to deliver notifications to your phone. They only receive your phone&apos;s address and the text of the
+            notification, not your name or email address.
           </li>
         </ul>
         <p className="mt-3">For parties outside the EU, the standard contractual clauses required by the GDPR apply.</p>
