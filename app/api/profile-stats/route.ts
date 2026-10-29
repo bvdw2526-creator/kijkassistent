@@ -22,6 +22,8 @@ const SERVICE_LABELS: Record<string, string> = {
   skyshowtime: 'SkyShowtime',
   viaplay: 'Viaplay',
   npo_start: 'NPO Start',
+  npo_plus: 'NPO Plus',
+  nlziet: 'NLZIET',
 }
 
 // Zelfde reden als bij /api/recommendations-together: bij een koude cache moeten hier

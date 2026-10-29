@@ -9,6 +9,7 @@ import PersonInfoSheet from '../components/PersonInfoSheet'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import GenreExcludeGroups from '../components/GenreExcludeGroups'
 import { btnPrimary, btnGhost, input, card } from '../components/ui'
+import { toggleServiceList } from '@/lib/serviceToggle'
 import {
   CloseIcon,
   SearchIcon,
@@ -32,6 +33,8 @@ const AVAILABLE_SERVICES = [
   { id: 'skyshowtime', label: 'SkyShowtime' },
   { id: 'viaplay', label: 'Viaplay' },
   { id: 'npo_start', label: 'NPO Start' },
+  { id: 'npo_plus', label: 'NPO Plus' },
+  { id: 'nlziet', label: 'NLZIET' },
   { id: 'pathe_thuis', label: 'Pathé Thuis (huren)' },
 ]
 
@@ -128,7 +131,7 @@ export default function Wizard() {
   }, [router])
 
   function toggleService(id: string) {
-    setSelectedServices((current) => (current.includes(id) ? current.filter((s) => s !== id) : [...current, id]))
+    setSelectedServices((current) => toggleServiceList(current, id))
   }
 
   async function goToStep2() {

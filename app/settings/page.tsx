@@ -18,6 +18,7 @@ import { CheckIcon, ChevronLeftIcon, TrashIcon, UsersIcon } from '../components/
 import { SKINS } from '@/lib/skins'
 import { MIN_YEAR_OPTIONS } from '@/lib/tooOld'
 import { useSkin, setSkin } from '@/lib/useSkin'
+import { toggleServiceList } from '@/lib/serviceToggle'
 
 const AVAILABLE_SERVICES = [
   { id: 'netflix', label: 'Netflix' },
@@ -29,6 +30,8 @@ const AVAILABLE_SERVICES = [
   { id: 'skyshowtime', label: 'SkyShowtime' },
   { id: 'viaplay', label: 'Viaplay' },
   { id: 'npo_start', label: 'NPO Start' },
+  { id: 'npo_plus', label: 'NPO Plus' },
+  { id: 'nlziet', label: 'NLZIET' },
   { id: 'pathe_thuis', label: 'Pathé Thuis (huren)' },
 ]
 
@@ -188,9 +191,7 @@ export default function Settings() {
   }
 
   function toggleService(id: string) {
-    setSelected((current) =>
-      current.includes(id) ? current.filter((s) => s !== id) : [...current, id]
-    )
+    setSelected((current) => toggleServiceList(current, id))
   }
 
   function toggleGenre(id: number) {

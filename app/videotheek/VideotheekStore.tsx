@@ -12,6 +12,7 @@ import VhsCase, { type VhsLabel } from '../components/VhsCase'
 import { useBackToClose } from '../components/useBackToClose'
 import { SERVICES } from '../tip/TipForm'
 import { REGISTER_FROM_VIDEOTHEEK, VIDEOTHEEK_COUNTED_KEY, aisleFor, type Aisle, type VideotheekStep } from '@/lib/videotheek'
+import { toggleServiceList } from '@/lib/serviceToggle'
 
 // De winkel van de openbare videotheek (zie app/videotheek/page.tsx): diensten aantikken, films of series, en dan door de
 // gangpaden lopen. Een doosje omdraaien toont de achterkant met een uitnodiging voor een account.
@@ -123,7 +124,7 @@ export default function VideotheekStore() {
 
   function toggleService(id: string) {
     const current = services ?? []
-    saveServices(current.includes(id) ? current.filter((s) => s !== id) : [...current, id])
+    saveServices(toggleServiceList(current, id))
   }
 
   const requestKey = services === null ? null : `${mediaType}|${[...services].sort().join(',')}`

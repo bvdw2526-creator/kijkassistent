@@ -12,6 +12,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-29',
+    date: '29 oktober 2026',
+    items: [
+      'Je tips komen nu eerlijker van al je streamingdiensten, niet vooral van Netflix. Vooral bij Mijn smaak, breder en Verras me zie je vaker iets van je andere diensten.',
+      'Nieuw bij de diensten: NPO Plus en NLZIET. Zet ze aan bij Instellingen.',
+    ],
+    itemsEn: [
+      'Your tips now come more fairly from all your streaming services, not mostly from Netflix. Especially in My taste, broader and Surprise me you will see more from your other services.',
+      'New services: NPO Plus and NLZIET. Turn them on in Settings.',
+    ],
+  },
+  {
     id: '2026-10-25',
     date: '25 oktober 2026',
     items: [

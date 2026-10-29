@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { btnPrimary, btnSecondary, card, chip, input } from '../components/ui'
 import { CloseIcon, HeartIcon, SearchIcon, UsersIcon } from '../components/Icons'
+import { toggleServiceList } from '@/lib/serviceToggle'
 
 // Het formulier en de uitkomst van de openbare tip (zie app/tip/page.tsx). Zelfde berekening voor "Voor mij" en
 // "Voor ons samen"; alleen de teksten verschillen (messages/*.json, publicTip.mij en publicTip.samen).
@@ -56,6 +57,8 @@ export const SERVICES: { id: string; label: string | null }[] = [
   { id: 'skyshowtime', label: 'SkyShowtime' },
   { id: 'viaplay', label: 'Viaplay' },
   { id: 'npo_start', label: 'NPO Start' },
+  { id: 'npo_plus', label: 'NPO Plus' },
+  { id: 'nlziet', label: 'NLZIET' },
   { id: 'pathe_thuis', label: null },
 ]
 
@@ -123,7 +126,7 @@ export default function TipForm() {
     setResult(null)
   }
 
-  const toggleService = (id: string) => setServices((list) => (list.includes(id) ? list.filter((s) => s !== id) : [...list, id]))
+  const toggleService = (id: string) => setServices((list) => toggleServiceList(list, id))
 
   const ask = async () => {
     setLoading(true)

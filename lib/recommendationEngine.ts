@@ -129,6 +129,8 @@ export const SOURCE_IDS: Record<string, number> = {
   skyshowtime: 1773,
   viaplay: 76,
   npo_start: 360,
+  npo_plus: 1986,
+  nlziet: 472,
   pathe_thuis: 71,
 }
 
@@ -1493,6 +1495,32 @@ function pickLongTail<T extends { basedOn: string[]; score: number; vote_average
   }))
 }
 
+// Zoeken op je diensten gebeurt per dienst apart. In één gezamenlijke vraag ("Netflix óf Videoland óf NPO Start", op
+// populariteit) vulde Netflix bijna alles: gemeten 29 okt 2026 waren van de eerste 60 films 44 Netflix, 20 Videoland en
+// 0 NPO Start; bij series 56 / 9 / 3. Nu krijgt elke dienst zijn eigen vraag en gaan de resultaten om en om de lijst in,
+// zodat kleinere diensten ook kandidaten opleveren. Wat er uiteindelijk in je lijsten komt, bepaalt de score.
+export const DISCOVER_PER_SERVICE = true
+
+async function perServiceDiscover<T extends { id: number }>(
+  providerIds: number[],
+  perService: boolean,
+  run: (providerIds: number[]) => Promise<T[]>
+): Promise<T[]> {
+  if (!perService || providerIds.length <= 1) return run(providerIds)
+  const lists = await Promise.all(providerIds.map((id) => run([id])))
+  const seen = new Set<number>()
+  const merged: T[] = []
+  for (let i = 0; lists.some((l) => i < l.length); i++) {
+    for (const list of lists) {
+      const item = list[i]
+      if (!item || seen.has(item.id)) continue
+      seen.add(item.id)
+      merged.push(item)
+    }
+  }
+  return merged
+}
+
 // Zoekt titels via TMDB's discover-endpoint die bij de meegegeven genres passen.
 // Losgetrokken van de GET-handler (i.p.v. een closure over "supabase") zodat zowel de
 // gewone als de "samen"-aanbevelingsroute 'm kunnen hergebruiken.
@@ -1505,11 +1533,18 @@ export async function discoverByGenres(
   // streamingdiensten, waardoor er te weinig overblijft.
   // excludeGenreIds: TMDB laat titels met een van deze genres zelf weg, zodat de pagina's
   // doorlopen tot echt bruikbare titels in plaats van achteraf af te vallen.
-  options?: { providerIds?: number[]; pages?: number[]; excludeGenreIds?: number[] }
+  // perService: per dienst apart zoeken (zie DISCOVER_PER_SERVICE). Samen geeft geen diensten mee, dus daar verandert niets.
+  options?: { providerIds?: number[]; pages?: number[]; excludeGenreIds?: number[]; perService?: boolean }
 ): Promise<{ results: TmdbItem[]; label: string }> {
   if (genres.length === 0) return { results: [], label: '' }
   const topGenres = genres.slice(0, DISCOVER_GENRE_LIMIT)
   const providerIds = options?.providerIds ?? []
+  if (options?.perService && providerIds.length > 1) {
+    const results = await perServiceDiscover(providerIds, true, async (ids) =>
+      (await discoverByGenres(supabase, mediaType, genres, { ...options, providerIds: ids, perService: false })).results
+    )
+    return { results, label: `jouw voorkeur voor ${topGenres.slice(0, 3).map((g) => g.name).join(', ')}` }
+  }
   const providerKey = providerIds.length > 0 ? `|p:${[...providerIds].sort((a, b) => a - b).join('-')}` : ''
   const excludeGenreIds = options?.excludeGenreIds ?? []
   const excludeKey = excludeGenreIds.length > 0 ? `|x:${[...excludeGenreIds].sort((a, b) => a - b).join('-')}` : ''
@@ -1572,8 +1607,13 @@ export const NEW_RELEASE_LABEL = 'nieuw op je diensten'
 async function discoverNewReleases(
   supabase: SupabaseClient,
   mediaType: MediaType,
-  options: { providerIds: number[]; excludeGenreIds?: number[] }
+  options: { providerIds: number[]; excludeGenreIds?: number[]; perService?: boolean }
 ): Promise<TmdbItem[]> {
+  if (options.perService && options.providerIds.length > 1) {
+    return perServiceDiscover(options.providerIds, true, (ids) =>
+      discoverNewReleases(supabase, mediaType, { ...options, providerIds: ids, perService: false })
+    )
+  }
   const providerIds = [...options.providerIds].sort((a, b) => a - b)
   const excludeGenreIds = [...(options.excludeGenreIds ?? [])].sort((a, b) => a - b)
   const now = new Date()
@@ -1632,8 +1672,13 @@ async function discoverByTheme(
   supabase: SupabaseClient,
   mediaType: MediaType,
   keywordId: number,
-  options: { providerIds: number[]; excludeGenreIds?: number[]; languages?: string[] }
+  options: { providerIds: number[]; excludeGenreIds?: number[]; languages?: string[]; perService?: boolean }
 ): Promise<TmdbItem[]> {
+  if (options.perService && options.providerIds.length > 1) {
+    return perServiceDiscover(options.providerIds, true, (ids) =>
+      discoverByTheme(supabase, mediaType, keywordId, { ...options, providerIds: ids, perService: false })
+    )
+  }
   const providerIds = [...options.providerIds].sort((a, b) => a - b)
   const excludeGenreIds = [...(options.excludeGenreIds ?? [])].sort((a, b) => a - b)
   const languages = [...(options.languages ?? [])].sort()
@@ -1835,6 +1880,9 @@ export async function computeTasteProfile(
     staleRefresher?: StaleCacheRefresher
     bookBonus?: boolean
     onTasteReady?: (taste: Pick<TasteProfile, 'userVector' | 'dislikeVector' | 'movieGenres' | 'tvGenres'>) => void
+    // Zoeken op je diensten per dienst apart in plaats van in één lijst (zie DISCOVER_PER_SERVICE). Alleen om de oude
+    // manier na te rekenen in een vergelijking; zonder deze optie geldt DISCOVER_PER_SERVICE.
+    discoverPerService?: boolean
   } = {}
 ): Promise<TasteProfile> {
   const explainKey = options.explainKey
@@ -1965,7 +2013,12 @@ export async function computeTasteProfile(
   // beschikbaarheidscontrole, en kwam er in Verras me niets uit deze hoek. Samen geeft geen diensten mee en blijft zoals het was.
   const discoverOptions =
     options.availableOnSourceIds && options.availableOnSourceIds.size > 0
-      ? { providerIds: [...options.availableOnSourceIds], pages: DISCOVER_PAGES_ON_SERVICES, excludeGenreIds: [...excludedGenreIds] }
+      ? {
+          providerIds: [...options.availableOnSourceIds],
+          pages: DISCOVER_PAGES_ON_SERVICES,
+          excludeGenreIds: [...excludedGenreIds],
+          perService: options.discoverPerService ?? DISCOVER_PER_SERVICE,
+        }
       : undefined
   // Thema's waar de motor zelf op zoekt (zie THEME_SOURCE_LIMIT). Alleen met bekende diensten en als de app al iets
   // van je geleerd heeft; Samen geeft geen diensten mee en blijft zoals het was.
@@ -2002,6 +2055,7 @@ export async function computeTasteProfile(
           providerIds: discoverOptions!.providerIds,
           excludeGenreIds: discoverOptions!.excludeGenreIds,
           languages: likedLanguages,
+          perService: discoverOptions!.perService,
         }),
       }))
     )
@@ -2012,7 +2066,11 @@ export async function computeTasteProfile(
     ? (
         await Promise.all(
           (['movie', 'tv'] as MediaType[]).map((mediaType) =>
-            discoverNewReleases(supabase, mediaType, { providerIds: discoverOptions.providerIds, excludeGenreIds: discoverOptions.excludeGenreIds })
+            discoverNewReleases(supabase, mediaType, {
+              providerIds: discoverOptions.providerIds,
+              excludeGenreIds: discoverOptions.excludeGenreIds,
+              perService: discoverOptions.perService,
+            })
           )
         )
       ).flat()

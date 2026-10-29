@@ -221,6 +221,16 @@ Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelij
   45,3 / 51,6 / 43,6 (met de controle zou het 44,6 / 51,9 / 42,6 worden). Verhaal- en kenmerken-toets niet geraakt.
   Voorvoegsels nu `u21` en `v26-toon`. Terugzetten: `lib/recommendationEngine.ts` uit het label halen en de voorvoegsels
   ophogen.
+- 29 okt 2026: zoeken op je diensten per dienst apart (`DISCOVER_PER_SERVICE` en `perServiceDiscover` in
+  `lib/recommendationEngine.ts`; geldt voor genres, thema's en nieuw op je diensten, niet voor Samen). Aanleiding: in één
+  gezamenlijke vraag op populariteit vulde Netflix bijna alles (eerste 60 films: Netflix 44, Videoland 20, NPO Start 0).
+  De weging is niet veranderd: kenmerken-toets exact gelijk aan de nulmeting hierboven (75,3 / 69,1 / 60,2 en
+  69,6 / 59,5 / 62,2). Lijstvergelijking oud tegen nieuw op 12 profielen met meer dan één dienst plus een testprofiel:
+  gemiddeld match-percentage van de top 10 gelijk of hoger in 38 van 39 tabbladen (bv. Puur 61 -> 78, 56 -> 66), Puur
+  grotendeels gelijk (15-20 van de top 20), kleinere diensten vaker in Breder en Verras me. Eerste berekening trager
+  (grootste profiel 10 -> 35 s), daarna gelijk of sneller (14 s) door de cache van 12 uur. Tegelijk NPO Plus (TMDB 1986)
+  en NLZIET (472) als dienst; NPO Plus aanvinken zet NPO Start mee aan (`lib/serviceToggle.ts`). Voorvoegsel nu `u22`.
+  Terugzetten: `DISCOVER_PER_SERVICE = false` en het voorvoegsel ophogen.
 
 ## Afspraken bij verder sleutelen
 

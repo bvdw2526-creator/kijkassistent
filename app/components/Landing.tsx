@@ -12,7 +12,7 @@ import { CheckIcon, UsersIcon, HeartIcon, StarIcon, InstagramIcon, FacebookIcon,
 // De schermafbeeldingen in /public/start komen uit store-assets/screenshots (verkleind naar webp).
 // Teksten staan in messages/nl.json en messages/en.json onder "landing".
 
-const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', 'Apple TV', 'SkyShowtime', 'Viaplay', 'NPO Start', 'Pathé Thuis']
+const SERVICES = ['Netflix', 'Videoland', 'Disney+', 'Prime Video', 'HBO Max', 'Apple TV', 'SkyShowtime', 'Viaplay', 'NPO Start', 'NPO Plus', 'NLZIET', 'Pathé Thuis']
 
 // Bewust klein onderaan: de pagina moet bezoekers naar een account sturen, niet weg naar sociale media.
 const SOCIAL_ICONS = { Instagram: InstagramIcon, Facebook: FacebookIcon, TikTok: TikTokIcon }

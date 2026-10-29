@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   // zodat wisselen van skin een nieuwe berekening geeft in plaats van de bewaarde lijst van de andere skin.
   const bookBonus = request.nextUrl.searchParams.get('boeken') === '1'
   const profileSignature =
-    `u21|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',') + (bookBonus ? '|boek' : '')
+    `u22|${MATCH_PERCENT_METHOD}|` + buildProfileSignature(inputs) + '|hid:' + hiddenKeys.join(',') + (bookBonus ? '|boek' : '')
 
   const { data: cachedResult } = await supabase
     .from('recommendations_cache')

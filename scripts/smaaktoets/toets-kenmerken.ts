@@ -13,6 +13,8 @@ import * as nodeModule from 'node:module'
 // registerHooks bestaat sinds Node 23.5; de @types/node van het project kent het nog niet.
 ;(nodeModule as unknown as { registerHooks: (hooks: object) => void }).registerHooks({
   resolve(specifier: string, context: object, nextResolve: (s: string, c: object) => { url: string }) {
+    // 'server-only' (via lib/liveDeadline.ts) werkt alleen binnen Next.js; hier is het een leeg pakket.
+    if (specifier === 'server-only') return { url: 'data:text/javascript,', shortCircuit: true }
     try {
       return nextResolve(specifier, context)
     } catch (err) {
