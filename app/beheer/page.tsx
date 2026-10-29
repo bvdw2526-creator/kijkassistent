@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import BottomNav from '../components/BottomNav'
 import WhyTitle from '../components/WhyTitle'
 import WeeklyMailTest from '../components/WeeklyMailTest'
+import PushTest from '../components/PushTest'
 import FeedbackAdmin from '../components/FeedbackAdmin'
 import { card } from '../components/ui'
 
@@ -215,6 +216,7 @@ export default function Beheer() {
         {data && <FeedbackAdmin />}
         {data && <WhyTitle />}
         {data && <WeeklyMailTest />}
+        {data && <PushTest />}
       </main>
 
       <BottomNav />

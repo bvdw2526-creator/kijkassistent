@@ -22,6 +22,9 @@ export type PushMessage = {
 
 export type PushKind = 'weekly' | 'partner' | 'series'
 
+// Uitkomst per telefoon. 'gone' = het adres bestaat niet meer (app verwijderd); detail = antwoord van Google of Apple.
+type Outcome = { status: 'ok' | 'gone' | 'failed'; detail?: string }
+
 const APNS_HOST = 'https://api.push.apple.com'
 const BUNDLE_ID = 'nl.kijkassistent.app'
 
@@ -74,9 +77,9 @@ async function fcmAccessToken(account: ServiceAccount): Promise<string> {
 }
 
 // Geeft 'gone' als het adres niet meer bestaat.
-async function sendFcm(token: string, message: PushMessage): Promise<'ok' | 'gone' | 'failed'> {
+async function sendFcm(token: string, message: PushMessage): Promise<Outcome> {
   const account = serviceAccount()
-  if (!account) return 'failed'
+  if (!account) return { status: 'failed', detail: 'FCM_SERVICE_ACCOUNT ontbreekt of is geen geldige JSON' }
   const accessToken = await fcmAccessToken(account)
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${account.project_id}/messages:send`, {
     method: 'POST',
@@ -90,15 +93,13 @@ async function sendFcm(token: string, message: PushMessage): Promise<'ok' | 'gon
       },
     }),
   })
-  if (res.ok) return 'ok'
-  if (res.status === 404 || res.status === 400) {
-    const text = await res.text()
-    if (/UNREGISTERED|INVALID_ARGUMENT.*token|registration token/i.test(text)) return 'gone'
-    console.error('FCM-melding mislukt:', res.status, text.slice(0, 300))
-    return 'failed'
+  if (res.ok) return { status: 'ok' }
+  const text = (await res.text()).slice(0, 300)
+  if ((res.status === 404 || res.status === 400) && /UNREGISTERED|INVALID_ARGUMENT.*token|registration token/i.test(text)) {
+    return { status: 'gone', detail: `${res.status} ${text}` }
   }
-  console.error('FCM-melding mislukt:', res.status, (await res.text()).slice(0, 300))
-  return 'failed'
+  console.error('FCM-melding mislukt:', res.status, text)
+  return { status: 'failed', detail: `${res.status} ${text}` }
 }
 
 // ---- Apple (iPhone) ----
@@ -126,7 +127,7 @@ function apnsToken(config: NonNullable<ReturnType<typeof apnsConfig>>): string {
 }
 
 function sendApnsOne(session: http2.ClientHttp2Session, jwt: string, token: string, message: PushMessage) {
-  return new Promise<'ok' | 'gone' | 'failed'>((resolve) => {
+  return new Promise<Outcome>((resolve) => {
     const req = session.request({
       ':method': 'POST',
       ':path': `/3/device/${token}`,
@@ -146,23 +147,28 @@ function sendApnsOne(session: http2.ClientHttp2Session, jwt: string, token: stri
       body += chunk
     })
     req.on('end', () => {
-      if (status === 200) return resolve('ok')
-      if (status === 410 || /BadDeviceToken|Unregistered|DeviceTokenNotForTopic/.test(body)) return resolve('gone')
-      console.error('APNs-melding mislukt:', status, body.slice(0, 300))
-      resolve('failed')
+      if (status === 200) return resolve({ status: 'ok' })
+      const detail = `${status} ${body.slice(0, 300)}`
+      if (status === 410 || /BadDeviceToken|Unregistered|DeviceTokenNotForTopic/.test(body)) return resolve({ status: 'gone', detail })
+      console.error('APNs-melding mislukt:', detail)
+      resolve({ status: 'failed', detail })
     })
     req.on('error', (err) => {
       console.error('APNs-verbinding mislukt:', err)
-      resolve('failed')
+      resolve({ status: 'failed', detail: err instanceof Error ? err.message : 'verbinding mislukt' })
     })
     req.end(JSON.stringify({ aps: { alert: { title: message.title, body: message.body }, sound: 'default' }, url: message.url }))
   })
 }
 
-async function sendApns(tokens: string[], message: PushMessage): Promise<Map<string, 'ok' | 'gone' | 'failed'>> {
-  const results = new Map<string, 'ok' | 'gone' | 'failed'>()
+async function sendApns(tokens: string[], message: PushMessage): Promise<Map<string, Outcome>> {
+  const results = new Map<string, Outcome>()
+  if (tokens.length === 0) return results
   const config = apnsConfig()
-  if (!config || tokens.length === 0) return results
+  if (!config) {
+    for (const t of tokens) results.set(t, { status: 'failed', detail: 'APNS_KEY_ID, APNS_TEAM_ID of APNS_PRIVATE_KEY ontbreekt' })
+    return results
+  }
   const jwt = apnsToken(config)
   const session = http2.connect(APNS_HOST)
   session.on('error', (err) => console.error('APNs-sessie mislukt:', err))
@@ -187,6 +193,29 @@ export async function wantsPush(db: SupabaseClient, userId: string, kind: PushKi
   return data ? data[kind] !== false : true
 }
 
+type DeviceResult = { platform: string; status: Outcome['status']; detail?: string }
+
+// Stuurt naar de gegeven telefoons en geeft per telefoon de uitkomst.
+async function deliver(tokens: { token: string; platform: string }[], message: PushMessage): Promise<(DeviceResult & { token: string })[]> {
+  const results: (DeviceResult & { token: string })[] = []
+  for (const t of tokens.filter((t) => t.platform === 'android')) {
+    try {
+      results.push({ token: t.token, platform: 'android', ...(await sendFcm(t.token, message)) })
+    } catch (err) {
+      console.error('FCM-melding mislukt:', err)
+      results.push({ token: t.token, platform: 'android', status: 'failed', detail: err instanceof Error ? err.message : 'onbekende fout' })
+    }
+  }
+  const iosTokens = tokens.filter((t) => t.platform === 'ios').map((t) => t.token)
+  const ios = await sendApns(iosTokens, message).catch((err) => {
+    console.error('APNs-meldingen mislukt:', err)
+    const detail = err instanceof Error ? err.message : 'onbekende fout'
+    return new Map<string, Outcome>(iosTokens.map((t) => [t, { status: 'failed', detail }]))
+  })
+  for (const [token, outcome] of ios) results.push({ token, platform: 'ios', ...outcome })
+  return results
+}
+
 /**
  * Stuurt een melding naar alle telefoons van een gebruiker, hooguit één keer per (kind, ref): staat die combinatie al
  * in push_sent, dan gebeurt er niets. Geeft het aantal telefoons dat de melding kreeg.
@@ -204,30 +233,18 @@ export async function sendPushOnce(
   const { error: claimError } = await db.from('push_sent').insert({ user_id: userId, kind: sent.kind, ref: sent.ref })
   if (claimError) return 0
 
-  let delivered = 0
-  const gone: string[] = []
-  for (const t of tokens.filter((t) => t.platform === 'android')) {
-    try {
-      const result = await sendFcm(t.token, message)
-      if (result === 'ok') delivered++
-      if (result === 'gone') gone.push(t.token)
-    } catch (err) {
-      console.error('FCM-melding mislukt:', err)
-    }
-  }
-  const ios = await sendApns(
-    tokens.filter((t) => t.platform === 'ios').map((t) => t.token),
-    message
-  ).catch((err) => {
-    console.error('APNs-meldingen mislukt:', err)
-    return new Map<string, 'ok' | 'gone' | 'failed'>()
-  })
-  for (const [token, result] of ios) {
-    if (result === 'ok') delivered++
-    if (result === 'gone') gone.push(token)
-  }
+  const results = await deliver(tokens, message)
+  const delivered = results.filter((r) => r.status === 'ok').length
+  const gone = results.filter((r) => r.status === 'gone').map((r) => r.token)
   if (gone.length > 0) await db.from('push_tokens').delete().in('token', gone)
   // Kwam hij nergens aan, haal de vastlegging dan weg zodat een volgende ronde het opnieuw probeert.
   if (delivered === 0) await db.from('push_sent').delete().eq('user_id', userId).eq('kind', sent.kind).eq('ref', sent.ref)
   return delivered
+}
+
+/** Beheer: een testmelding naar alle telefoons van deze gebruiker, met per telefoon het antwoord. Ruimt niets op. */
+export async function sendTestPush(db: SupabaseClient, userId: string, message: PushMessage): Promise<DeviceResult[]> {
+  const { data: tokens } = await db.from('push_tokens').select('token, platform').eq('user_id', userId)
+  if (!tokens || tokens.length === 0) return []
+  return (await deliver(tokens, message)).map(({ platform, status, detail }) => ({ platform, status, detail }))
 }
