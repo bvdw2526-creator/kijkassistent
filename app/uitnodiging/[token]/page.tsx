@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { supabase, getCurrentUser } from '@/lib/supabase'
+import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
 import { rememberInvite } from '@/lib/invite'
 import { btnPrimary, btnSecondary } from '../../components/ui'
 import { UsersIcon, CheckIcon } from '../../components/Icons'
@@ -57,6 +57,8 @@ export default function Uitnodiging() {
       return
     }
     setStatus('done')
+    // De uitnodiger krijgt een melding dat het gelukt is (als die de app met meldingen heeft).
+    authFetch('/api/push/partner', { method: 'POST' }).catch(() => {})
   }
 
   return (

@@ -65,6 +65,21 @@ jobs:
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             CODE_SIGNING_ALLOWED=NO
 
+      # Een archief zonder ondertekening bevat geen rechten (entitlements), en bij het ondertekenen neemt Apple alleen
+      # de rechten over die al in de app staan. Daarom zetten we het recht op pushmeldingen (ios/App/App/App.entitlements)
+      # er hier zelf in met een voorlopige handtekening; het echte ondertekenen gebeurt in de volgende stap.
+      - name: Rechten (pushmeldingen) in de app zetten
+        run: |
+          APP="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+          # Eerst de ingebouwde onderdelen (zonder rechten), daarna de app zelf met de rechten.
+          if [ -d "$APP/Frameworks" ]; then
+            find "$APP/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) -exec codesign --force --sign - {} \;
+          fi
+          codesign --force --sign - --entitlements ios/App/App/App.entitlements "$APP"
+          echo "Rechten in de app:"
+          codesign -d --entitlements :- "$APP"
+          codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q aps-environment
+
       - name: Ondertekenen en uploaden naar App Store Connect
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

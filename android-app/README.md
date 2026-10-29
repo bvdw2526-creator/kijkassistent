@@ -94,3 +94,20 @@ zichtbaar in de code of in de logboeken.
 
 Testen: zet in App Store Connect → TestFlight jezelf bij **Interne testers** en installeer de app **TestFlight** op je
 iPhone. Interne testers hebben geen beoordeling door Apple nodig.
+
+## Pushmeldingen (vanaf 4.3.0)
+
+Drie soorten: de weekendtip (vrijdag t/m zondag, hooguit één per week), een nieuw seizoen van een serie die je leuk
+vindt, en partnermeldingen (uitgenodigd, uitnodiging geaccepteerd). Verzenden gebeurt op de server (`lib/push.ts`,
+`lib/pushJobs.ts`, dagelijkse taak `app/api/cron/push`); de app meldt de telefoon aan via `app/components/PushSetup.tsx`.
+Instellingen per soort staan in Instellingen > Meldingen. Tabellen: migratie `supabase/migrations/20261029_push.sql`.
+
+Eenmalig nodig:
+
+- **Android (Firebase):** maak op console.firebase.google.com een project met een Android-app `nl.kijkassistent.app`.
+  Download `google-services.json` en zet het in `android/app/` (staat in `.gitignore`, komt niet in git). Maak bij
+  Projectinstellingen > Serviceaccounts een nieuwe privésleutel; de hele JSON gaat in Vercel als `FCM_SERVICE_ACCOUNT`.
+- **iPhone (Apple):** zet bij developer.apple.com > Identifiers > `nl.kijkassistent.app` de mogelijkheid **Push
+  Notifications** aan. Maak bij Keys een sleutel met **Apple Push Notifications service (APNs)** en download het
+  .p8-bestand. In Vercel: `APNS_KEY_ID`, `APNS_TEAM_ID` en `APNS_PRIVATE_KEY` (de inhoud van het .p8-bestand).
+- Het recht op meldingen staat in `ios/App/App/App.entitlements`; de workflow zet het in de app voor het ondertekenen.

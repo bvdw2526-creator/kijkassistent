@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Kleur van het meldingsicoon (huisstijl-oranje) -->
+    <color name="notification_accent">#E8A33D</color>
+</resources>

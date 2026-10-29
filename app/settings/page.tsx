@@ -7,7 +7,8 @@ import { useTranslations } from 'next-intl'
 import LegalLinks from '../components/LegalLinks'
 import ExcludedGenreWarning from '../components/ExcludedGenreWarning'
 import ExcludeChip from '../components/ExcludeChip'
-import { supabase, getCurrentUser } from '@/lib/supabase'
+import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
+import PushSettings from '../components/PushSettings'
 import BottomNav from '../components/BottomNav'
 import LanguageSetting from '../components/LanguageSetting'
 import { WhatsNewSheet } from '../components/WhatsNew'
@@ -138,6 +139,7 @@ function Collapsible({
 
 export default function Settings() {
   const t = useTranslations('settings')
+  const tps = useTranslations('pushSettings')
   const tg = useTranslations('genres')
   const tsk = useTranslations('skins')
   const tt = useTranslations('title')
@@ -362,6 +364,7 @@ export default function Settings() {
       return
     }
     setPartnerEmail('')
+    authFetch('/api/push/partner', { method: 'POST' }).catch(() => {})
     loadConnections()
   }
 
@@ -376,6 +379,7 @@ export default function Settings() {
       setErrorMessage(t('errAccept', { message: error.message }))
       return
     }
+    authFetch('/api/push/partner', { method: 'POST' }).catch(() => {})
     loadConnections()
   }
 
@@ -536,6 +540,8 @@ export default function Settings() {
                 />
               </span>
             </button>
+
+            <PushSettings title={<GroupTitle title={tps('heading')} />} rowClass={linkRow} />
 
             <GroupTitle title={t('groupLists')} />
             <Link href="/onboarding" className={linkRow}>

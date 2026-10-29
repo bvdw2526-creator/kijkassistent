@@ -6,6 +6,7 @@ import './globals.css'
 import RegisterServiceWorker from './components/RegisterServiceWorker'
 import AppOpenTracker from './components/AppOpenTracker'
 import AppUpdateBanner from './components/AppUpdateBanner'
+import PushSetup from './components/PushSetup'
 import LocaleSync from './components/LocaleSync'
 import SkinBackdrop from './components/SkinBackdrop'
 import SkinInitScript from './components/SkinInitScript'
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <NextIntlClientProvider>
           <AppUpdateBanner />
+          <PushSetup />
           {children}
           <LocaleSync />
         </NextIntlClientProvider>

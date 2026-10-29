@@ -1,0 +1,233 @@
+// Pushmeldingen versturen naar de Android-app (Firebase Cloud Messaging) en de iPhone-app (Apple Push Notification
+// service). De sleutels staan als geheime instellingen in Vercel, nooit in de code:
+//
+//   FCM_SERVICE_ACCOUNT  de hele JSON van een Firebase-serviceaccount (Projectinstellingen > Serviceaccounts)
+//   APNS_KEY_ID          ID van de pushsleutel (.p8) uit het Apple Developer-account
+//   APNS_TEAM_ID         Team-ID van het Apple Developer-account
+//   APNS_PRIVATE_KEY     inhoud van het .p8-bestand
+//
+// Ontbreekt een sleutel, dan slaan we dat platform stil over. Adressen die niet meer bestaan (app verwijderd), halen
+// we meteen uit push_tokens.
+import 'server-only'
+import { createSign, createPrivateKey, sign as cryptoSign } from 'node:crypto'
+import http2 from 'node:http2'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+export type PushMessage = {
+  title: string
+  body: string
+  // Pad in de app dat opent als je op de melding tikt, bijv. "/" of "/settings".
+  url: string
+}
+
+export type PushKind = 'weekly' | 'partner' | 'series'
+
+const APNS_HOST = 'https://api.push.apple.com'
+const BUNDLE_ID = 'nl.kijkassistent.app'
+
+function base64url(input: Buffer | string): string {
+  return Buffer.from(input).toString('base64url')
+}
+
+// ---- Firebase (Android) ----
+
+type ServiceAccount = { client_email: string; private_key: string; project_id: string }
+
+let fcmToken: { value: string; expires: number } | null = null
+
+function serviceAccount(): ServiceAccount | null {
+  const raw = process.env.FCM_SERVICE_ACCOUNT
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as ServiceAccount
+    return parsed.client_email && parsed.private_key && parsed.project_id ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+async function fcmAccessToken(account: ServiceAccount): Promise<string> {
+  if (fcmToken && fcmToken.expires > Date.now() + 60_000) return fcmToken.value
+  const now = Math.floor(Date.now() / 1000)
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))
+  const claims = base64url(
+    JSON.stringify({
+      iss: account.client_email,
+      scope: 'https://www.googleapis.com/auth/firebase.messaging',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: now,
+      exp: now + 3600,
+    })
+  )
+  const signer = createSign('RSA-SHA256')
+  signer.update(`${header}.${claims}`)
+  const jwt = `${header}.${claims}.${base64url(signer.sign(account.private_key))}`
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+  })
+  if (!res.ok) throw new Error(`Google-sleutel geweigerd (${res.status})`)
+  const data = (await res.json()) as { access_token: string; expires_in: number }
+  fcmToken = { value: data.access_token, expires: Date.now() + data.expires_in * 1000 }
+  return data.access_token
+}
+
+// Geeft 'gone' als het adres niet meer bestaat.
+async function sendFcm(token: string, message: PushMessage): Promise<'ok' | 'gone' | 'failed'> {
+  const account = serviceAccount()
+  if (!account) return 'failed'
+  const accessToken = await fcmAccessToken(account)
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${account.project_id}/messages:send`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: {
+        token,
+        notification: { title: message.title, body: message.body },
+        data: { url: message.url },
+        android: { priority: 'high', notification: { color: '#E8A33D' } },
+      },
+    }),
+  })
+  if (res.ok) return 'ok'
+  if (res.status === 404 || res.status === 400) {
+    const text = await res.text()
+    if (/UNREGISTERED|INVALID_ARGUMENT.*token|registration token/i.test(text)) return 'gone'
+    console.error('FCM-melding mislukt:', res.status, text.slice(0, 300))
+    return 'failed'
+  }
+  console.error('FCM-melding mislukt:', res.status, (await res.text()).slice(0, 300))
+  return 'failed'
+}
+
+// ---- Apple (iPhone) ----
+
+let apnsJwt: { value: string; created: number } | null = null
+
+function apnsConfig() {
+  const keyId = process.env.APNS_KEY_ID
+  const teamId = process.env.APNS_TEAM_ID
+  const privateKey = process.env.APNS_PRIVATE_KEY
+  return keyId && teamId && privateKey ? { keyId, teamId, privateKey: privateKey.replace(/\\n/g, '\n') } : null
+}
+
+// Apple wil een nieuwe sleutel hooguit eens per 20 minuten en accepteert hem een uur.
+function apnsToken(config: NonNullable<ReturnType<typeof apnsConfig>>): string {
+  if (apnsJwt && Date.now() - apnsJwt.created < 40 * 60_000) return apnsJwt.value
+  const header = base64url(JSON.stringify({ alg: 'ES256', kid: config.keyId }))
+  const claims = base64url(JSON.stringify({ iss: config.teamId, iat: Math.floor(Date.now() / 1000) }))
+  const signature = cryptoSign('sha256', Buffer.from(`${header}.${claims}`), {
+    key: createPrivateKey(config.privateKey),
+    dsaEncoding: 'ieee-p1363',
+  })
+  apnsJwt = { value: `${header}.${claims}.${base64url(signature)}`, created: Date.now() }
+  return apnsJwt.value
+}
+
+function sendApnsOne(session: http2.ClientHttp2Session, jwt: string, token: string, message: PushMessage) {
+  return new Promise<'ok' | 'gone' | 'failed'>((resolve) => {
+    const req = session.request({
+      ':method': 'POST',
+      ':path': `/3/device/${token}`,
+      authorization: `bearer ${jwt}`,
+      'apns-topic': BUNDLE_ID,
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
+      'content-type': 'application/json',
+    })
+    let status = 0
+    let body = ''
+    req.setEncoding('utf8')
+    req.on('response', (headers) => {
+      status = Number(headers[':status'])
+    })
+    req.on('data', (chunk) => {
+      body += chunk
+    })
+    req.on('end', () => {
+      if (status === 200) return resolve('ok')
+      if (status === 410 || /BadDeviceToken|Unregistered|DeviceTokenNotForTopic/.test(body)) return resolve('gone')
+      console.error('APNs-melding mislukt:', status, body.slice(0, 300))
+      resolve('failed')
+    })
+    req.on('error', (err) => {
+      console.error('APNs-verbinding mislukt:', err)
+      resolve('failed')
+    })
+    req.end(JSON.stringify({ aps: { alert: { title: message.title, body: message.body }, sound: 'default' }, url: message.url }))
+  })
+}
+
+async function sendApns(tokens: string[], message: PushMessage): Promise<Map<string, 'ok' | 'gone' | 'failed'>> {
+  const results = new Map<string, 'ok' | 'gone' | 'failed'>()
+  const config = apnsConfig()
+  if (!config || tokens.length === 0) return results
+  const jwt = apnsToken(config)
+  const session = http2.connect(APNS_HOST)
+  session.on('error', (err) => console.error('APNs-sessie mislukt:', err))
+  try {
+    for (const token of tokens) results.set(token, await sendApnsOne(session, jwt, token, message))
+  } finally {
+    session.close()
+  }
+  return results
+}
+
+// ---- Voor de rest van de site ----
+
+/** Zijn er sleutels voor minstens één platform? */
+export function pushConfigured(): boolean {
+  return !!serviceAccount() || !!apnsConfig()
+}
+
+/** Wil deze gebruiker dit soort melding? Geen rij in push_settings = alles aan. */
+export async function wantsPush(db: SupabaseClient, userId: string, kind: PushKind): Promise<boolean> {
+  const { data } = await db.from('push_settings').select('weekly, partner, series').eq('user_id', userId).maybeSingle()
+  return data ? data[kind] !== false : true
+}
+
+/**
+ * Stuurt een melding naar alle telefoons van een gebruiker, hooguit één keer per (kind, ref): staat die combinatie al
+ * in push_sent, dan gebeurt er niets. Geeft het aantal telefoons dat de melding kreeg.
+ */
+export async function sendPushOnce(
+  db: SupabaseClient,
+  userId: string,
+  sent: { kind: string; ref: string },
+  message: PushMessage
+): Promise<number> {
+  const { data: tokens } = await db.from('push_tokens').select('token, platform').eq('user_id', userId)
+  if (!tokens || tokens.length === 0) return 0
+
+  // Eerst vastleggen: lukt dat niet omdat de rij er al is, dan is deze melding al eerder verstuurd.
+  const { error: claimError } = await db.from('push_sent').insert({ user_id: userId, kind: sent.kind, ref: sent.ref })
+  if (claimError) return 0
+
+  let delivered = 0
+  const gone: string[] = []
+  for (const t of tokens.filter((t) => t.platform === 'android')) {
+    try {
+      const result = await sendFcm(t.token, message)
+      if (result === 'ok') delivered++
+      if (result === 'gone') gone.push(t.token)
+    } catch (err) {
+      console.error('FCM-melding mislukt:', err)
+    }
+  }
+  const ios = await sendApns(
+    tokens.filter((t) => t.platform === 'ios').map((t) => t.token),
+    message
+  ).catch((err) => {
+    console.error('APNs-meldingen mislukt:', err)
+    return new Map<string, 'ok' | 'gone' | 'failed'>()
+  })
+  for (const [token, result] of ios) {
+    if (result === 'ok') delivered++
+    if (result === 'gone') gone.push(token)
+  }
+  if (gone.length > 0) await db.from('push_tokens').delete().in('token', gone)
+  // Kwam hij nergens aan, haal de vastlegging dan weg zodat een volgende ronde het opnieuw probeert.
+  if (delivered === 0) await db.from('push_sent').delete().eq('user_id', userId).eq('kind', sent.kind).eq('ref', sent.ref)
+  return delivered
+}

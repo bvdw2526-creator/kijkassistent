@@ -1014,5 +1014,35 @@
     "thanksTitle": "Thank you!",
     "thanksText": "Your message has arrived. I read everything myself.",
     "close": "Close"
+  },
+  "push": {
+    "weeklyTitle": "Your weekend pick 🍿",
+    "weeklyBody": "{title} on {service}. Tap for all your picks this week.",
+    "seriesTitle": "New season: {title}",
+    "seriesBodyOn": "Season {season} is now on {service}.",
+    "seriesBody": "Season {season} has started.",
+    "partnerInvitedTitle": "Invitation for Together",
+    "partnerInvitedBody": "{name} wants to get picks together. Tap to accept.",
+    "partnerAcceptedTitle": "You are linked",
+    "partnerAcceptedBody": "{name} accepted your invitation. See what you both like."
+  },
+  "pushSettings": {
+    "heading": "Notifications",
+    "intro": "Get a notification on your phone. Only in the app.",
+    "weekly": "Weekend pick",
+    "weeklySub": "Every Friday your best pick for the weekend",
+    "series": "New season",
+    "seriesSub": "When a series you like comes back",
+    "partner": "Together",
+    "partnerSub": "Invitations from your partner",
+    "enable": "Turn on notifications",
+    "denied": "Notifications are off for Kijkassistent. Turn them on in your phone settings.",
+    "errSave": "Saving failed. Please try again later."
+  },
+  "pushPrompt": {
+    "title": "Can we give you a heads-up?",
+    "text": "For example when your weekend pick is ready or a series you like comes back. You choose which notifications you get.",
+    "yes": "Yes, please",
+    "no": "Not now"
   }
 }

@@ -37,6 +37,8 @@ import HideTitleConfirm from './components/HideTitleConfirm'
 import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
 import ShareTitleButton from './components/ShareTitleButton'
+import PushPrompt from './components/PushPrompt'
+import { forgetPushDevice } from './components/PushSetup'
 import { tap } from '@/lib/native'
 import BookSource from './components/BookSource'
 import { useBackToClose } from './components/useBackToClose'
@@ -920,6 +922,7 @@ export default function Home() {
   }
 
   async function handleLogout() {
+    await forgetPushDevice()
     await supabase.auth.signOut()
     setUser(null)
   }
@@ -1041,6 +1044,7 @@ export default function Home() {
         {user && <VideotheekWelcome />}
         {user && <WhatsNew userId={user.id} createdAt={user.created_at} />}
         {user && <SeriesUpdates userId={user.id} />}
+        {user && <PushPrompt />}
 
         {DATENIGHT_ENABLED && user && <DateNight showIdle={mode === 'samen'} />}
 

@@ -1014,5 +1014,35 @@
     "thanksTitle": "Bedankt!",
     "thanksText": "Je bericht is binnen. Ik lees alles zelf.",
     "close": "Sluiten"
+  },
+  "push": {
+    "weeklyTitle": "Je weekendtip 🍿",
+    "weeklyBody": "{title} op {service}. Tik voor al je tips van deze week.",
+    "seriesTitle": "Nieuw seizoen: {title}",
+    "seriesBodyOn": "Seizoen {season} staat nu op {service}.",
+    "seriesBody": "Seizoen {season} is begonnen.",
+    "partnerInvitedTitle": "Uitnodiging voor Samen",
+    "partnerInvitedBody": "{name} wil samen tips krijgen. Tik om te accepteren.",
+    "partnerAcceptedTitle": "Jullie zijn gekoppeld",
+    "partnerAcceptedBody": "{name} heeft je uitnodiging geaccepteerd. Kijk wat jullie samen leuk vinden."
+  },
+  "pushSettings": {
+    "heading": "Meldingen",
+    "intro": "Krijg een melding op je telefoon. Alleen in de app.",
+    "weekly": "Weekendtip",
+    "weeklySub": "Elke vrijdag je beste tip voor het weekend",
+    "series": "Nieuw seizoen",
+    "seriesSub": "Als een serie die je leuk vindt terugkomt",
+    "partner": "Samen",
+    "partnerSub": "Uitnodigingen van je partner",
+    "enable": "Meldingen aanzetten",
+    "denied": "Meldingen staan uit voor Kijkassistent. Zet ze aan in de instellingen van je telefoon.",
+    "errSave": "Opslaan lukte niet. Probeer het later opnieuw."
+  },
+  "pushPrompt": {
+    "title": "Mogen we je een seintje geven?",
+    "text": "Bijvoorbeeld als je weekendtip klaarstaat of een serie die je leuk vindt terugkomt. Je kiest zelf welke meldingen je wilt.",
+    "yes": "Ja, graag",
+    "no": "Nu niet"
   }
 }

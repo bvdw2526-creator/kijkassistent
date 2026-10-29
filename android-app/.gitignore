@@ -1,1 +1,4 @@
 node_modules/
+
+# Firebase-instellingen voor pushmeldingen: alleen lokaal, niet in de openbare repo
+android/app/google-services.json
