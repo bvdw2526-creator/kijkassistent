@@ -26,12 +26,12 @@ export const STAR_VALUES = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5] as const
 export const STAR_ACTION_LABELS: Record<StarAction, string> = {
   dislike: 'Niet voor mij',
   ok: 'Was oké',
-  love: 'Zeker meer zoals dit',
+  love: 'Zeker leuk',
   favorite: 'Favoriet',
   skip: 'Overslaan',
 }
 
-// Voorstel: tot 2 sterren "niet voor mij", 2½ tot en met 4 "was oké", 4½ "zeker meer zoals dit",
+// Voorstel: tot 2 sterren "niet voor mij", 2½ tot en met 4 "was oké", 4½ "zeker leuk",
 // en 5 sterren een favoriet. De gebruiker past dit in de wizard aan.
 export const DEFAULT_STAR_MAP: Record<string, StarAction> = {
   '0.5': 'dislike',

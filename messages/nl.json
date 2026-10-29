@@ -120,7 +120,7 @@
     "hide": "Verbergen",
     "addToWatchlist": "Op kijklijst",
     "favorite": "Favoriet",
-    "rateLove": "Zeker",
+    "rateLove": "Zeker leuk",
     "rateOk": "Was oké",
     "rateDislike": "Niet voor mij",
     "tooOld": "Te oud",
@@ -155,7 +155,7 @@
     "watchOn": "Te zien op: <s></s>",
     "notStreaming": "Niet bij een streamingabonnement te zien in Nederland.",
     "rentBuy": "Ook te huur of koop: <s></s>",
-    "moreLikeThisRating": "Zeker meer zoals dit",
+    "moreLikeThisRating": "Zeker leuk",
     "remove": "Verwijderen",
     "loadingShort": "Laden...",
     "runtimeHours": "{hours} u {minutes} min",
@@ -311,7 +311,7 @@
     "lastWeek": "Vorige week tipten we <b></b>. Al gezien?",
     "love": "Zeker leuk",
     "notSeenYet": "Nog niet gezien",
-    "moreLikeThis": "Zeker meer zoals dit"
+    "moreLikeThis": "Zeker leuk"
   },
   "halloween": {
     "scary": "Griezelig",
@@ -453,7 +453,7 @@
     "addedByYou": "Toegevoegd door jou",
     "addedByPartner": "Toegevoegd door je partner",
     "halloween": "Halloween",
-    "ok": "Oké",
+    "ok": "Was oké",
     "errRating": "Kon de rating niet opslaan: {message}",
     "errNoRowSaved": "Opslaan is niet gelukt (er kwam niets terug). Probeer het opnieuw.",
     "errRatedNotRemovedShared": "Je beoordeling is opgeslagen, maar de titel kon niet van jullie lijst worden gehaald.",
@@ -792,7 +792,7 @@
   "import": {
     "actionDislike": "Niet voor mij",
     "actionOk": "Was oké",
-    "actionLove": "Zeker meer zoals dit",
+    "actionLove": "Zeker leuk",
     "actionFavorite": "Favoriet",
     "actionSkip": "Overslaan",
     "stars": "{stars} {count, plural, one {ster} other {sterren}}",

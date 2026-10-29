@@ -155,7 +155,7 @@
     "watchOn": "Watch on: <s></s>",
     "notStreaming": "Not available on a streaming subscription in the Netherlands.",
     "rentBuy": "Also to rent or buy: <s></s>",
-    "moreLikeThisRating": "Definitely more like this",
+    "moreLikeThisRating": "Loved it",
     "remove": "Remove",
     "loadingShort": "Loading...",
     "runtimeHours": "{hours} h {minutes} min",
@@ -311,7 +311,7 @@
     "lastWeek": "Last week we recommended <b></b>. Seen it yet?",
     "love": "Loved it",
     "notSeenYet": "Not seen yet",
-    "moreLikeThis": "Definitely more like this"
+    "moreLikeThis": "Loved it"
   },
   "halloween": {
     "scary": "Scary",
@@ -453,7 +453,7 @@
     "addedByYou": "Added by you",
     "addedByPartner": "Added by your partner",
     "halloween": "Halloween",
-    "ok": "OK",
+    "ok": "It was OK",
     "errRating": "Couldn't save the rating: {message}",
     "errNoRowSaved": "Saving didn't work (nothing came back). Please try again.",
     "errRatedNotRemovedShared": "Your rating was saved, but the title couldn't be removed from your shared list.",
@@ -792,7 +792,7 @@
   "import": {
     "actionDislike": "Not for me",
     "actionOk": "It was OK",
-    "actionLove": "Definitely more like this",
+    "actionLove": "Loved it",
     "actionFavorite": "Favourite",
     "actionSkip": "Skip",
     "stars": "{stars} {count, plural, one {star} other {stars}}",
