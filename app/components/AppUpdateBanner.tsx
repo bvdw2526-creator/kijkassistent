@@ -9,7 +9,7 @@ import { CloseIcon } from './Icons'
 //
 // LET OP: verhoog LATEST pas als de nieuwe versie echt in de winkel staat (Play: gesloten test of productie, iPhone:
 // verwerkt in TestFlight of goedgekeurd), anders krijgen mensen een melding terwijl er nog niets te halen is.
-const LATEST = { android: '4.2.0', ios: '4.2.0' }
+const LATEST = { android: '4.3.0', ios: '4.3.0' }
 
 const STORE_URL = {
   android: 'https://play.google.com/store/apps/details?id=nl.kijkassistent.app',
