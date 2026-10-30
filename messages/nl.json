@@ -1050,5 +1050,24 @@
     "text": "Bijvoorbeeld als je weekendtip klaarstaat of een serie die je leuk vindt terugkomt. Je kiest zelf welke meldingen je wilt.",
     "yes": "Ja, graag",
     "no": "Nu niet"
+  },
+  "nieuw": {
+    "back": "Voor jou",
+    "heading": "Nieuw",
+    "button": "Nieuw",
+    "buttonUnseen": "Nieuw, er staat iets nieuws klaar",
+    "intro": "Wat er de afgelopen tijd nieuw is, ook als het niet bij je smaak past.",
+    "cinemaNow": "Nieuw in de bioscoop",
+    "cinemaNowHint": "De afgelopen maand in Nederland uitgekomen.",
+    "cinemaSoon": "Binnenkort in de bioscoop",
+    "cinemaSoonHint": "De komende twee weken.",
+    "onServices": "Nieuw op je diensten",
+    "onServicesHint": "Onlangs verschenen en nu te zien op jouw diensten.",
+    "emptyRow": "Hier staat nu niets.",
+    "inCinema": "In de bioscoop",
+    "fromDate": "Vanaf {date}",
+    "noServices": "Kies eerst je streamingdiensten bij <link>Instellingen</link>.",
+    "errLoad": "Het nieuws kon niet worden opgehaald. Probeer het later opnieuw.",
+    "errSave": "Opslaan mislukt: {message}"
   }
 }

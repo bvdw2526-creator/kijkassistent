@@ -1050,5 +1050,24 @@
     "text": "For example when your weekend pick is ready or a series you like comes back. You choose which notifications you get.",
     "yes": "Yes, please",
     "no": "Not now"
+  },
+  "nieuw": {
+    "back": "For you",
+    "heading": "New",
+    "button": "New",
+    "buttonUnseen": "New, there is something new",
+    "intro": "What is new lately, even if it does not match your taste.",
+    "cinemaNow": "New in cinemas",
+    "cinemaNowHint": "Released in the Netherlands in the past month.",
+    "cinemaSoon": "Coming to cinemas",
+    "cinemaSoonHint": "The next two weeks.",
+    "onServices": "New on your services",
+    "onServicesHint": "Recently released and now on your services.",
+    "emptyRow": "Nothing here right now.",
+    "inCinema": "In cinemas",
+    "fromDate": "From {date}",
+    "noServices": "First choose your streaming services in <link>Settings</link>.",
+    "errLoad": "Could not load what is new. Please try again later.",
+    "errSave": "Saving failed: {message}"
   }
 }

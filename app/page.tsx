@@ -39,6 +39,7 @@ import { spotifySoundtrackUrl } from '@/lib/spotify'
 import TrailerLink from './components/TrailerLink'
 import ShareTitleButton from './components/ShareTitleButton'
 import PushPrompt from './components/PushPrompt'
+import NewTitlesButton from './components/NewTitlesButton'
 import { forgetPushDevice } from './components/PushSetup'
 import { tap } from '@/lib/native'
 import BookSource from './components/BookSource'
@@ -1034,6 +1035,8 @@ export default function Home() {
             <p className="font-display text-xs tracking-[0.2em] uppercase text-accent">Kijkassistent</p>
             <h1 className="font-display text-2xl mt-0.5">{t('heading')}</h1>
           </div>
+          <div className="flex items-center gap-1">
+          {user && <NewTitlesButton />}
           <button
             onClick={handleLogout}
             aria-label={t('logout')}
@@ -1042,6 +1045,7 @@ export default function Home() {
           >
             <LogoutIcon className="w-4 h-4" />
           </button>
+          </div>
         </header>
 
         {user && (
