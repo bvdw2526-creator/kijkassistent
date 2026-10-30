@@ -38,7 +38,13 @@ const AVAILABLE_SERVICES = [
   { id: 'pathe_thuis', label: 'Pathé Thuis (huren)' },
 ]
 
-const MIN_FAVORITES = 5
+// Minimaal 3 favorieten, liefst 5. Gemeten 30 okt 2026 (10 profielen, eerste 3 tegen eerste 5 favorieten, getoetst aan
+// latere favorieten en "zeker leuk"): per getoonde titel even raak (Puur 16% tegen 15%), maar met 3 wordt Puur mijn smaak
+// zo'n 30% korter en iets eenzijdiger. Daarom vraagt de wizard na de derde nog om er twee bij te doen.
+const MIN_FAVORITES = 3
+const RECOMMENDED_FAVORITES = 5
+// Geheugensteuntjes bij het kiezen (sleutels onder "wizard" in messages/*.json): helpen bedenken zonder titels voor te zeggen.
+const FAVORITE_HINTS = ['hintFantastic', 'hintRewatch', 'hintBinge', 'hintRecommended', 'hintChildhood'] as const
 
 type MovieResult = { id: number; title: string; poster_path: string | null; release_date?: string; media_type: 'movie' | 'tv' }
 type FavoriteMovie = { id: number; title: string; media_type: 'movie' | 'tv' }
@@ -365,8 +371,7 @@ export default function Wizard() {
       {step === 2 && (
         <div className="flex-1 flex flex-col">
           <h1 className="font-display text-2xl mb-1">{t('s2Title')}</h1>
-          <p className="text-muted mb-1">{t('s2Text', { min: MIN_FAVORITES })}</p>
-          <p className="text-sm font-medium text-accent mb-6">{t('chosen', { count: favorites.length, min: MIN_FAVORITES })}</p>
+          <p className="text-muted mb-6">{t('s2Text', { min: MIN_FAVORITES, rec: RECOMMENDED_FAVORITES })}</p>
 
           <div className="flex gap-2 mb-4">
             <div className="relative flex-1">
@@ -383,7 +388,22 @@ export default function Wizard() {
             <button onClick={handleMovieSearch} disabled={movieSearchLoading} className={btnPrimary}>{ts('button')}</button>
           </div>
 
+          {movieSearchLoading && <p className="text-sm text-muted mb-3" role="status">{t('searching')}</p>}
           {movieSearchNote && <p className="text-sm text-muted mb-3">{movieSearchNote}</p>}
+
+          {movieResults.length === 0 && !movieSearchLoading && favorites.length < RECOMMENDED_FAVORITES && (
+            <div className="rounded-2xl border border-line bg-surface px-4 py-3.5 mb-6">
+              <p className="text-sm font-medium mb-2">{t('hintsTitle')}</p>
+              <ul className="flex flex-col gap-1.5 text-sm text-muted">
+                {FAVORITE_HINTS.map((key) => (
+                  <li key={key} className="flex gap-2">
+                    <span className="text-accent" aria-hidden="true">·</span>
+                    {t(key)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {movieResults.length > 0 && (
             <div className="flex flex-col gap-1.5 mb-6">
@@ -430,7 +450,17 @@ export default function Wizard() {
             </div>
           )}
 
-          <div className="mt-auto pt-4">
+          {/* Teller en knop blijven onderin in beeld, ook bij een lange lijst zoekresultaten. */}
+          <div className="sticky bottom-0 mt-auto -mx-5 px-5 pt-3 pb-4 bg-background/95 backdrop-blur-sm border-t border-line safe-bottom">
+            <p className="text-sm font-medium text-center mb-2.5" aria-live="polite">
+              {favorites.length < MIN_FAVORITES ? (
+                <span className="text-muted">{t('chosenOf', { count: favorites.length, min: MIN_FAVORITES })}</span>
+              ) : favorites.length < RECOMMENDED_FAVORITES ? (
+                <span className="text-accent">{t('moreForBetter', { count: RECOMMENDED_FAVORITES - favorites.length })}</span>
+              ) : (
+                <span className="text-teal">{t('enoughChosen', { count: favorites.length })}</span>
+              )}
+            </p>
             <button
               onClick={() => setStep(3)}
               disabled={favorites.length < MIN_FAVORITES}
