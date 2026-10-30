@@ -133,6 +133,8 @@
     "shareOn": "op {service}",
     "match": "{percent}% match",
     "upcoming": "Binnenkort",
+    "surprise": "Verrassing",
+    "surpriseHint": "Een verrassing buiten je gewone smaak, goed beoordeeld door kijkers.",
     "upcomingOn": "Binnenkort · {date}",
     "newSeries": "Nieuwe serie",
     "inCinemas": "In de bioscoop",

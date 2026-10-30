@@ -22,6 +22,7 @@ export default function MovieCard({
   isRecent,
   alsoSamen,
   hideMatch,
+  surprise,
   seenRef,
   seenKey,
   vhs,
@@ -41,6 +42,8 @@ export default function MovieCard({
   // Geen matchpercentage tonen (bij Verras me: daar gaat het om ontdekken, en het percentage zou er laag en ontmoedigend
   // uitvallen).
   hideMatch?: boolean
+  // Een "verrassing" (bewust buiten je gewone smaak gekozen): label in plaats van het percentage, dat er bijna 0% zou zijn.
+  surprise?: boolean
   // Om te tellen dat de kaart in beeld kwam (zie useSeenTracker in lib/recommendationEvents.ts).
   seenRef?: (el: HTMLElement | null) => void | (() => void)
   seenKey?: string
@@ -60,6 +63,7 @@ export default function MovieCard({
         isRecent={isRecent}
         alsoSamen={alsoSamen}
         hideMatch={hideMatch}
+        surprise={surprise}
         seenRef={seenRef}
         seenKey={seenKey}
       />
@@ -96,7 +100,13 @@ export default function MovieCard({
           </span>
         )}
 
-        {!upcomingLabel && !hideMatch && typeof movie.matchPercent === 'number' && (
+        {!upcomingLabel && !hideMatch && surprise && (
+          <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-accent ring-1 ring-white/10">
+            {t('surprise')}
+          </span>
+        )}
+
+        {!upcomingLabel && !hideMatch && !surprise && typeof movie.matchPercent === 'number' && (
           <span className="absolute top-2 left-2 rounded-full bg-black/55 backdrop-blur-sm px-2 py-0.5 text-[11px] font-semibold text-accent ring-1 ring-white/10">
             {movie.matchPercent}%
           </span>

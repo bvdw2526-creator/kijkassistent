@@ -18,6 +18,7 @@ export default function VhsCase({
   isRecent,
   alsoSamen,
   hideMatch,
+  surprise,
   seenRef,
   seenKey,
   rating,
@@ -32,6 +33,7 @@ export default function VhsCase({
   isRecent?: boolean
   alsoSamen?: boolean
   hideMatch?: boolean
+  surprise?: boolean
   seenRef?: (el: HTMLElement | null) => void | (() => void)
   seenKey?: string
   // Waardering van TMDB (0–10), op de plek van het matchpercentage: op de openbare videotheek, waar we je smaak niet kennen.
@@ -43,8 +45,9 @@ export default function VhsCase({
   const tv = useTranslations('videotheek')
   const locale = useLocale()
   const year = movie.release_date?.slice(0, 4)
-  const showMatch = !upcomingLabel && !hideMatch && typeof movie.matchPercent === 'number'
-  const showRating = !showMatch && !upcomingLabel && typeof rating === 'number' && rating > 0
+  const showSurprise = !upcomingLabel && !hideMatch && !!surprise
+  const showMatch = !upcomingLabel && !hideMatch && !surprise && typeof movie.matchPercent === 'number'
+  const showRating = !showMatch && !showSurprise && !upcomingLabel && typeof rating === 'number' && rating > 0
   return (
     <button
       ref={seenRef}
@@ -117,6 +120,11 @@ export default function VhsCase({
         >
           <span aria-hidden="true" className="text-[8px]">★</span>
           {rating.toLocaleString(locale === 'en' ? 'en-GB' : 'nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+        </span>
+      )}
+      {showSurprise && (
+        <span className="absolute -right-1.5 top-8 max-w-[85%] rotate-[6deg] bg-coral px-1.5 py-0.5 text-[10px] font-bold uppercase leading-tight text-[#3A0610]">
+          {t('surprise')}
         </span>
       )}
       {upcomingLabel && (

@@ -247,6 +247,10 @@ export const MATCH_PERCENT_METHOD: MatchPercentMethod = 'strength'
 // Bij 'strength' is 100% de sterkte van de titel op dit pool-quantiel (0,995 = de sterkste ~0,5%). Niet het maximum zelf,
 // zodat één uitschieter (bv. een forse collectie- of acteurbonus) niet alle anderen omlaag trekt.
 const MATCH_STRENGTH_TOP_QUANTILE = 0.995
+// Breder vult per genre aan, ook als er in een genre niets sterks meer over is. Titels onder dit percentage hebben bijna
+// geen bewijs (vaak score 0) en gaan eruit; de verrassingen blijven (die tonen geen percentage). Meting 30 okt 2026: van
+// 21 getoonde Breder-titels met 0-4% kwam er geen enkele op een kijklijst of als "zeker leuk" terug.
+const BALANCED_MIN_MATCH_PERCENT = 5
 const COLLECTION_WEIGHT = 3
 const TMDB_CREDITS_CACHE_MAX_AGE_HOURS = 24 * 7
 // Favoriete acteurs/actrices moeten "zwaar meetellen" — hoger dan een collectie-match
@@ -2805,7 +2809,9 @@ export async function computeTasteProfile(
     ...(explanation ? { explanation } : {}),
     sortedByMode: {
       focused: addMatchPercent(focusedResults),
-      balanced: addMatchPercent(balancedResults),
+      balanced: addMatchPercent(balancedResults).filter(
+        (m) => m.matchPercent >= BALANCED_MIN_MATCH_PERCENT || m.basedOn.includes('verrassing')
+      ),
       explore: addMatchPercent(exploreResults),
     },
     allCandidates,

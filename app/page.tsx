@@ -275,6 +275,8 @@ const NON_TITLE_LABELS = new Set(['vergelijkbare verhaallijn', 'verhaal dat bij 
 // Redenen die geen titel zijn: een regisseur, een thema of "vergelijkbare verhaallijn". Die staan in de uitleg apart van de
 // films en series waar je van hield, anders lijkt bv. "dubbelzinnigheid" een film die je zelf hebt beoordeeld.
 const TRAIT_LABELS = new Set(['vergelijkbare verhaallijn', 'verrassing'])
+// Bewust buiten je gewone smaak gekozen (de verrassingsplekken in de motor): geen percentage, maar het label Verrassing.
+const isSurprise = (m: { basedOn?: string[] }) => !!m.basedOn?.includes('verrassing')
 const isTraitLabel = (b: string) => b.startsWith('regisseur ') || b.startsWith('thema ') || TRAIT_LABELS.has(b)
 
 // De labels in basedOn komen van de server en zijn (nog) Nederlands; we herkennen ze hier op die tekst.
@@ -1010,6 +1012,7 @@ export default function Home() {
       isRecent={!halloween.day && mode !== 'samen' && !movie.upcoming && isRecentRelease(movie.release_date)}
       alsoSamen={!halloween.day && mode !== 'samen' && samenKeys.has(`${movie.media_type}-${movie.id}`)}
       hideMatch={mode === 'explore' || halloween.day}
+      surprise={isSurprise(movie)}
       seenRef={trackSeen}
       seenKey={JSON.stringify(recommendationEventFor(movie, mode, 'getoond', i + 1, togetherConnectionId))}
       onClick={() => {
@@ -1382,7 +1385,14 @@ export default function Home() {
                     <span className="inline-block mt-2 rounded-full bg-accent/12 text-accent text-xs font-semibold px-2.5 py-1">
                       Halloween
                     </span>
-                  ) : mode === 'explore' ? null : (
+                  ) : mode === 'explore' ? null : isSurprise(selected) ? (
+                    <>
+                      <span className="inline-block mt-2 rounded-full bg-accent/12 text-accent text-xs font-semibold px-2.5 py-1">
+                        {tt('surprise')}
+                      </span>
+                      <span className="block mt-1.5 text-xs text-muted leading-snug">{tt('surpriseHint')}</span>
+                    </>
+                  ) : (
                     // Bij Verras me geen percentage: daar gaat het om ontdekken (zie hideMatch in MovieCard).
                     <span className="inline-block mt-2 rounded-full bg-accent/12 text-accent text-xs font-semibold px-2.5 py-1">
                       {tt('match', { percent: selected.matchPercent })}

@@ -133,6 +133,8 @@
     "shareOn": "on {service}",
     "match": "{percent}% match",
     "upcoming": "Coming soon",
+    "surprise": "Surprise",
+    "surpriseHint": "A surprise outside your usual taste, well rated by viewers.",
     "upcomingOn": "Coming soon · {date}",
     "newSeries": "New series",
     "inCinemas": "In cinemas",
