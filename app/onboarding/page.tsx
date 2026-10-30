@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import BottomNav from '../components/BottomNav'
 import PeopleFavorites from '../components/PeopleFavorites'
 import TitleInfoSheet, { type TitleInfoItem } from '../components/TitleInfoSheet'
@@ -246,6 +247,7 @@ export default function Onboarding() {
       setRatingError(t('errWatchlist', { message: error.message }))
       return
     }
+    watchlistAdded()
     setWatchlistKeys((current) => new Set(current).add(key))
   }
 

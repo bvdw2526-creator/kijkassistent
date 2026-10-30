@@ -323,6 +323,19 @@ body {
   animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Kijklijst-icoon in het menu wipt even als je iets op je lijst zet. */
+@keyframes nav-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-5px) scale(1.12); }
+  55% { transform: translateY(0) scale(0.96); }
+  75% { transform: translateY(-1.5px) scale(1.03); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .animate-nav-bounce {
+    animation: nav-bounce 0.6s cubic-bezier(0.3, 0.7, 0.4, 1);
+  }
+}
+
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 0.5; }
   50% { opacity: 0.9; }

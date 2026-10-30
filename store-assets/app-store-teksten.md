@@ -27,7 +27,7 @@ Weet wat je vanavond kijkt: persoonlijke tips voor films en series, alleen van w
 Weten wat je vanavond gaat kijken. Kijkassistent geeft persoonlijke tips voor films en series, op basis van wat jij mooi vindt, en alleen van wat je ook echt kunt kijken op jouw streamingdiensten.
 
 ZO WERKT HET
-Voeg een paar favorieten toe en geef aan wat je van films en series vindt: "zeker meer zoals dit", "was oké" of "niet voor mij". Hoe meer je aangeeft, hoe scherper de tips. Kies zelf hoe breed de tips mogen zijn: alleen wat je echt leuk vindt, wat breder, of laat je verrassen.
+Voeg een paar favorieten toe en geef aan wat je van films en series vindt: "zeker leuk", "was oké" of "niet voor mij". Hoe meer je aangeeft, hoe scherper de tips. Kies zelf hoe breed de tips mogen zijn: alleen wat je echt leuk vindt, wat breder, of laat je verrassen.
 
 OP JOUW STREAMINGDIENSTEN
 Kies je diensten (Netflix, Videoland, Disney+, Prime Video, HBO Max, NPO Start, Pathé Thuis en meer) en zie bij elke tip waar je hem kunt kijken.
@@ -68,7 +68,7 @@ Know what to watch tonight: personal picks for films and series, only from what 
 Know what you'll watch tonight. Kijkassistent gives you personal picks for films and series, based on what you love, and only from what you can actually watch on your streaming services.
 
 HOW IT WORKS
-Add a few favourites and tell us what you thought of films and series: "more like this", "it was okay" or "not for me". The more you rate, the sharper the picks. Choose how broad the picks may be: only what you really love, a bit broader, or surprise me.
+Add a few favourites and tell us what you thought of films and series: "loved it", "it was OK" or "not for me". The more you rate, the sharper the picks. Choose how broad the picks may be: only what you really love, a bit broader, or surprise me.
 
 ON YOUR STREAMING SERVICES
 Pick your services (Netflix, Disney+, Prime Video, HBO Max and more) and see where to watch every pick.
@@ -99,9 +99,8 @@ movies,series,recommendations,what to watch,streaming,watchlist,watch together,f
 The first version of Kijkassistent for iPhone, with notifications for your weekend pick and new seasons.
 
 ## Screenshots
-- Verplicht: **iPhone 6,9 inch**, staand, **1320 × 2868** pixels (of 1290 × 2796). Apple schaalt die zelf naar kleinere
-  iPhones. 3 tot 10 stuks; voorstel: dezelfde zes als voor de Play Store (Voor jou, titel met info, Samen, kijklijst,
-  Binnenkort, stats), plus eventueel Instellingen > Meldingen.
+- App Store Connect vraagt (oktober 2026) om **iPhone with Dynamic Island (medium display)**, staand, **1206 × 2622**
+  pixels (of 1179 × 2556). 3 tot 10 stuks. Klaar in `quote-video/output/store-ios-1206x2622/` (nl-0* en en-0*).
 - De app is alleen voor iPhone, dus geen iPad-screenshots nodig.
 
 ## Notitie voor de keurder (App Review Information > Notes, in het Engels)

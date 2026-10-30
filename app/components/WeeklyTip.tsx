@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import { btnGhost, btnPrimary, chip } from './ui'
 import { CheckIcon, PlusIcon } from './Icons'
@@ -245,6 +246,7 @@ export default function WeeklyTip({
     if (error) return
     dropFromPool(item.id)
     onRemoved(item.id, mediaType)
+    watchlistAdded()
     setDone('watchlist')
   }
 

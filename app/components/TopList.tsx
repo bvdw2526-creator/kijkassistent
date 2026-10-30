@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import type { TopItem } from '@/lib/topLists'
 import TitleInfoSheet from './TitleInfoSheet'
 import BottomNav from './BottomNav'
@@ -164,6 +165,7 @@ export default function TopList({ items }: { items: TopItem[] }) {
       setActionError(t('errWatchlist', { message: error.message }))
       return
     }
+    watchlistAdded()
     setWatchlist((current) => new Set(current).add(key))
   }
 

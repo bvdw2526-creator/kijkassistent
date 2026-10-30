@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import type { User } from '@supabase/supabase-js'
 import BottomNav from './components/BottomNav'
 import MovieCard from './components/MovieCard'
@@ -739,6 +740,7 @@ export default function Home() {
       setActionError(t('errWatchlist', { message: error.message }))
       return
     }
+    watchlistAdded()
     removeEverywhere((m) => m.id === movie.id && m.media_type === movie.media_type)
     setSelected(null)
   }

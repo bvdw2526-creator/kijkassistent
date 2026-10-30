@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { supabase, authFetch } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import { btnSecondary, btnPrimary } from './ui'
 import TitleInfoSheet from './TitleInfoSheet'
 import { BookmarkIcon, CheckIcon } from './Icons'
@@ -139,6 +140,7 @@ function AddToWatchlist({ tip, basedOn }: { tip: Tip; basedOn: string }) {
       source_info: { mode: 'meer-zoals', basedOn: [basedOn], similarity: tip.similarity },
     })
     // 23505 = staat er al op: dan is het doel al bereikt.
+    if (!error) watchlistAdded()
     setStatus(error && error.code !== '23505' ? 'failed' : 'saved')
   }
 

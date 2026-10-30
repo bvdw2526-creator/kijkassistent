@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import { btnPrimary, btnSecondary, card } from './ui'
 import { PlusIcon, ChevronLeftIcon } from './Icons'
@@ -168,6 +169,7 @@ export default function PartnerPicks({ mediaType }: { mediaType: 'movie' | 'tv' 
       setError(t('errMine', { message: insertError.message }))
       return
     }
+    watchlistAdded()
     removePick(item)
   }
 

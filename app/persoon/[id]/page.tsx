@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { supabase, getCurrentUser, authFetch } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import BottomNav from '../../components/BottomNav'
 import MovieCard from '../../components/MovieCard'
 import TitleInfoSheet, { type TitleInfoItem } from '../../components/TitleInfoSheet'
@@ -111,6 +112,7 @@ function PersonPage() {
       setActionError(t('errWatchlist', { message: insertError.message }))
       return
     }
+    watchlistAdded()
     if (item.status !== 'gezien') setStatus(item, 'kijklijst')
   }
 

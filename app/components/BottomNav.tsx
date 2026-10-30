@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { HomeIcon, SearchIcon, BookmarkIcon, ChartIcon, SettingsIcon } from './Icons'
+import { useWatchlistCount } from '@/lib/watchlistCount'
 
 // label = sleutel onder "nav" in messages/*.json.
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname()
   const t = useTranslations('nav')
+  const { count: watchlistCount, bounce: bounceKey } = useWatchlistCount()
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
@@ -41,9 +43,22 @@ export default function BottomNav() {
                 {active && (
                   <span className="absolute inset-0 rounded-xl bg-accent/10" aria-hidden />
                 )}
-                <Icon className={`relative w-5 h-5 transition-colors ${active ? 'text-accent' : 'text-muted'}`} />
+                <span
+                  key={href === '/watchlist' ? bounceKey : undefined}
+                  className={`relative ${href === '/watchlist' && bounceKey ? 'animate-nav-bounce' : ''}`}
+                >
+                  <Icon className={`w-5 h-5 transition-colors ${active ? 'text-accent' : 'text-muted'}`} />
+                  {href === '/watchlist' && watchlistCount ? (
+                    <span className="absolute -top-1.5 left-3 min-w-[1.05rem] h-[1.05rem] px-1 rounded-full bg-accent text-on-accent text-[10px] leading-[1.05rem] font-semibold text-center tabular-nums ring-2 ring-surface">
+                      {watchlistCount > 99 ? '99+' : watchlistCount}
+                    </span>
+                  ) : null}
+                </span>
                 <span className={`relative text-[10.5px] font-medium tracking-tight transition-colors ${active ? 'text-accent' : 'text-muted'}`}>
                   {t(label)}
+                  {href === '/watchlist' && watchlistCount ? (
+                    <span className="sr-only">{` (${watchlistCount})`}</span>
+                  ) : null}
                 </span>
               </Link>
             )

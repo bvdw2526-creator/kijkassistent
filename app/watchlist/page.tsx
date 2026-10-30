@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { supabase, getCurrentUser } from '@/lib/supabase'
+import { setWatchlistCount } from '@/lib/watchlistCount'
 import { logRecommendationEvent } from '@/lib/recommendationEvents'
 import BottomNav from '../components/BottomNav'
 import TitleInfoSheet from '../components/TitleInfoSheet'
@@ -131,6 +132,11 @@ export default function Watchlist() {
   useEffect(() => {
     loadWatchlist()
   }, [])
+
+  // Het getal bij Kijklijst in het menu gelijk houden met je eigen lijst, ook als je hier iets weghaalt.
+  useEffect(() => {
+    if (!loading) setWatchlistCount(items.length)
+  }, [items, loading])
 
   // Waarom de titel ooit werd aanbevolen, voor bij de beoordeling of favoriet: zo is te meten hoe vaak een aanbeveling die
   // je echt ging kijken raak was. Oudere titels hebben alleen het tabblad; titels die niet via Voor jou op de lijst kwamen

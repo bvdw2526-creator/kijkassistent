@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useLocale, useTranslations } from 'next-intl'
 import { authFetch, supabase } from '@/lib/supabase'
+import { watchlistAdded } from '@/lib/watchlistCount'
 import { COUNTDOWN_TO_PREMIERE, SKIN_BANNER_DISMISSED_KEY, SKINS } from '@/lib/skins'
 import { useSkin } from '@/lib/useSkin'
 import TitleInfoSheet from './TitleInfoSheet'
@@ -168,6 +169,7 @@ export default function SkinBanner({
       setError(t('errWatchlist', { message: insertError.message }))
       return
     }
+    watchlistAdded()
     setOnList(true)
     onAdded?.(data.id, data.mediaType)
   }

@@ -388,6 +388,11 @@ export default function Settings() {
         <h1 className="font-display text-2xl mb-1">{t('heading')}</h1>
         <p className="text-muted mb-6 laptop:mb-8">{t('intro')}</p>
 
+        {/* Taal staat bovenaan, zodat je die meteen vindt als de app in een taal staat die je niet leest. */}
+        <div className="mb-6 laptop:max-w-md">
+          <LanguageSetting />
+        </div>
+
         {!onboardingComplete && (
           <Link
             href="/wizard"
@@ -599,8 +604,6 @@ export default function Settings() {
             </Collapsible>
 
             <GroupTitle title={t('groupLooks')} />
-            <LanguageSetting />
-            <div className="mt-8" />
             <SectionTitle title={t('skin')} hint={t('skinHint')} />
             <div className="flex flex-col gap-2">
               {SKINS.map((s) => {
