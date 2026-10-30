@@ -12,6 +12,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-30',
+    date: '30 oktober 2026',
+    items: [
+      'Nieuw: de knop Nieuw bovenaan Voor jou. Daar zie je welke films en series net op je streamingdiensten staan, wat er nu in de bioscoop draait en wat er binnenkort komt, ook als het niet bij je smaak past. Een stipje laat zien dat er iets nieuws bij is gekomen.',
+      'Bij Kijklijst in het menu onderin zie je nu hoeveel films en series er op je lijst staan.',
+    ],
+    itemsEn: [
+      'New: the New button at the top of For you. See which films and series just arrived on your streaming services, what is playing in cinemas and what is coming soon, even if it does not match your taste. A dot shows when something new has been added.',
+      'Watchlist in the menu at the bottom now shows how many films and series are on your list.',
+    ],
+  },
+  {
     id: '2026-10-29',
     date: '29 oktober 2026',
     items: [
