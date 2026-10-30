@@ -38,6 +38,7 @@ export default function Nieuw() {
   const [ratings, setRatings] = useState<Map<string, Rating>>(new Map())
   const [watchlist, setWatchlist] = useState<Set<string>>(new Set())
   const [actionError, setActionError] = useState<string | null>(null)
+  const [rated, setRated] = useState<Set<string>>(new Set())
   const t = useTranslations('nieuw')
   const tt = useTranslations('title')
   const locale = useLocale()
@@ -84,6 +85,8 @@ export default function Nieuw() {
       return
     }
     setRatings((current) => new Map(current).set(keyOf(item), rating))
+    // Gezien = niet meer nieuw voor jou: bij het sluiten van het venster verdwijnt hij uit de rijen.
+    setRated((current) => new Set(current).add(keyOf(item)))
   }
 
   async function addToWatchlist(item: NewTitle) {
@@ -107,7 +110,8 @@ export default function Nieuw() {
 
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' })
 
-  function renderRow(title: string, hint: string, items: NewTitle[], kind: 'now' | 'soon' | 'services') {
+  function renderRow(title: string, hint: string, allItems: NewTitle[], kind: 'now' | 'soon' | 'services') {
+    const items = allItems.filter((i) => !rated.has(keyOf(i)) || (open !== null && keyOf(open) === keyOf(i)))
     return (
       <section className="mb-7">
         <h2 className="font-display text-lg">{title}</h2>

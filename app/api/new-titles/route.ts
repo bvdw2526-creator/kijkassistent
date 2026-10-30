@@ -128,6 +128,15 @@ export async function GET(request: NextRequest) {
       supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
       supabase.from('recommendations_cache').select('focused, balanced').eq('user_id', user.id).maybeSingle(),
     ])
+    // Wat je al zag (beoordeeld of favoriet) of verborg, laten we weg.
+    const [ratingRows, favoriteRows, hiddenRows] = await Promise.all([
+      supabase.from('ratings').select('tmdb_id, media_type').eq('user_id', user.id),
+      supabase.from('favorite_movies').select('tmdb_id, media_type').eq('user_id', user.id),
+      supabase.from('hidden_titles').select('tmdb_id, media_type').eq('user_id', user.id),
+    ])
+    const doneKeys = new Set(
+      [...(ratingRows.data ?? []), ...(favoriteRows.data ?? []), ...(hiddenRows.data ?? [])].map((r) => `${r.media_type}-${r.tmdb_id}`)
+    )
     const services = ((profile?.streaming_services || []) as string[]).filter(
       (s) => SOURCE_IDS[s] && !RENT_ONLY_SOURCE_IDS.has(SOURCE_IDS[s]) && SERVICE_LABELS[s]
     )
@@ -149,7 +158,7 @@ export async function GET(request: NextRequest) {
     // Binnenkort: met de Nederlandse datum (en wat toch al uit is, valt af).
     const cinemaSoon = (
       await Promise.all(
-        cinemaSoonRaw.slice(0, MAX_PER_ROW).map(async (item) => {
+        cinemaSoonRaw.filter((item) => !doneKeys.has(`movie-${item.id}`)).slice(0, MAX_PER_ROW).map(async (item) => {
           const date = await dutchCinemaDate(item.id)
           return date && date > today ? { ...item, release_date: date } : null
         })
@@ -178,7 +187,7 @@ export async function GET(request: NextRequest) {
       }
     }
     const withMatch = (items: NewTitle[], max = MAX_PER_ROW) =>
-      items.slice(0, max).map((item) => {
+      items.filter((item) => !doneKeys.has(`${item.media_type}-${item.id}`)).slice(0, max).map((item) => {
         const match = matchByKey.get(`${item.media_type}-${item.id}`)
         return match !== undefined ? { ...item, matchPercent: match } : item
       })
