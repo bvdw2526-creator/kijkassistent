@@ -350,13 +350,20 @@ const FOCUSED_GATE_MIN_LEARN = 0.5
 // best scorende) krijgen een kenmerkenscore, en per berekening halen we hooguit zoveel titels live bij TMDB op (de rest
 // komt uit de gedeelde cache en wordt bij een volgende berekening aangevuld). De bronnen zijn ook je afkeuringen en "oké",
 // vandaar de ruimere grens daar.
+// Kenmerken tellen half zo zwaar als voorheen (31 okt 2026). Smaaktoets "verhaal + kenmerken samen": kenmerken ongeveer half
+// zo zwaar als het verhaal scoorde het best bij beide grote profielen (leuk>niet 82,1 en 78,6); even zwaar of zwaarder was bij
+// het grootste profiel slechter dan alleen het verhaal.
+const FEATURE_WEIGHT = 0.5
 const MAX_FEATURE_CANDIDATES = 500
 const FEATURE_LIVE_SOURCES = 120
 const FEATURE_LIVE_CANDIDATES = 120
 // Per versie op de mediaan van "lijkt het meest op iets wat je leuk vond" (9 okt 2026: nl 0,60, en 0,625). Met de Engelse
 // vingerafdrukken haalt bijvoorbeeld Secretariat (paardenrennen, 0,51 met The Hurricane en Rocky) dit niet meer, waar de
 // Nederlandse hem 0,68 gaven met Arrow en superheldenfilms.
-const FOCUSED_MIN_NEIGHBOR_SIM_BY_VERSION: Record<EmbeddingVersion, number> = { nl: 0.6, en: 0.625 }
+// 31 okt 2026: en 0,625 -> 0,66. Smaaktoets op de twee grote profielen: bij 0,625 haalde nog ~75% van wat je afkeurde de
+// drempel, bij 0,65 ~46% (en ~80% van wat je leuk vond). Aanleiding: Sucker Punch (0,650), Pacific Rim: Uprising en
+// Kick-Ass 2 (0,63) stonden in Puur bijna alleen op kenmerken. Bij 0,70 vielen ook goed passende titels af (Daredevil 0,69).
+const FOCUSED_MIN_NEIGHBOR_SIM_BY_VERSION: Record<EmbeddingVersion, number> = { nl: 0.6, en: 0.66 }
 const FOCUSED_MIN_NEIGHBOR_SIM = FOCUSED_MIN_NEIGHBOR_SIM_BY_VERSION[EMBEDDING_VERSION]
 const FOCUSED_GATE_MIN_POOL = 25
 // Alleen de bovenste rolverdeling meewegen: verderop in de cast is de kans klein dat de
@@ -1461,6 +1468,37 @@ function pickByGenreRoundRobin<T extends { id: number; score: number; genre_ids:
   return result
 }
 
+// Puur mijn smaak: eerst op score, dan pas spreiden (31 okt 2026). De genre-ronde hierboven gaf elk genre zijn plekken,
+// ook met zwakke titels (Jiu Jitsu 13% omdat fantasy plek over had), terwijl sterke titels uit een vol genre buiten de
+// lijst vielen (The Killer, verhaal 0,79). Nu: van hoog naar laag op score, een titel telt bij het eerste van zijn genres
+// dat nog onder perGenre zit; zijn al zijn genres vol, dan slaan we hem over. Alleen titels met minstens één van de genres
+// uit relevantGenreIds (zoals bij de genre-ronde). Hooguit `total` titels: even veel als de genre-ronde zou kiezen.
+function pickByScoreWithGenreCap<T extends { id: number; score: number; genre_ids: number[] }>(
+  candidates: T[],
+  relevantGenreIds: number[],
+  keyFn: (i: T) => string,
+  genresFn: (i: T) => number[],
+  perGenre: number,
+  total: number
+): T[] {
+  const relevant = new Set(relevantGenreIds)
+  const perGenreCount = new Map<number, number>()
+  const used = new Set<string>()
+  const result: T[] = []
+  for (const item of [...candidates].sort((a, b) => b.score - a.score)) {
+    if (result.length >= total) break
+    const key = keyFn(item)
+    if (used.has(key)) continue
+    const genre = genresFn(item).find((g) => relevant.has(g) && (perGenreCount.get(g) || 0) < perGenre)
+    if (genre === undefined) continue
+    perGenreCount.set(genre, (perGenreCount.get(genre) || 0) + 1)
+    used.add(key)
+    result.push(item)
+  }
+  return result
+}
+const FOCUSED_SCORE_FIRST_MAX_PER_GENRE = 5
+
 // Minimale TMDB-waardering voor een "verrassing": liever een titel die je waarschijnlijk wel waardeert dan een gok.
 const LONG_TAIL_MIN_VOTE = 6.5
 
@@ -2537,7 +2575,7 @@ export async function computeTasteProfile(
         item.collectionScore +
         item.embeddingBonus * embeddingWeight +
         item.neighborScore * neighborLikeWeight +
-        item.featureScore * learn +
+        item.featureScore * learn * FEATURE_WEIGHT +
         item.actorScore +
         item.directorScore +
         item.bookScore -
@@ -2563,19 +2601,22 @@ export async function computeTasteProfile(
     const forcedMovies = allScored.filter((m) => m.media_type === 'movie' && collectionKeys.has(`movie-${m.id}`))
     const forcedTv = allScored.filter((m) => m.media_type === 'tv' && collectionKeys.has(`tv-${m.id}`))
 
-    const roundRobinMovies = pickByGenreRoundRobin(
+    // Puur kiest eerst op score (zie pickByScoreWithGenreCap); de andere tabbladen houden de genre-ronde, die daar juist
+    // voor de breedte zorgt. De genre-ronde bepaalt bij Puur alleen nog hoeveel titels er komen.
+    const pick = (items: RankedCandidate[], genreIds: number[], keyFn: (m: RankedCandidate) => string) => {
+      const roundRobin = pickByGenreRoundRobin(items, genreIds, keyFn, (m) => m.genre_ids || [], modeConfig.maxPerGenre)
+      if (mode !== 'focused') return roundRobin
+      return pickByScoreWithGenreCap(items, genreIds, keyFn, (m) => m.genre_ids || [], FOCUSED_SCORE_FIRST_MAX_PER_GENRE, roundRobin.length)
+    }
+    const roundRobinMovies = pick(
       allScored.filter((m) => m.media_type === 'movie' && !collectionKeys.has(`movie-${m.id}`)),
       movieGenreIds,
-      (m) => `movie-${m.id}`,
-      (m) => m.genre_ids || [],
-      modeConfig.maxPerGenre
+      (m) => `movie-${m.id}`
     )
-    const roundRobinTv = pickByGenreRoundRobin(
+    const roundRobinTv = pick(
       allScored.filter((m) => m.media_type === 'tv' && !collectionKeys.has(`tv-${m.id}`)),
       tvGenreIds,
-      (m) => `tv-${m.id}`,
-      (m) => m.genre_ids || [],
-      modeConfig.maxPerGenre
+      (m) => `tv-${m.id}`
     )
 
     const longTailMovieSlots = Math.ceil(modeConfig.longTailSlots / 2)
@@ -2671,7 +2712,7 @@ export async function computeTasteProfile(
     c.collectionScore +
     c.embeddingBonus * embeddingWeight +
     (c.neighborScore ?? 0) * neighborLikeWeight +
-    (c.featureScore ?? 0) * learn +
+    (c.featureScore ?? 0) * learn * FEATURE_WEIGHT +
     c.actorScore +
     c.directorScore -
     (c.dislikeScore ?? 0) +

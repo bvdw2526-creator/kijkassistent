@@ -231,6 +231,29 @@ Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelij
   (grootste profiel 10 -> 35 s), daarna gelijk of sneller (14 s) door de cache van 12 uur. Tegelijk NPO Plus (TMDB 1986)
   en NLZIET (472) als dienst; NPO Plus aanvinken zet NPO Start mee aan (`lib/serviceToggle.ts`). Voorvoegsel nu `u22`.
   Terugzetten: `DISCOVER_PER_SERVICE = false` en het voorvoegsel ophogen.
+- 31 okt 2026 (lokaal, nog niet live): het verhaal weegt zwaarder dan de kenmerken. Aanleiding: Sucker Punch in Puur
+  (plek 6, 72%) bijna alleen door "regisseur Zack Snyder" (kenmerken 3,4 van 3,5; verhaal 0,650). Twee wijzigingen in
+  `lib/recommendationEngine.ts`: verhaal-drempel voor Puur (`FOCUSED_MIN_NEIGHBOR_SIM`, en) 0,625 -> 0,66, en kenmerken
+  half zo zwaar (`FEATURE_WEIGHT` 0,5, in de score per tabblad en in het matchpercentage, dus ook in Samen).
+  Gemeten met een toets "verhaal + kenmerken samen" (z-score verhaal-buren + w x z-score kenmerken, leave-one-out, data van
+  21 okt; script nog niet in de repo), leuk>niet: profiel 1 alleen verhaal 81,0, w 0,5 82,1, w 1 80,7, w 2 78,9; profiel 2
+  75,9 / 78,6 / 78,3 / 77,3. Getest en afgewezen: regisseur alleen binnen dezelfde filmreeks (+0,9 en -2,0) en minder
+  gewicht voor kenmerken bij grote profielen (kenmerken voegen bij 20 tot 200 beoordelingen +1 tot +3,6 toe). Drempel op
+  beoordeelde titels (leuk / oké / niet die hem halen): 0,625 ~ 76-82% van "niet", 0,65 82/66/46 en 78/62/46, 0,70
+  60/39/17 en 58/33/15. Lijst grootste profiel: Puur 44 -> 40 titels; eruit o.a. Sucker Punch, Me Time, Pacific Rim:
+  Uprising, Kick-Ass 2, Star Trek Into Darkness, Warcraft. Kenmerken-toets niet geraakt (`lib/titleFeatures.ts` ongewijzigd).
+  Voorvoegsels nu `u23` en `v27-verhaal`. Terugzetten: beide constanten terug (0,625 en 1) en de voorvoegsels ophogen.
+- 31 okt 2026 (lokaal, nog niet live), direct daarna: Puur kiest eerst op score, dan pas spreiden
+  (`pickByScoreWithGenreCap`, `FOCUSED_SCORE_FIRST_MAX_PER_GENRE` 5). Aanleiding: de genre-ronde (3 per genre, verplicht
+  gevuld) zette Jiu Jitsu (13%) in Puur omdat fantasy plek over had, terwijl The Killer (verhaal 0,79) buiten Puur viel
+  omdat misdaad en thriller vol zaten. Het aantal titels blijft wat de genre-ronde zou kiezen; Breder en Verras me houden
+  de genre-ronde. Scores ongewijzigd, dus smaaktoets niet geraakt. Lijstvergelijking Puur (alleen de vorige wijziging
+  tegen beide samen) op de 5 profielen met de meeste beoordelingen en diensten: gemiddeld match-percentage top 20
+  64 -> 68, 81 -> 82, 73 -> 73, 81 -> 82, 72 -> 77; laagste match 13 -> 57, 33 -> 33, 42 -> 44, 39 -> 48, 35 -> 50;
+  aantal hoofdgenres 9 -> 9, 10 -> 8, 8 -> 7, 11 -> 10, 11 -> 8 (minder breed: bij het kleinste profiel komedie 5 -> 1).
+  Grootste profiel: eruit Jiu Jitsu, 2 Guns, Moon Knight, She-Hulk; erin The Killer, Punisher: War Zone, Agent Carter,
+  Citadel. Voorvoegsel nu `u24` (Samen ongemoeid: gebruikt de hele pool, niet deze keuze). Terugzetten: in
+  `buildModeResults` de regel `if (mode !== 'focused') return roundRobin` vervangen door `return roundRobin`.
 
 ## Afspraken bij verder sleutelen
 
