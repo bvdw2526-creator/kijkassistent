@@ -255,6 +255,65 @@ Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelij
   Citadel. Voorvoegsel nu `u24` (Samen ongemoeid: gebruikt de hele pool, niet deze keuze). Terugzetten: in
   `buildModeResults` de regel `if (mode !== 'focused') return roundRobin` vervangen door `return roundRobin`.
 
+De twee wijzigingen van 31 oktober staan sinds 31 okt 19:41 live (aefa3ec) en zitten in smaak-2026-11-02.
+
+## smaak-2026-11-02
+
+Vastgelegd op 2 november 2026, vóór het sleutelen aan de snelheid van het lezen van "lijkt hierop" (TMDB-aanbevelingen),
+zodat we kunnen nagaan of dat de uitkomst ongemoeid laat.
+
+- **Git-label:** `smaak-2026-11-02` (op c914fd8, gelijk aan wat live staat).
+- **Code van de berekening:** dezelfde bestanden als bij smaak-2026-10-21.
+- **Voorvoegsels van de opgeslagen lijsten:** `u24` (persoonlijk, met de Boekenclub-skin `u24|...|boek`) en
+  `v27-verhaal` (Samen).
+
+### Wat erin zit (bovenop smaak-2026-10-21)
+
+Alles onder "Gewijzigd na deze versie" bij smaak-2026-10-21: snellere Binnenkort, toon-controle op "kijkers van X keken
+ook", zoeken per dienst plus NPO Plus en NLZIET, verhaal weegt zwaarder dan kenmerken, Puur eerst op score. Daarnaast
+(niet hierboven beschreven): Mijn smaak, breder toont geen titels onder 5% en noemt een verrassing zo (3fecb72), en de
+vangnetten van Voor jou bij een mislukte of trage berekening (505ebaf, 12d4095, 38ad119). De Stats-onderdelen van 2 nov
+(decennia, oordeel aanpassen, reeksen) raken de berekening niet.
+
+### Database-onderdelen waarop deze versie leunt
+
+Alles wat bij smaak-2026-10-21 staat, plus de migraties tot en met die van 2 november 2026. Geen nieuwe functies voor de
+berekening.
+
+### Nulmeting
+
+Op 2 november 2026, op de twee profielen met meer dan 200 beoordelingen, in de nummering van de nulmetingen hierboven
+(profiel 1 = 355 beoordelingen, profiel 2 = 542). Let op: in `export-beoordelingen.sql` en `toets-kenmerken.ts` heten ze
+nu andersom (`profiel-1` daar = profiel 2 hier), omdat die op aantal beoordelingen nummeren.
+
+| Onderdeel | Maat | Profiel 1 | Profiel 2 |
+|---|---|---|---|
+| Verhaal (Engels) | dichtstbijzijnde leuke titel: leuk > niet voor mij | 79,5% | 78,9% |
+| | idem: leuk > oké | 67,1% | 63,9% |
+| | tegenstelling: leuk > niet voor mij | 69,8% | 74,9% |
+| Kenmerken | leuk > niet voor mij | 73,5% | 69,6% |
+| | leuk > oké | 67,5% | 59,3% |
+| | oké > niet voor mij | 59,9% | 61,9% |
+| Aantal titels in de kenmerken-toets | | 385 | 550 |
+
+Ter vergelijking 21 okt: verhaal 80,6 / 66,2 / 73,3 en 78,6 / 62,5 / 75,0; kenmerken 75,3 / 69,1 / 60,2 en 69,6 / 59,5 /
+62,2. De code van de toetsen is sindsdien niet veranderd (`lib/titleFeatures.ts` en de vingerafdrukken zijn gelijk), dus
+de verschillen komen door de nieuwe beoordelingen. Vergelijk een volgende wijziging op dezelfde gegevens:
+`scripts/smaaktoets/data/rated-2026-11-02.json` en `features-2026-11-02.json` (lokaal, niet in git).
+
+De toets "verhaal + kenmerken samen" (waarmee de 31 okt-wijziging is gemeten) staat niet in de repo en is hier niet
+opnieuw gedraaid. Samen niet gemeten (`toets-samen.sql` rekent nog met de formule van 9 okt).
+
+### Momentopname
+
+In `recommendation_snapshots`, label `smaak-2026-11-02`: alleen de lijsten die al met deze versie berekend waren, 8
+persoonlijke (`u24`) en 2 Samen-lijsten (`v27-verhaal-strength`). De overige gebruikers waren sinds 31 okt niet terug en
+hebben nog een oudere lijst. Vergelijken: de query onderaan met dit label.
+
+### Gewijzigd na deze versie
+
+Nog niets.
+
 ## Afspraken bij verder sleutelen
 
 1. **Database: alleen toevoegen.** Een nieuwe versie van een tabel of functie krijgt een nieuwe naam naast de oude (zoals
@@ -266,7 +325,13 @@ Boekenclub-skin `u20|boek`) en 4 Samen-lijsten (`v25-themas-strength`). Vergelij
 
 ## Terugzetten naar een bevroren versie
 
-1. De code van de berekening terugzetten. Naar de nieuwste, smaak-2026-10-21:
+1. De code van de berekening terugzetten. Naar de nieuwste, smaak-2026-11-02:
+
+   ```bash
+   git checkout smaak-2026-11-02 -- lib/recommendationEngine.ts lib/titleFeatures.ts lib/keywordLabels.ts lib/upcomingTitles.ts app/api/recommendations/route.ts app/api/recommendations-together/route.ts app/components/PartnerRated.tsx
+   ```
+
+   Naar smaak-2026-10-21:
 
    ```bash
    git checkout smaak-2026-10-21 -- lib/recommendationEngine.ts lib/titleFeatures.ts lib/keywordLabels.ts lib/upcomingTitles.ts app/api/recommendations/route.ts app/api/recommendations-together/route.ts app/components/PartnerRated.tsx
