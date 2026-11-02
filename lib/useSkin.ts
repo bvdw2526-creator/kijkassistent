@@ -1,7 +1,7 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
-import { DEFAULT_SKIN, SKIN_BANNER_DISMISSED_KEY, SKIN_STORAGE_KEY, isSkinId, type SkinId } from './skins'
+import { DEFAULT_SKIN, SKIN_BANNER_DISMISSED_KEY, SKIN_STORAGE_KEY, isSkinAvailable, isSkinId, type SkinId } from './skins'
 
 const SKIN_CHANGED_EVENT = 'kijkassistent:skin-gewijzigd'
 
@@ -9,7 +9,7 @@ const SKIN_CHANGED_EVENT = 'kijkassistent:skin-gewijzigd'
 export function readSkin(): SkinId {
   try {
     const stored = localStorage.getItem(SKIN_STORAGE_KEY)
-    return isSkinId(stored) ? stored : DEFAULT_SKIN
+    return isSkinId(stored) && isSkinAvailable(stored) ? stored : DEFAULT_SKIN
   } catch {
     // Geen toegang tot localStorage (bv. privévenster met geblokkeerde opslag): dan de standaardkleuren.
     return DEFAULT_SKIN

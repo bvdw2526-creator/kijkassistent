@@ -15,7 +15,7 @@ import { WhatsNewSheet } from '../components/WhatsNew'
 import FeedbackSheet from '../components/FeedbackSheet'
 import { btnPrimary, input, card } from '../components/ui'
 import { CheckIcon, ChevronLeftIcon, TrashIcon, UsersIcon } from '../components/Icons'
-import { SKINS } from '@/lib/skins'
+import { SKINS, isSkinAvailable } from '@/lib/skins'
 import { MIN_YEAR_OPTIONS } from '@/lib/tooOld'
 import { useSkin, setSkin } from '@/lib/useSkin'
 import { toggleServiceList } from '@/lib/serviceToggle'
@@ -606,7 +606,7 @@ export default function Settings() {
             <GroupTitle title={t('groupLooks')} />
             <SectionTitle title={t('skin')} hint={t('skinHint')} />
             <div className="flex flex-col gap-2">
-              {SKINS.map((s) => {
+              {SKINS.filter((s) => isSkinAvailable(s.id)).map((s) => {
                 const active = skin === s.id
                 return (
                   <button

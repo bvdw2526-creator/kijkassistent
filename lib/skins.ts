@@ -111,8 +111,16 @@ export function isSkinId(value: unknown): value is SkinId {
   return SKINS.some((s) => s.id === value)
 }
 
+// Seizoensskins zijn alleen in hun seizoen te kiezen: Halloween in oktober t/m 1 november. Daarbuiten staat hij niet bij
+// Instellingen en valt wie hem nog aan had terug op de standaardskin (zie readSkin en SKIN_INIT_SCRIPT).
+export function isSkinAvailable(id: SkinId, now: Date = new Date()): boolean {
+  if (id === 'halloween') return isHalloweenSeason(now)
+  return true
+}
+
 // Draait in de pagina vóórdat er iets getekend wordt (zie app/layout.tsx), zodat de app niet eerst kort in de
 // standaardkleuren verschijnt. Een onbekende waarde heeft geen stijlen en geeft dus gewoon de standaardkleuren.
+// Staat de Halloween-skin nog aan buiten het seizoen (zie isSkinAvailable), dan halen we hem hier weg.
 // In de iPhone-app volgt de tekst ook de tekstgrootte van de iPhone (Android doet dat vanzelf). We lezen de systeemmaat
 // van iOS uit en houden die tussen 16 en 19 pixels: groter breekt de knoppen en tabbladen af. Alles in rem groeit mee.
-export const SKIN_INIT_SCRIPT = `try{var s=localStorage.getItem('${SKIN_STORAGE_KEY}');if(s&&s!=='${DEFAULT_SKIN}')document.documentElement.dataset.skin=s}catch(e){}try{if(navigator.userAgent.indexOf('KijkassistentApp/iOS')>-1){var d=document.documentElement;d.dataset.app='ios';d.style.font='-apple-system-body';var f=parseFloat(getComputedStyle(d).fontSize)||16;d.style.font='';d.style.fontSize=Math.min(Math.max(f,16),19)+'px'}}catch(e){}`
+export const SKIN_INIT_SCRIPT = `try{var s=localStorage.getItem('${SKIN_STORAGE_KEY}');if(s==='halloween'){var p=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Amsterdam'}).split('-');if(!(p[1]==='10'||(p[1]==='11'&&p[2]==='01'))){localStorage.removeItem('${SKIN_STORAGE_KEY}');s=null}}if(s&&s!=='${DEFAULT_SKIN}')document.documentElement.dataset.skin=s}catch(e){}try{if(navigator.userAgent.indexOf('KijkassistentApp/iOS')>-1){var d=document.documentElement;d.dataset.app='ios';d.style.font='-apple-system-body';var f=parseFloat(getComputedStyle(d).fontSize)||16;d.style.font='';d.style.fontSize=Math.min(Math.max(f,16),19)+'px'}}catch(e){}`
