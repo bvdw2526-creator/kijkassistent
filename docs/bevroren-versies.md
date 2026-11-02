@@ -312,7 +312,30 @@ hebben nog een oudere lijst. Vergelijken: de query onderaan met dit label.
 
 ### Gewijzigd na deze versie
 
-Nog niets.
+- 2 nov 2026 (alleen snelheid): "lijkt hierop" (`tmdb_recommendations_cache`) wordt in porties van 50 gelezen met hooguit
+  3 porties tegelijk, films en series samen (`RECOMMENDATIONS_READ_CONCURRENCY`, `mapWithLimit` in
+  `lib/recommendationEngine.ts`); eerder gingen alle porties tegelijk. Aanleiding: bij een herberekening duurde elke portie
+  12-15 s en wachtte de kijklijst 12 s op een vraag van normaal 0,02 s. Proef (alleen lezen, 13 porties / 1.401 rijen,
+  twee keer): alles tegelijk 7,9 en 5,6 s totaal, klein vraagje ertussen mediaan 1,2 en 1,0 s (slechtste 3,5 en 2,7 s);
+  hooguit 3 tegelijk 4,4 en 5,3 s totaal, mediaan 0,21 en 0,18 s (slechtste 0,40 en 0,35 s). Dezelfde rijen, dus scores en
+  lijsten gelijk; voorvoegsels niet opgehoogd, smaaktoets niet geraakt. Terugzetten: `RECOMMENDATIONS_READ_CONCURRENCY`
+  op een groot getal (bv. 100).
+- 2 nov 2026: verhaal-buren voor meer kandidaten. Welke kandidaten op "lijkt op een titel die je leuk vond" worden
+  gecontroleerd: was de beste 600 op de voorlopige score, nu de beste 1.000 op de voorlopige score plus de beste 1.000 op
+  het verhaal (`embeddingBonus`), samen 1.100-1.500 titels (`MAX_NEIGHBOR_CANDIDATES`, `MAX_NEIGHBOR_STORY_CANDIDATES` in
+  `lib/recommendationEngine.ts`). Aanleiding: The Brave One stond op plek 2 in Puur en verdween helemaal na één nieuwe
+  beoordeling (Back to the Future Part III). Hij komt alleen binnen via plek 37 in één "lijkt hierop"-lijst, zakte op de
+  voorlopige score van net binnen naar net buiten de 600, kreeg daardoor geen buren-score (0 tegen de drempel 0,66) en kon
+  Puur niet meer halen. Gemeten met een proefopstelling die de berekening van zes profielen lokaal nadoet (2 grote, 4
+  kleinere; Puur komt elke keer precies gelijk uit), oud tegen nieuw, Puur:
+  aantal 40 -> 47, 34 -> 46, 32 -> 36, 47 -> 51, 33 -> 34, 32 -> 33; gemiddeld match top 20 64 -> 69, 82 -> 81, 75 -> 75,
+  82 -> 81, 81 -> 81, 68 -> 69; top 20 gedeeld 12, 18, 18, 20, 19, 17 van 20. Profiel 1 erin o.a. Blood and Bone (80%),
+  The Brave One (77%, plek 3), Last Seen Alive, Johnny Mnemonic, The Siege; profiel 2 o.a. High Rollers (100%), Nemesis (99%),
+  Blowback, Triple Frontier. Vergelijking met alle kandidaten controleren (3.100-4.700 bij de grote profielen): top 20 gelijk
+  bij 5 van de 6, maar de buren-stap kostte dan 2-27 s; met deze twee groepen 0,3-1,6 s (was 0,5-0,7 s). De kenmerken-grens
+  (`MAX_FEATURE_CANDIDATES` 500) ook op 1.000 geprobeerd: top 20 overal gelijk, dus ongewijzigd gelaten. Scores zelf niet
+  veranderd: kenmerken-toets gelijk aan de nulmeting hierboven. Voorvoegsels nu `u25` en `v28-buren` (Samen rekent met dezelfde
+  motor). Terugzetten: `MAX_NEIGHBOR_CANDIDATES` 600, `MAX_NEIGHBOR_STORY_CANDIDATES` 0 en de voorvoegsels ophogen.
 
 ## Afspraken bij verder sleutelen
 

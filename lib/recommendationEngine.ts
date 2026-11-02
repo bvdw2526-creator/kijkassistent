@@ -207,6 +207,10 @@ const CACHE_READ_CHUNK = 200
 // portie gold daarna als "ontbreekt", waarna alles live werd opgehaald en Voor jou leeg bleef. Daarom kleinere porties
 // en één nieuwe poging bij een fout.
 const RECOMMENDATIONS_READ_CHUNK = 50
+// Hooguit zoveel van die porties tegelijk (films en series samen). Alles tegelijk (~12 bij een groot profiel, plus Samen)
+// hield de database op 2 nov 2026 zo bezig dat elke portie 12-15 s duurde en de rest van de app wachtte (de kijklijst
+// 12 s op een vraag van normaal 0,02 s). De uitkomst is gelijk; alleen de volgorde van lezen verandert.
+const RECOMMENDATIONS_READ_CONCURRENCY = 3
 const DISCOVER_CACHE_MAX_AGE_HOURS = 12
 const COLLECTION_CACHE_MAX_AGE_HOURS = 24 * 7
 const VOYAGE_MODEL = 'voyage-4-lite'
@@ -324,8 +328,13 @@ const NEIGHBOR_K = 5
 const NEIGHBOR_BASE_SIM_BY_VERSION: Record<EmbeddingVersion, number> = { nl: 0.5, en: 0.51 }
 const NEIGHBOR_BASE_SIM = NEIGHBOR_BASE_SIM_BY_VERSION[EMBEDDING_VERSION]
 const NEIGHBOR_WEIGHT = 10
-// Hoeveel van de best scorende kandidaten we op buren controleren (de rest staat toch te laag om te tonen).
-const MAX_NEIGHBOR_CANDIDATES = 600
+// Welke kandidaten we op buren controleren: de beste op de voorlopige score plus de beste op het verhaal (embeddingBonus).
+// Alleen op de voorlopige score (was 600) viel een titel met een zwakke TMDB-koppeling maar een sterk passend verhaal er
+// soms net buiten, en kon dan Puur niet meer halen (2 nov 2026: The Brave One, plek 2 in Puur, verdween helemaal na één
+// nieuwe beoordeling). Alle kandidaten controleren (tot ~4.700) kostte de database 2-27 s; deze twee groepen samen vangen het
+// meeste daarvan voor een derde van het werk. Zie docs/bevroren-versies.md (2 nov 2026).
+const MAX_NEIGHBOR_CANDIDATES = 1000
+const MAX_NEIGHBOR_STORY_CANDIDATES = 1000
 const NEIGHBOR_CHUNK = 250
 // Zoveel porties van de verhaal-vergelijking (embedding_similarities) tegelijk naar de database.
 const SIMILARITY_PARALLEL = 2
@@ -844,6 +853,20 @@ function chunked<T>(items: T[], size: number): T[][] {
   return out
 }
 
+// Voert `run` uit voor alle items, met hooguit `limit` tegelijk; de uitkomsten in dezelfde volgorde als `items`.
+async function mapWithLimit<T, R>(items: T[], limit: number, run: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++
+      out[i] = await run(items[i])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
+
 async function fetchLiveInChunks<T, R>(
   items: T[],
   fetchOne: (item: T) => Promise<R>,
@@ -1019,23 +1042,25 @@ export async function getRecommendationPagesBulk(
   type Row = { tmdb_id: number; page: number; results: TmdbItem[]; fetched_at: string }
   // In porties lezen: bij veel bronnen komt een enkele query boven de 1000 rijen die Supabase
   // teruggeeft uit, waarna de rest ten onrechte als "ontbreekt" gold en steeds opnieuw live werd opgehaald.
-  const readRows = async (mediaType: MediaType, ids: number[]): Promise<Row[]> => {
-    const readPart = async (part: number[]) => {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const { data, error } = await supabase
-          .from('tmdb_recommendations_cache')
-          .select('tmdb_id, page, results, fetched_at')
-          .eq('media_type', mediaType)
-          .in('tmdb_id', part)
-        if (!error) return (data || []) as Row[]
-        console.error('Lezen "lijkt hierop"-cache mislukt', { poging: attempt + 1, titels: part.length, fout: error.message })
-      }
-      return []
+  const readPart = async ({ mediaType, part }: { mediaType: MediaType; part: number[] }): Promise<Row[]> => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { data, error } = await supabase
+        .from('tmdb_recommendations_cache')
+        .select('tmdb_id, page, results, fetched_at')
+        .eq('media_type', mediaType)
+        .in('tmdb_id', part)
+      if (!error) return (data || []) as Row[]
+      console.error('Lezen "lijkt hierop"-cache mislukt', { poging: attempt + 1, titels: part.length, fout: error.message })
     }
-    const parts = await Promise.all(chunked(ids, RECOMMENDATIONS_READ_CHUNK).map(readPart))
-    return parts.flat()
+    return []
   }
-  const [movieRows, tvRows] = await Promise.all([readRows('movie', movieIds), readRows('tv', tvIds)])
+  const tasks = [
+    ...chunked(movieIds, RECOMMENDATIONS_READ_CHUNK).map((part) => ({ mediaType: 'movie' as const, part })),
+    ...chunked(tvIds, RECOMMENDATIONS_READ_CHUNK).map((part) => ({ mediaType: 'tv' as const, part })),
+  ]
+  const partRows = await mapWithLimit(tasks, RECOMMENDATIONS_READ_CONCURRENCY, readPart)
+  const movieRows = partRows.filter((_, i) => tasks[i].mediaType === 'movie').flat()
+  const tvRows = partRows.filter((_, i) => tasks[i].mediaType === 'tv').flat()
 
   for (const [mediaType, rows] of [['movie', movieRows], ['tv', tvRows]] as const) {
     for (const row of rows) {
@@ -2410,10 +2435,13 @@ export async function computeTasteProfile(
     ]
     const preScore = (c: ScoredCandidate) =>
       (c.coreScore + c.okScore + c.discoverScore) * collabFactor + c.collectionScore + c.embeddingBonus * embeddingWeight + c.actorScore + c.directorScore - c.dislikeScore
-    const pool = candidates
-      .filter((c) => c.overview && !collectionKeys.has(`${c.media_type}-${c.id}`))
-      .sort((a, b) => preScore(b) - preScore(a))
-      .slice(0, MAX_NEIGHBOR_CANDIDATES)
+    const eligible = candidates.filter((c) => c.overview && !collectionKeys.has(`${c.media_type}-${c.id}`))
+    const pool = [
+      ...new Set([
+        ...[...eligible].sort((a, b) => preScore(b) - preScore(a)).slice(0, MAX_NEIGHBOR_CANDIDATES),
+        ...[...eligible].sort((a, b) => b.embeddingBonus - a.embeddingBonus).slice(0, MAX_NEIGHBOR_STORY_CANDIDATES),
+      ]),
+    ]
     const neighborsByKey = await computeTasteNeighbors(
       supabase,
       rated,
