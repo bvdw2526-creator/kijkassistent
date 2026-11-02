@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { btnSecondary, card, tapChevron, tapRow } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
+import MyRatingEditor from './MyRatingEditor'
 import { UsersIcon, CloseIcon, ChevronRightIcon } from './Icons'
 
 export type ActorHighlight = {
@@ -18,7 +19,7 @@ export type ActorHighlight = {
 
 // "Wist je dit al?" op de Stats-pagina: wie het vaakst opduikt in wat je zag. Een tik opent een popup met die titels en een
 // knop naar alles van die persoon (de persoonspagina).
-export default function ActorHighlights({ actors }: { actors: ActorHighlight[] }) {
+export default function ActorHighlights({ actors, onRatingChanged }: { actors: ActorHighlight[]; onRatingChanged?: () => void }) {
   const [open, setOpen] = useState<ActorHighlight | null>(null)
   const [info, setInfo] = useState<TitleInfoItem | null>(null)
   const maxCount = actors[0]?.count ?? 0
@@ -57,7 +58,11 @@ export default function ActorHighlights({ actors }: { actors: ActorHighlight[] }
 
       {open && <ActorSheet actor={open} onPick={setInfo} onClose={() => setOpen(null)} />}
       {/* Naast de popup en niet erin: zo ligt hij er netjes bovenop, en sluit "terug" alleen deze. */}
-      {info && <TitleInfoSheet item={info} onClose={() => setInfo(null)} />}
+      {info && (
+        <TitleInfoSheet item={info} onClose={() => setInfo(null)}>
+          <MyRatingEditor item={info} onChanged={onRatingChanged} />
+        </TitleInfoSheet>
+      )}
     </>
   )
 }

@@ -11,6 +11,14 @@ import {
   type MediaType,
 } from '@/lib/recommendationEngine'
 import { findDislikedGenres } from '@/lib/dislikedGenres'
+import { getFeaturesBulk } from '@/lib/titleFeatures'
+import { cacheWriter } from '@/lib/supabaseAdmin'
+
+// Zoveel titels zonder jaartal in de cache halen we live op voor de decennia. Meestal staan ze er al (de tips halen
+// dezelfde kenmerken op); een volgende keer vult de rest aan.
+const DECADES_LIVE_LIMIT = 20
+// Alles van vóór 1950 komt samen in één groep (decennium 0): anders worden het veel losse regeltjes met één titel.
+const OLDEST_DECADE = 1950
 
 const SERVICE_LABELS: Record<string, string> = {
   netflix: 'Netflix',
@@ -61,6 +69,7 @@ export async function GET(request: NextRequest) {
         topActors: [],
         dislikedGenres: [],
         streaming: { lovedTotal: 0, services: [] },
+        decades: { movie: [], tv: [] },
       })
     }
 
@@ -96,7 +105,7 @@ export async function GET(request: NextRequest) {
     // cache live bij TMDB op, en na elkaar tellen die wachttijden op. Verlopen rijen worden gebruikt en na het antwoord
     // ververst (zie StaleCacheRefresher), zodat de Stats-pagina niet wacht op een golf verlopen gegevens.
     const stale = new StaleCacheRefresher()
-    const [detailsByKey, creditsByKey, providersByKey, { data: profile }] = await Promise.all([
+    const [detailsByKey, creditsByKey, providersByKey, { data: profile }, featuresByKey] = await Promise.all([
       // Alles wat je gezien hebt, ook "niet voor mij": die zijn nodig voor "Niet jouw ding".
       getCachedDetailsBulk(
         supabase,
@@ -116,7 +125,37 @@ export async function GET(request: NextRequest) {
         { onStale: stale.onWatchProviders }
       ),
       supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
+      // Voor de decennia: het jaartal staat in de kenmerken-cache. Alles wat je gezien hebt telt mee.
+      getFeaturesBulk(
+        supabase,
+        watched.map((w) => ({ media_type: w.media_type, tmdb_id: w.tmdb_id })),
+        { maxLive: DECADES_LIVE_LIMIT, writer: cacheWriter(supabase) }
+      ),
     ])
+
+    // Per soort (film/serie) per decennium de titels die je gezien hebt, op volgorde van tijd. De titels gaan mee zodat
+    // je op de Stats-pagina op een decennium kunt tikken en ziet welke het zijn.
+    type DecadeTitle = { id: number; title: string; year: number }
+    const decadeTitles = { movie: new Map<number, DecadeTitle[]>(), tv: new Map<number, DecadeTitle[]>() }
+    for (const w of watched) {
+      const year = featuresByKey.get(`${w.media_type}-${w.tmdb_id}`)?.year
+      if (!year) continue
+      const decade = year < OLDEST_DECADE ? 0 : Math.floor(year / 10) * 10
+      const byDecade = decadeTitles[w.media_type]
+      const list = byDecade.get(decade) ?? []
+      list.push({ id: w.tmdb_id, title: w.title, year })
+      byDecade.set(decade, list)
+    }
+    const toDecadeList = (byDecade: Map<number, DecadeTitle[]>) =>
+      Array.from(byDecade.entries())
+        .map(([decade, titles]) => ({
+          decade,
+          count: titles.length,
+          // Nieuwste eerst, en binnen een jaar op titel.
+          titles: titles.sort((a, b) => b.year - a.year || a.title.localeCompare(b.title)),
+        }))
+        .sort((a, b) => a.decade - b.decade)
+    const decades = { movie: toDecadeList(decadeTitles.movie), tv: toDecadeList(decadeTitles.tv) }
     // Op naam geteld (film- en seriegenre met dezelfde naam samen); het id gaat mee zodat de app de naam kan vertalen.
     const genreCounts = new Map<string, { id: number; count: number }>()
     for (const t of likedTitles) {
@@ -196,6 +235,7 @@ export async function GET(request: NextRequest) {
       topActors,
       dislikedGenres,
       streaming: { lovedTotal: loved.length, services: streamingServices },
+      decades,
     })
   } catch (err) {
     console.error('Kijkprofiel berekenen mislukt:', err)

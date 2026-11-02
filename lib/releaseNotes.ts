@@ -12,6 +12,18 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-02',
+    date: '2 november 2026',
+    items: [
+      'Nieuw bij Stats: uit welke tijd komen de films en series die je hebt gezien? Tik op een decennium om de titels te zien.',
+      'Iets verkeerd beoordeeld? Open een titel bij Stats en pas je oordeel direct aan, of haal het weg.',
+    ],
+    itemsEn: [
+      'New in Stats: which era do the films and series you have watched come from? Tap a decade to see the titles.',
+      'Rated something wrong? Open a title in Stats and change your rating right away, or remove it.',
+    ],
+  },
+  {
     id: '2026-10-30',
     date: '30 oktober 2026',
     items: [

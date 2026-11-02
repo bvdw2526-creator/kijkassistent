@@ -6,6 +6,7 @@ import { supabase, getCurrentUser } from '@/lib/supabase'
 import { card, chip, tapChevron, tapRow } from './ui'
 import { useBackToClose } from './useBackToClose'
 import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
+import MyRatingEditor from './MyRatingEditor'
 import { HeartIcon, OkIcon, DislikeIcon, StarIcon, CloseIcon, ChevronRightIcon } from './Icons'
 
 type Category = 'fav' | 'love' | 'ok' | 'dislike'
@@ -25,7 +26,14 @@ const YEAR_CHUNK = 200
 // "Hoe je beoordeelt" op de Stats-pagina: per soort oordeel een balk. Een tik op een regel opent een popup met de titels
 // (de laatst beoordeelde bovenaan, te filteren op films of series); een titel opent daarboven de gewone infopopup.
 // De lijsten worden pas opgehaald bij de eerste tik.
-export default function RatingBreakdown({ counts }: { counts: { fav?: number; love: number; ok: number; dislike: number } }) {
+export default function RatingBreakdown({
+  counts,
+  onRatingChanged,
+}: {
+  counts: { fav?: number; love: number; ok: number; dislike: number }
+  // Na het aanpassen of weghalen van een oordeel: de Stats-pagina haalt zijn cijfers opnieuw op.
+  onRatingChanged?: () => void
+}) {
   const [open, setOpen] = useState<Category | null>(null)
   const [lists, setLists] = useState<Record<Category, Row[]> | null>(null)
   const [failed, setFailed] = useState(false)
@@ -110,7 +118,18 @@ export default function RatingBreakdown({ counts }: { counts: { fav?: number; lo
         />
       )}
       {/* Naast de lijst en niet erin: zo ligt hij er netjes bovenop, en sluit "terug" alleen deze. */}
-      {info && <TitleInfoSheet item={info} onClose={() => setInfo(null)} />}
+      {info && (
+        <TitleInfoSheet item={info} onClose={() => setInfo(null)}>
+          <MyRatingEditor
+            item={info}
+            onChanged={() => {
+              // De lijsten opnieuw ophalen, zodat de titel meteen in de goede categorie staat (of eruit is).
+              loadLists()
+              onRatingChanged?.()
+            }}
+          />
+        </TitleInfoSheet>
+      )}
     </>
   )
 }

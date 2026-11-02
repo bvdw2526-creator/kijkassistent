@@ -8,6 +8,7 @@ import BottomNav from '../components/BottomNav'
 import { card, tapChevron, tapRow } from '../components/ui'
 import RatingBreakdown from '../components/RatingBreakdown'
 import ActorHighlights, { type ActorHighlight } from '../components/ActorHighlights'
+import DecadeBreakdown, { type DecadeCount } from '../components/DecadeBreakdown'
 import { ChevronRightIcon, DislikeIcon } from '../components/Icons'
 
 type ProfileStats = {
@@ -21,6 +22,8 @@ type ProfileStats = {
   // Ontbreekt in een oudere bewaarde kopie, vandaar optioneel.
   dislikedGenres?: { name: string; id?: number; disliked: number; total: number }[]
   streaming: { lovedTotal: number; services: { id: string; label: string; owned: boolean; count: number }[] }
+  // Ontbreekt in een oudere bewaarde kopie.
+  decades?: { movie: DecadeCount[]; tv: DecadeCount[] }
 }
 
 function StatSkeleton() {
@@ -39,6 +42,9 @@ export default function Profiel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<ProfileStats | null>(null)
+  // Ophogen na het aanpassen of weghalen van een oordeel in een infopopup: dan worden de cijfers opnieuw opgehaald.
+  const [reloadKey, setReloadKey] = useState(0)
+  const reloadStats = () => setReloadKey((k) => k + 1)
   // Hoeveel van de Top 100 je gezien hebt; mislukt dit, dan blijft het blok gewoon weg.
   const [topProgress, setTopProgress] = useState<{ films: { seen: number; total: number }; series: { seen: number; total: number } } | null>(null)
 
@@ -84,7 +90,7 @@ export default function Profiel() {
       setLoading(false)
     }
     load()
-  }, [t])
+  }, [t, reloadKey])
 
   useEffect(() => {
     let cancelled = false
@@ -185,7 +191,7 @@ export default function Profiel() {
             )}
 
             {/* Beoordelingsverdeling */}
-            <RatingBreakdown counts={stats.ratingCounts} />
+            <RatingBreakdown counts={stats.ratingCounts} onRatingChanged={reloadStats} />
 
             {/* Favoriete genres */}
             {stats.topGenres.length > 0 && (
@@ -209,6 +215,9 @@ export default function Profiel() {
                 </div>
               </div>
             )}
+
+            {/* Uit welk decennium het meeste komt, voor films en series apart */}
+            {stats.decades && <DecadeBreakdown decades={stats.decades} onRatingChanged={reloadStats} />}
 
             {/* Genres die je opvallend vaak afkeurt */}
             {stats.dislikedGenres && stats.dislikedGenres.length > 0 && (
@@ -268,7 +277,7 @@ export default function Profiel() {
 
             {/* Meest voorkomende acteurs — het verrassende inzicht */}
             {stats.topActors.length > 0 && (
-              <ActorHighlights actors={stats.topActors} />
+              <ActorHighlights actors={stats.topActors} onRatingChanged={reloadStats} />
             )}
           </div>
         )}
