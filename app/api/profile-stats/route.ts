@@ -4,11 +4,14 @@ import {
   getCachedDetailsBulk,
   getCreditsBulk,
   getWatchProvidersBulk,
+  getCollectionPartsBulk,
   SOURCE_IDS,
   RENT_ONLY_SOURCE_IDS,
   StaleCacheRefresher,
   CREDITS_LIVE_LIMIT,
   type MediaType,
+  type TmdbItem,
+  type WatchProviderSource,
 } from '@/lib/recommendationEngine'
 import { findDislikedGenres } from '@/lib/dislikedGenres'
 import { getFeaturesBulk } from '@/lib/titleFeatures'
@@ -19,6 +22,10 @@ import { cacheWriter } from '@/lib/supabaseAdmin'
 const DECADES_LIVE_LIMIT = 20
 // Alles van vóór 1950 komt samen in één groep (decennium 0): anders worden het veel losse regeltjes met één titel.
 const OLDEST_DECADE = 1950
+// Zoveel onvolledige reeksen tonen we hooguit; de bijna complete eerst.
+const MAX_SERIES = 10
+// Reeksnamen van TMDB eindigen op "Collectie" of "Collection"; dat laten we weg.
+const COLLECTION_SUFFIX = /\s*\(?(collectie|collection)\)?\s*$/i
 
 const SERVICE_LABELS: Record<string, string> = {
   netflix: 'Netflix',
@@ -70,6 +77,7 @@ export async function GET(request: NextRequest) {
         dislikedGenres: [],
         streaming: { lovedTotal: 0, services: [] },
         decades: { movie: [], tv: [] },
+        series: { complete: 0, open: [] },
       })
     }
 
@@ -216,6 +224,76 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.count - a.count)
 
+    // Filmreeksen die je nog niet af hebt: reeksen waarvan je meer delen leuk vond dan afkeurde, met de uitgekomen delen
+    // die je nog niet hebt beoordeeld. "Niet beoordeeld" en niet "niet gezien": vaak heb je zo'n deel wel gezien.
+    const markByKey = new Map<string, string>()
+    for (const f of favorites || []) markByKey.set(`${f.media_type}-${f.tmdb_id}`, 'fav')
+    for (const r of ratings || []) markByKey.set(`${r.media_type}-${r.tmdb_id}`, r.rating)
+    const seriesSeen = new Map<number, { name: string; liked: number; disliked: number }>()
+    for (const w of watched) {
+      if (w.media_type !== 'movie') continue
+      const details = detailsByKey.get(`movie-${w.tmdb_id}`)
+      if (!details?.collectionId) continue
+      const entry = seriesSeen.get(details.collectionId) ?? { name: details.collectionName ?? '', liked: 0, disliked: 0 }
+      if (markByKey.get(`movie-${w.tmdb_id}`) === 'dislike') entry.disliked++
+      else entry.liked++
+      seriesSeen.set(details.collectionId, entry)
+    }
+    const likedSeriesIds = [...seriesSeen.entries()].filter(([, s]) => s.liked > s.disliked).map(([id]) => id)
+    const partsById = likedSeriesIds.length > 0 ? await getCollectionPartsBulk(supabase, likedSeriesIds) : new Map<number, TmdbItem[]>()
+    const today = new Date().toISOString().slice(0, 10)
+    let completeSeries = 0
+    const openSeries: { id: number; name: string; seen: number; total: number; missing: { id: number; title: string; year: number | null; poster_path: string | null }[] }[] = []
+    for (const id of likedSeriesIds) {
+      // Alleen delen die al uit zijn: aangekondigde films zonder (of met een latere) datum tellen niet mee.
+      const released = (partsById.get(id) ?? []).filter((p) => p.release_date && p.release_date <= today)
+      if (released.length < 2) continue
+      const missing = released.filter((p) => !markByKey.has(`movie-${p.id}`))
+      if (missing.length === 0) {
+        completeSeries++
+        continue
+      }
+      openSeries.push({
+        id,
+        name: seriesSeen.get(id)!.name.replace(COLLECTION_SUFFIX, ''),
+        seen: released.length - missing.length,
+        total: released.length,
+        missing: missing
+          .sort((a, b) => (a.release_date ?? '').localeCompare(b.release_date ?? ''))
+          .map((p) => ({
+            id: p.id,
+            title: p.title,
+            year: p.release_date ? parseInt(p.release_date.slice(0, 4), 10) : null,
+            poster_path: p.poster_path,
+          })),
+      })
+    }
+    // Bijna complete reeksen eerst (minste delen te gaan), daarna de reeksen waar je het meest van zag.
+    openSeries.sort((a, b) => a.missing.length - b.missing.length || b.seen - a.seen || a.name.localeCompare(b.name))
+    const shownSeries = openSeries.slice(0, MAX_SERIES)
+
+    // Waar de ontbrekende delen te zien zijn op je eigen diensten (alleen abonnement), voor een labeltje in de lijst.
+    const ownedProviderLabels = new Map<number, string>()
+    for (const [id, providerId] of Object.entries(SOURCE_IDS)) {
+      if (ownedServices.has(id) && !RENT_ONLY_SOURCE_IDS.has(providerId)) ownedProviderLabels.set(providerId, SERVICE_LABELS[id] ?? id)
+    }
+    const missingItems = shownSeries.flatMap((s) => s.missing.map((m) => ({ mediaType: 'movie' as const, tmdbId: m.id })))
+    const missingProviders =
+      missingItems.length > 0 && ownedProviderLabels.size > 0
+        ? await getWatchProvidersBulk(supabase, missingItems, { onStale: stale.onWatchProviders })
+        : new Map<string, WatchProviderSource[]>()
+    const series = {
+      complete: completeSeries,
+      open: shownSeries.map((s) => ({
+        ...s,
+        missing: s.missing.map((m) => {
+          const sources = missingProviders.get(`movie-${m.id}`) || []
+          const on = sources.find((src) => src.type === 'sub' && ownedProviderLabels.has(src.provider_id))
+          return { ...m, onService: on ? ownedProviderLabels.get(on.provider_id)! : null }
+        }),
+      })),
+    }
+
     if (stale.size > 0) {
       after(async () => {
         try {
@@ -236,6 +314,7 @@ export async function GET(request: NextRequest) {
       dislikedGenres,
       streaming: { lovedTotal: loved.length, services: streamingServices },
       decades,
+      series,
     })
   } catch (err) {
     console.error('Kijkprofiel berekenen mislukt:', err)

@@ -1166,7 +1166,7 @@ async function fetchCollectionParts(collectionId: number): Promise<TmdbItem[] | 
 // De delen van een aantal reeksen, met dezelfde regels als getCached (vers uit de cache, anders live; mislukt live dan de
 // oude rij of niets), maar in een paar .in()-queries in plaats van één per reeks. Bij een groot profiel waren dat er ~100
 // tegelijk, die elkaar ophielden (gemeten 14 okt 2026: mediaan 412 ms per vraag).
-async function getCollectionPartsBulk(supabase: SupabaseClient, collectionIds: number[]): Promise<Map<number, TmdbItem[]>> {
+export async function getCollectionPartsBulk(supabase: SupabaseClient, collectionIds: number[]): Promise<Map<number, TmdbItem[]>> {
   const result = new Map<number, TmdbItem[]>()
   const stale = new Map<number, TmdbItem[]>()
   const cutoffMs = Date.now() - COLLECTION_CACHE_MAX_AGE_HOURS * 60 * 60 * 1000

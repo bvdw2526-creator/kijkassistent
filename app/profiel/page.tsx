@@ -9,6 +9,7 @@ import { card, tapChevron, tapRow } from '../components/ui'
 import RatingBreakdown from '../components/RatingBreakdown'
 import ActorHighlights, { type ActorHighlight } from '../components/ActorHighlights'
 import DecadeBreakdown, { type DecadeCount } from '../components/DecadeBreakdown'
+import SeriesBreakdown, { type OpenSeries } from '../components/SeriesBreakdown'
 import { ChevronRightIcon, DislikeIcon } from '../components/Icons'
 
 type ProfileStats = {
@@ -24,6 +25,8 @@ type ProfileStats = {
   streaming: { lovedTotal: number; services: { id: string; label: string; owned: boolean; count: number }[] }
   // Ontbreekt in een oudere bewaarde kopie.
   decades?: { movie: DecadeCount[]; tv: DecadeCount[] }
+  // Ontbreekt in een oudere bewaarde kopie.
+  series?: { complete: number; open: OpenSeries[] }
 }
 
 function StatSkeleton() {
@@ -218,6 +221,9 @@ export default function Profiel() {
 
             {/* Uit welk decennium het meeste komt, voor films en series apart */}
             {stats.decades && <DecadeBreakdown decades={stats.decades} onRatingChanged={reloadStats} />}
+
+            {/* Filmreeksen waarvan je iets leuk vond en nog niet alle delen beoordeelde */}
+            {stats.series && <SeriesBreakdown series={stats.series} onRatingChanged={reloadStats} />}
 
             {/* Genres die je opvallend vaak afkeurt */}
             {stats.dislikedGenres && stats.dislikedGenres.length > 0 && (
