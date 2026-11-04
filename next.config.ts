@@ -18,6 +18,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Het adres zonder www stuurt door naar www, behalve de controlebestanden in /.well-known/ (assetlinks.json voor
+  // Android, apple-app-site-association voor iOS): Google en Apple volgen bij die controle geen doorverwijzing, en
+  // anders openen links naar kijkassistent.nl niet in de app. Werkt pas als in Vercel (Settings → Domains) de
+  // doorverwijzing van kijkassistent.nl naar www uit staat; tot die tijd doet Vercel het zelf en verandert er niets.
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!\\.well-known/).*)",
+        has: [{ type: "host", value: "kijkassistent.nl" }],
+        destination: "https://www.kijkassistent.nl/:path",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);
