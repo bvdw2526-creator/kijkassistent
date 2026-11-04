@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { makeMailToken, TITLE_LINK_DAYS, UNSUBSCRIBE_LINK_DAYS } from './mailLinks'
 import { NEW_RELEASE_LABEL, type MediaType } from './recommendationEngine'
 import { SOCIAL_LINKS } from './socialLinks'
+import { playStoreUrl } from './appStores'
 import { serverTranslator, tmdbLanguage, type ServerT } from './serverI18n'
 import { localizeTitles } from './localizeTitles'
 import { amsterdamToday, findSeriesUpdates } from './seriesUpdatesServer'
@@ -244,6 +245,9 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
           ${escapeHtml(t('followUs'))}<br>
           ${SOCIAL_LINKS.map((s) => `<a href="${escapeHtml(s.href)}" style="color:${C.orange};font-weight:600;text-decoration:none;">${s.label}</a>`).join(' &nbsp;·&nbsp; ')}
         </td></tr>
+        <tr><td align="center" style="padding:0 4px 18px 4px;font-size:13px;color:${C.soft};">
+          ${escapeHtml(t('getApp'))} <a href="${escapeHtml(playStoreUrl('mail'))}" style="color:${C.orange};font-weight:600;text-decoration:none;">Google Play</a>
+        </td></tr>
         <tr><td style="padding:0 4px;font-size:12px;line-height:1.6;color:${C.dim};">
           ${escapeHtml(t('footer'))
             .replace('&lt;unsubscribe&gt;', `<a href="${escapeHtml(unsubscribeUrl)}" style="color:${C.soft};">`)
@@ -272,6 +276,8 @@ export async function buildWeeklyMail(db: SupabaseClient, userId: string, origin
     '',
     t('followUs'),
     ...SOCIAL_LINKS.map((s) => `${s.label}: ${s.href}`),
+    '',
+    `${t('getApp')} ${playStoreUrl('mail')}`,
     '',
     t('unsubscribeText', { url: unsubscribeUrl }),
   ].join('\n')

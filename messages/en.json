@@ -58,7 +58,7 @@
     "faq2Q": "What happens to my data?",
     "faq2A": "We only use your ratings for your own tips. No ads, no tracking, and you can delete your account yourself whenever you like.",
     "faq3Q": "Does it work on my phone?",
-    "faq3A": "Yes, right in your browser. You can also add the app to your home screen.",
+    "faq3A": "Yes. On Android you can get the app from Google Play, and on any phone it also works right in your browser.",
     "closingTitle": "What are you watching tonight?",
     "closingText": "Create a free account and get your first tips within a few minutes.",
     "followUs": "Follow us",
@@ -942,7 +942,8 @@
     "seasonStartsToday": "Season {season} starts today",
     "seasonStartsOn": "Season {season} starts on {date}",
     "subjectSeason": "New season of {series}, plus your watch tips for the weekend",
-    "subjectSeasonOnly": "New season of {series}"
+    "subjectSeasonOnly": "New season of {series}",
+    "getApp": "Kijkassistent as an Android app:"
   },
   "publicTip": {
     "metaTitle": "What shall we watch? A tip based on three titles | Kijkassistent",
@@ -1096,5 +1097,10 @@
     "noServices": "First choose your streaming services in <link>Settings</link>.",
     "errLoad": "Could not load what is new. Please try again later.",
     "errSave": "Saving failed: {message}"
+  },
+  "getApp": {
+    "lead": "Prefer an app?",
+    "link": "Get Kijkassistent on Google Play",
+    "button": "Get it on Google Play"
   }
 }

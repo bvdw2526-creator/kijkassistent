@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { btnPrimary, chip } from '../components/ui'
 import { CloseIcon } from '../components/Icons'
 import LegalLinks from '../components/LegalLinks'
+import GetAppLink from '../components/GetAppLink'
 import { AisleCount, AisleSection, ShelfSlot } from '../components/VideotheekAisles'
 import VhsCase, { type VhsLabel } from '../components/VhsCase'
 import { useBackToClose } from '../components/useBackToClose'
@@ -293,6 +294,7 @@ function Counter() {
             {t('counterAccountShort')}
           </Link>
         </div>
+        <GetAppLink place="videotheek" className="mt-3" />
       </div>
       <div className="h-3 rounded-b-sm bg-[#8A5A2B] border-b-4 border-[#5C3A1A] -mx-[2px]" aria-hidden="true" />
     </section>

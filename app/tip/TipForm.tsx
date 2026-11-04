@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { btnPrimary, btnSecondary, card, chip, input } from '../components/ui'
 import { CloseIcon, HeartIcon, SearchIcon, UsersIcon } from '../components/Icons'
+import GetAppLink from '../components/GetAppLink'
 import { toggleServiceList } from '@/lib/serviceToggle'
 
 // Het formulier en de uitkomst van de openbare tip (zie app/tip/page.tsx). Zelfde berekening voor "Voor mij" en
@@ -316,6 +317,7 @@ export default function TipForm() {
                     {t('anotherTip')}
                   </button>
                 </div>
+                <GetAppLink place="tip" className="mt-4" />
               </div>
             </>
           )}

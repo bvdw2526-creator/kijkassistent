@@ -58,7 +58,7 @@
     "faq2Q": "Wat gebeurt er met mijn gegevens?",
     "faq2A": "We gebruiken je beoordelingen alleen voor jouw tips. Geen advertenties, geen tracking, en je verwijdert je account zelf wanneer je wilt.",
     "faq3Q": "Werkt het op mijn telefoon?",
-    "faq3A": "Ja, gewoon in je browser. Je kunt de app ook op je beginscherm zetten.",
+    "faq3A": "Ja. Op Android download je de app via Google Play, en op elke telefoon werkt het ook gewoon in je browser.",
     "closingTitle": "Wat kijk jij vanavond?",
     "closingText": "Maak een gratis account en krijg binnen een paar minuten je eerste tips.",
     "followUs": "Volg ons",
@@ -942,7 +942,8 @@
     "seasonStartsToday": "Seizoen {season} begint vandaag",
     "seasonStartsOn": "Seizoen {season} begint op {date}",
     "subjectSeason": "Nieuw seizoen van {series}, en je kijktips voor dit weekend",
-    "subjectSeasonOnly": "Nieuw seizoen van {series}"
+    "subjectSeasonOnly": "Nieuw seizoen van {series}",
+    "getApp": "Kijkassistent als Android-app:"
   },
   "publicTip": {
     "metaTitle": "Wat zullen we kijken? Een tip op basis van drie titels | Kijkassistent",
@@ -1096,5 +1097,10 @@
     "noServices": "Kies eerst je streamingdiensten bij <link>Instellingen</link>.",
     "errLoad": "Het nieuws kon niet worden opgehaald. Probeer het later opnieuw.",
     "errSave": "Opslaan mislukt: {message}"
+  },
+  "getApp": {
+    "lead": "Liever als app?",
+    "link": "Download Kijkassistent op Google Play",
+    "button": "Download op Google Play"
   }
 }

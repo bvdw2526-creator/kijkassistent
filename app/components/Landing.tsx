@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import LegalLinks from './LegalLinks'
 import LanguageSwitch from './LanguageSwitch'
+import GetAppLink from './GetAppLink'
 import { SOCIAL_LINKS } from '@/lib/socialLinks'
 import { btnPrimary, btnSecondary, card } from './ui'
 import { CheckIcon, UsersIcon, HeartIcon, StarIcon, InstagramIcon, FacebookIcon, TikTokIcon } from './Icons'
@@ -91,6 +92,7 @@ export default function Landing() {
             <span className="inline-flex items-center gap-1.5"><CheckIcon className="w-4 h-4 text-teal" />{t('noAds')}</span>
             <span className="inline-flex items-center gap-1.5"><CheckIcon className="w-4 h-4 text-teal" />{t('readyInMinutes')}</span>
           </p>
+          <GetAppLink place="landing" className="mt-5" />
         </div>
         <div className="mt-12 laptop:mt-0">
           <Screenshot src="/start/voor-jou.webp" alt={t('screenshotForYou')} priority />
@@ -167,9 +169,12 @@ export default function Landing() {
       <section className={`${card} mt-16 p-8 text-center`}>
         <h2 className="font-display text-2xl laptop:text-3xl mb-2">{t('closingTitle')}</h2>
         <p className="text-muted mb-6">{t('closingText')}</p>
-        <Link href="/register" className={btnPrimary}>
-          {common('createFreeAccount')}
-        </Link>
+        <div className="flex flex-col sm:flex-row justify-center gap-3">
+          <Link href="/register" className={btnPrimary}>
+            {common('createFreeAccount')}
+          </Link>
+          <GetAppLink place="landing" variant="button" />
+        </div>
       </section>
 
       <div className="mt-12 flex items-center justify-center gap-4">
