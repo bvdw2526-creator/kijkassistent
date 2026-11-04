@@ -18,6 +18,8 @@ import type { PersonTitle } from '../../api/person-titles/route'
 // (Zoeken, je favoriete acteurs en regisseurs) en vanuit de uitleg bij een aanbeveling op Voor jou.
 
 type Rating = 'love' | 'ok' | 'dislike'
+// Je oordeel per titel: een beoordeling of favoriet (nooit allebei).
+type Mark = Rating | 'fav'
 // label = sleutel onder "title" in messages/*.json.
 const RATING_BUTTONS: { rating: Rating; label: 'moreLikeThisRating' | 'rateOk' | 'rateDislike'; tone: 'accent' | 'teal' | 'coral' }[] = [
   { rating: 'love', label: 'moreLikeThisRating', tone: 'accent' },
@@ -54,7 +56,7 @@ function PersonPage() {
   const [mineOnly, setMineOnly] = useState(false)
   const [selected, setSelected] = useState<PersonTitle | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [ratings, setRatings] = useState<Map<string, Rating>>(new Map())
+  const [ratings, setRatings] = useState<Map<string, Mark>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -70,6 +72,14 @@ function PersonPage() {
           if (result.error) setError(result.error)
           else {
             setData(result)
+            // Begin met wat je al koos; anders staan de knoppen leeg en lijkt het of je de titel nog moet beoordelen.
+            setRatings(
+              new Map(
+                (result.items as PersonTitle[])
+                  .filter((x) => x.myRating)
+                  .map((x) => [`${x.media_type}-${x.id}`, x.myRating as Mark])
+              )
+            )
             // Begin op series als iemand vooral series heeft gemaakt.
             const movies = result.items.filter((t: PersonTitle) => t.media_type === 'movie').length
             if (movies === 0 && result.items.length > 0) setTab('tv')
@@ -129,11 +139,7 @@ function PersonPage() {
       return
     }
     // Eén oordeel per titel: de favoriet vervangt een beoordeling (zie de migratie 20261017_favorite_or_rating).
-    setRatings((current) => {
-      const next = new Map(current)
-      next.delete(keyOf(item))
-      return next
-    })
+    setRatings((current) => new Map(current).set(keyOf(item), 'fav'))
     setStatus(item, 'gezien')
   }
 
@@ -288,7 +294,7 @@ function PersonPage() {
             </button>
             {!selected.upcoming && (
               <button onClick={() => addFavorite(selected)} className={btnSecondary}>
-                <PlusIcon className="w-4 h-4" />
+                {ratings.get(keyOf(selected)) === 'fav' ? <CheckIcon className="w-4 h-4" /> : <PlusIcon className="w-4 h-4" />}
                 {tt('favorite')}
               </button>
             )}

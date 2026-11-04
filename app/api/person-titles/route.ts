@@ -39,6 +39,8 @@ export type PersonTitle = {
   upcoming: boolean
   watchOn: string | null
   status: 'gezien' | 'kijklijst' | null
+  // Je eigen oordeel, zodat de knoppen in de popup tonen wat je al koos (favoriet of een beoordeling).
+  myRating: 'fav' | 'love' | 'ok' | 'dislike' | null
 }
 
 export async function GET(request: NextRequest) {
@@ -106,12 +108,17 @@ export async function GET(request: NextRequest) {
     const ids = [...new Set(titles.map((t) => t.id))]
     const [{ data: profile }, ratings, favorites, watchlist] = await Promise.all([
       supabase.from('profiles').select('streaming_services').eq('id', user.id).single(),
-      supabase.from('ratings').select('tmdb_id, media_type').eq('user_id', user.id).in('tmdb_id', ids),
+      supabase.from('ratings').select('tmdb_id, media_type, rating').eq('user_id', user.id).in('tmdb_id', ids),
       supabase.from('favorite_movies').select('tmdb_id, media_type').eq('user_id', user.id).in('tmdb_id', ids),
       supabase.from('watchlist').select('tmdb_id, media_type').eq('user_id', user.id).in('tmdb_id', ids),
     ])
     const keyOf = (r: { media_type: string; tmdb_id: number }) => `${r.media_type}-${r.tmdb_id}`
     const seenKeys = new Set([...(ratings.data || []), ...(favorites.data || [])].map(keyOf))
+    // Favoriet gaat voor: één oordeel per titel (migratie 20261017_favorite_or_rating).
+    const myRatings = new Map<string, PersonTitle['myRating']>(
+      (ratings.data || []).map((r) => [keyOf(r), r.rating as PersonTitle['myRating']])
+    )
+    for (const f of favorites.data || []) myRatings.set(keyOf(f), 'fav')
     const watchlistKeys = new Set((watchlist.data || []).map(keyOf))
 
     const sourceIds = new Set(((profile?.streaming_services || []) as string[]).map((s) => SOURCE_IDS[s]).filter(Boolean))
@@ -128,6 +135,7 @@ export async function GET(request: NextRequest) {
           ...t,
           watchOn: watchInfo.get(key)?.watchOn ?? null,
           status: seenKeys.has(key) ? 'gezien' : watchlistKeys.has(key) ? 'kijklijst' : null,
+          myRating: myRatings.get(key) ?? null,
         }
       })
     )
