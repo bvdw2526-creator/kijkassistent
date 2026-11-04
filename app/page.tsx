@@ -15,6 +15,7 @@ import PartnerPicks from './components/PartnerPicks'
 import PartnerRated from './components/PartnerRated'
 import DateNight from './components/DateNight'
 import TitleDetails from './components/TitleDetails'
+import CommunityVotes from './components/CommunityVotes'
 import { DATENIGHT_ENABLED } from '@/lib/features'
 import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
@@ -1453,6 +1454,9 @@ export default function Home() {
               )}
 
               <TitleDetails key={`${selected.media_type}-${selected.id}`} mediaType={selected.media_type} id={selected.id} />
+              {!selected.upcoming && (
+                <CommunityVotes key={`votes-${selected.media_type}-${selected.id}`} mediaType={selected.media_type} id={selected.id} />
+              )}
 
               {selected.upcoming && (
                 <p className="text-sm text-teal mb-6">
