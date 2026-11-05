@@ -14,7 +14,7 @@ export default async function Privacy() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Terug</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacyverklaring</h1>
-      <p className="text-muted mb-8">Laatst bijgewerkt: 29 oktober 2026</p>
+      <p className="text-muted mb-8">Laatst bijgewerkt: 5 november 2026</p>
 
       <Section title="Wie zijn wij">
         <p>
@@ -49,7 +49,7 @@ export default async function Privacy() {
           <li>Tijdelijk opgeslagen aanbevelingen, zodat de app snel laadt, en welke tip van de week je hebt gekregen.</li>
           <li>
             Hoe vaak je Kijkassistent per dag opent en waarmee: de Android-app, de op je startscherm geïnstalleerde versie
-            of de browser. Zo zien we of de app goed gebruikt wordt. Dit zien alleen wij, zonder je naam of e-mailadres,
+            of de browser, en welke onderdelen je opent (zoals Voor jou, Zoeken of Nieuw; niet wat je zoekt of bekijkt). Zo zien we of de app goed gebruikt wordt. Dit zien alleen wij, zonder je naam of e-mailadres,
             en we bewaren het hooguit 18 maanden.
           </li>
           <li>
@@ -173,7 +173,7 @@ function PrivacyEn() {
     <main className="max-w-xl mx-auto px-5 py-10 leading-relaxed">
       <Link href="/" className="text-sm text-muted hover:text-foreground transition-colors">← Back</Link>
       <h1 className="font-display text-3xl mt-4 mb-2">Privacy statement</h1>
-      <p className="text-muted mb-2">Last updated: 29 October 2026</p>
+      <p className="text-muted mb-2">Last updated: 5 November 2026</p>
       <p className="text-muted text-sm mb-8">
         This is a translation of the Dutch privacy statement. If the two differ, the Dutch version applies.
       </p>
@@ -211,7 +211,7 @@ function PrivacyEn() {
           <li>Temporarily stored recommendations, so the app loads quickly, and which tip of the week you received.</li>
           <li>
             How often you open Kijkassistent per day and with what: the Android app, the version installed on your home
-            screen or the browser. This shows us whether the app is being used well. Only we can see this, without your
+            screen or the browser, and which parts you open (such as For you, Search or New; not what you search for or look at). This shows us whether the app is being used well. Only we can see this, without your
             name or email address, and we keep it for at most 18 months.
           </li>
           <li>
