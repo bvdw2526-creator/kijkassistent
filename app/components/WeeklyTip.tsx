@@ -55,10 +55,16 @@ function toTip(c: Candidate): Tip {
 export default function WeeklyTip({
   mediaType,
   onRemoved,
+  source,
+  onChosen,
 }: {
   mediaType: 'movie' | 'tv'
-  // Laat de startpagina de titel uit de lijsten halen na een beoordeling of watchlist-actie.
+  // Laat de pagina de titel uit de lijsten halen na een beoordeling of watchlist-actie.
   onRemoved: (id: number, mediaType: 'movie' | 'tv') => void
+  // Herkomst die bij een keuze wordt bewaard (watchlist.source_mode en source_info.mode), voor het dashboard.
+  source?: string
+  // Na een keuze: beoordeeld (gezien) of op de kijklijst gezet.
+  onChosen?: (id: number, mediaType: 'movie' | 'tv', status: 'gezien' | 'kijklijst') => void
 }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [tip, setTip] = useState<Tip | null>(null)
@@ -240,12 +246,20 @@ export default function WeeklyTip({
   async function addToWatchlist(item: { id: number; title: string; poster_path: string | null }) {
     if (!userId) return
     const { error } = await supabase.from('watchlist').upsert(
-      { user_id: userId, tmdb_id: item.id, title: item.title, poster_path: item.poster_path, media_type: mediaType },
+      {
+        user_id: userId,
+        tmdb_id: item.id,
+        title: item.title,
+        poster_path: item.poster_path,
+        media_type: mediaType,
+        ...(source ? { source_mode: source, source_info: { mode: source } } : {}),
+      },
       { onConflict: 'user_id,tmdb_id,media_type', ignoreDuplicates: true }
     )
     if (error) return
     dropFromPool(item.id)
     onRemoved(item.id, mediaType)
+    onChosen?.(item.id, mediaType, 'kijklijst')
     watchlistAdded()
     setDone('watchlist')
   }
@@ -255,10 +269,14 @@ export default function WeeklyTip({
     if (!userId) return
     const { error } = await supabase
       .from('ratings')
-      .upsert({ user_id: userId, tmdb_id: item.id, title: item.title, rating, media_type: mediaType }, { onConflict: 'user_id,tmdb_id,media_type' })
+      .upsert(
+        { user_id: userId, tmdb_id: item.id, title: item.title, rating, media_type: mediaType, ...(source ? { source_info: { mode: source } } : {}) },
+        { onConflict: 'user_id,tmdb_id,media_type' }
+      )
     if (error) return
     dropFromPool(item.id)
     onRemoved(item.id, mediaType)
+    onChosen?.(item.id, mediaType, 'gezien')
     // Heb je de tip zelf beoordeeld, dan is het geen tip meer: meteen een nieuwe.
     if (item.id === shownTip?.tmdb_id) await replaceTip(await pickNext(item.id))
   }

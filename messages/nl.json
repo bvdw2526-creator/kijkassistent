@@ -177,7 +177,9 @@
     "seriesRunning": "loopt nog",
     "directedBy": "Regie:",
     "createdBy": "Bedacht door:",
-    "starring": "Met:"
+    "starring": "Met:",
+    "scrollPrev": "Vorige titels",
+    "scrollNext": "Volgende titels"
   },
   "home": {
     "heading": "Voor jou",
@@ -1088,10 +1090,10 @@
   },
   "nieuw": {
     "back": "Voor jou",
-    "heading": "Nieuw",
-    "button": "Nieuw",
-    "buttonUnseen": "Nieuw, er staat iets nieuws klaar",
-    "intro": "Wat er de afgelopen tijd nieuw is, ook als het niet bij je smaak past.",
+    "heading": "Ontdek",
+    "button": "Ontdek",
+    "buttonUnseen": "Ontdek, er staat iets nieuws klaar",
+    "intro": "Rondkijken, ook buiten je eigen smaak: je tip van de week, wat nu populair is en wat er nieuw is.",
     "cinemaNow": "Nieuw in de bioscoop",
     "cinemaNowHint": "De afgelopen maand in Nederland uitgekomen.",
     "cinemaSoon": "Binnenkort in de bioscoop",
@@ -1103,7 +1105,16 @@
     "fromDate": "Vanaf {date}",
     "noServices": "Kies eerst je streamingdiensten bij <link>Instellingen</link>.",
     "errLoad": "Het nieuws kon niet worden opgehaald. Probeer het later opnieuw.",
-    "errSave": "Opslaan mislukt: {message}"
+    "errSave": "Opslaan mislukt: {message}",
+    "kindLabel": "Films of series",
+    "films": "Films",
+    "series": "Series",
+    "popularFilms": "Nu populair: films",
+    "popularSeries": "Nu populair: series",
+    "popularHint": "De tien populairste van dit moment op jouw diensten.",
+    "seen": "Gezien",
+    "onWatchlist": "Op je lijst",
+    "rank": "Nummer {rank}"
   },
   "getApp": {
     "lead": "Liever als app?",

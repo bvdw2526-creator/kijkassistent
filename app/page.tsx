@@ -17,7 +17,6 @@ import DateNight from './components/DateNight'
 import TitleDetails from './components/TitleDetails'
 import CommunityVotes from './components/CommunityVotes'
 import { DATENIGHT_ENABLED } from '@/lib/features'
-import WeeklyTip from './components/WeeklyTip'
 import WhatsNew from './components/WhatsNew'
 import SeriesUpdates from './components/SeriesUpdates'
 import SkinBanner from './components/SkinBanner'
@@ -1141,14 +1140,8 @@ export default function Home() {
           </p>
         )}
 
-        {/* De tip van de week staat alleen bij "Verras me": een populaire titel buiten je eigen lijst past daar
-            het best. Bij Samen staat de eigen "tip van vanavond". */}
-        {mode === 'explore' && !halloween.day && (
-          <WeeklyTip
-            mediaType={tab}
-            onRemoved={(id, type) => removeEverywhere((m) => m.id === id && m.media_type === type)}
-          />
-        )}
+        {/* De tip van de week staat sinds 5 nov 2026 op de pagina Ontdek (knop rechtsboven). Bij Samen staat de eigen
+            "tip van vanavond". */}
 
         {samenExtras && togetherComputing && byMode.samen.length === 0 && (
           <p className="text-muted border border-dashed border-line rounded-2xl px-4 py-6 mb-5 text-center leading-relaxed">

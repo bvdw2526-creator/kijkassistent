@@ -177,7 +177,9 @@
     "seriesRunning": "still running",
     "directedBy": "Directed by",
     "createdBy": "Created by",
-    "starring": "Starring"
+    "starring": "Starring",
+    "scrollPrev": "Previous titles",
+    "scrollNext": "Next titles"
   },
   "home": {
     "heading": "For you",
@@ -1088,10 +1090,10 @@
   },
   "nieuw": {
     "back": "For you",
-    "heading": "New",
-    "button": "New",
-    "buttonUnseen": "New, there is something new",
-    "intro": "What is new lately, even if it does not match your taste.",
+    "heading": "Discover",
+    "button": "Discover",
+    "buttonUnseen": "Discover, there is something new",
+    "intro": "Look around, also beyond your own taste: your tip of the week, what is popular right now and what is new.",
     "cinemaNow": "New in cinemas",
     "cinemaNowHint": "Released in the Netherlands in the past month.",
     "cinemaSoon": "Coming to cinemas",
@@ -1103,7 +1105,16 @@
     "fromDate": "From {date}",
     "noServices": "First choose your streaming services in <link>Settings</link>.",
     "errLoad": "Could not load what is new. Please try again later.",
-    "errSave": "Saving failed: {message}"
+    "errSave": "Saving failed: {message}",
+    "kindLabel": "Films or series",
+    "films": "Films",
+    "series": "Series",
+    "popularFilms": "Popular now: films",
+    "popularSeries": "Popular now: series",
+    "popularHint": "The ten most popular right now on your services.",
+    "seen": "Seen",
+    "onWatchlist": "On your list",
+    "rank": "Number {rank}"
   },
   "getApp": {
     "lead": "Prefer an app?",

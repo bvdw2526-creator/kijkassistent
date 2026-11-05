@@ -12,6 +12,16 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    id: '2026-11-05',
+    date: '5 november 2026',
+    items: [
+      'De knop Nieuw rechtsboven heet nu Ontdek. Daar vind je je tip van de week, de tien populairste films en series op je diensten, wat er nieuw is en wat er in de bioscoop draait.',
+    ],
+    itemsEn: [
+      'The New button at the top right is now called Discover. There you find your tip of the week, the ten most popular films and series on your services, what is new and what is on in cinemas.',
+    ],
+  },
+  {
     id: '2026-11-02b',
     date: '2 november 2026',
     items: [
