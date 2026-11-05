@@ -22,8 +22,9 @@ import { cacheWriter } from '@/lib/supabaseAdmin'
 const DECADES_LIVE_LIMIT = 20
 // Alles van vóór 1950 komt samen in één groep (decennium 0): anders worden het veel losse regeltjes met één titel.
 const OLDEST_DECADE = 1950
-// Zoveel onvolledige reeksen tonen we hooguit; de bijna complete eerst.
-const MAX_SERIES = 10
+// Zoveel onvolledige reeksen sturen we hooguit mee; de bijna complete eerst. De pagina toont er eerst 10 en de rest met
+// "Toon alle" (app/components/SeriesBreakdown.tsx). Was 10: wie veel reeksen heeft, miste er dan een paar (5 nov 2026).
+const MAX_SERIES = 40
 // Reeksnamen van TMDB eindigen op "Collectie" of "Collection"; dat laten we weg.
 const COLLECTION_SUFFIX = /\s*\(?(collectie|collection)\)?\s*$/i
 

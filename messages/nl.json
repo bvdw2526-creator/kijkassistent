@@ -710,7 +710,9 @@
     "didYouKnowSub": "Deze mensen duiken opvallend vaak op in wat je hebt gezien. Tik op een naam voor de titels.",
     "timesSeen": "{count}× gezien",
     "inTitles": "In {count} titels die je hebt gezien",
-    "allOf": "Alle films en series van {name}"
+    "allOf": "Alle films en series van {name}",
+    "seriesShowAll": "Toon alle {count} reeksen",
+    "seriesShowFewer": "Minder tonen"
   },
   "top": {
     "films": "films",

@@ -710,7 +710,9 @@
     "didYouKnowSub": "These people turn up remarkably often in what you've watched. Tap a name to see the titles.",
     "timesSeen": "{count}× seen",
     "inTitles": "In {count} titles you've seen",
-    "allOf": "All films and series with {name}"
+    "allOf": "All films and series with {name}",
+    "seriesShowAll": "Show all {count} series",
+    "seriesShowFewer": "Show fewer"
   },
   "top": {
     "films": "films",

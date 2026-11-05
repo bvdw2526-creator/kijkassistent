@@ -8,7 +8,10 @@ import TitleInfoSheet, { type TitleInfoItem } from './TitleInfoSheet'
 import MyRatingEditor from './MyRatingEditor'
 import { ChevronRightIcon, CloseIcon } from './Icons'
 
-export type MissingPart = { id: number; title: string; year: number | null; poster_path: string | null; onService: string | null }
+// Zoveel reeksen staan er meteen; de rest komt met "Toon alle".
+const FIRST_SHOWN = 10
+
+export type MissingPart ={ id: number; title: string; year: number | null; poster_path: string | null; onService: string | null }
 export type OpenSeries = { id: number; name: string; seen: number; total: number; missing: MissingPart[] }
 
 // "Reeksen die je nog niet af hebt" op de Stats-pagina: filmreeksen waarvan je iets leuk vond, met hoeveel delen je al
@@ -25,9 +28,11 @@ export default function SeriesBreakdown({
   // Alleen het id: de delen komen steeds uit de nieuwste cijfers, ook na het geven van een oordeel.
   const [openId, setOpenId] = useState<number | null>(null)
   const [info, setInfo] = useState<TitleInfoItem | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   if (series.open.length === 0) return null
   const open = openId !== null ? series.open.find((s) => s.id === openId) : undefined
+  const visible = showAll ? series.open : series.open.slice(0, FIRST_SHOWN)
 
   return (
     <>
@@ -38,7 +43,7 @@ export default function SeriesBreakdown({
           {series.complete > 0 && ` ${t('seriesComplete', { count: series.complete })}`}
         </p>
         <div className="flex flex-col gap-0.5">
-          {series.open.map((s) => (
+          {visible.map((s) => (
             <button key={s.id} onClick={() => setOpenId(s.id)} className={tapRow}>
               <span className="text-sm flex-1 min-w-0 truncate text-left">{s.name}</span>
               <div className="w-10 sm:w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden flex-shrink-0">
@@ -49,6 +54,14 @@ export default function SeriesBreakdown({
             </button>
           ))}
         </div>
+        {series.open.length > FIRST_SHOWN && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="mt-3 text-sm font-medium text-accent hover:text-foreground transition-colors touch-manipulation"
+          >
+            {showAll ? t('seriesShowFewer') : t('seriesShowAll', { count: series.open.length })}
+          </button>
+        )}
       </div>
 
       {openId !== null && (
